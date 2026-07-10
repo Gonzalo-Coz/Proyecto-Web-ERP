@@ -1,0 +1,14 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    http_method_override: false
+    handle_all_throwables: true
+
+    # API stateless: sin sesiones PHP (autenticación por JWT)
+    session: false
+
+    php_errors:
+        log: true
+
+when@test:
+    framework:
+        test: true

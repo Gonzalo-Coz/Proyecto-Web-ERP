@@ -1,0 +1,17 @@
+# Configuración de servicios de la aplicación.
+# La configuración de negocio (empresa, IGV, series, etc.) NO va aquí:
+# se almacena en base de datos según §23.10 del Documento Maestro.
+
+parameters:
+
+services:
+    _defaults:
+        autowire: true      # Inyección automática de dependencias
+        autoconfigure: true # Registro automático de listeners, commands, etc.
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Kernel.php'
+            - '../src/Module/*/Entity/'
+            - '../src/Shared/*/Entity/'
