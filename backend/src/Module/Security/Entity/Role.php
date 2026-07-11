@@ -18,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: RoleRepository::class)]
 #[ORM\Table(name: 'roles')]
-#[ORM\UniqueConstraint(name: 'uq_role_code', columns: ['code'])]
+#[ORM\UniqueConstraint(name: 'uq_role_code', columns: ['code'], options: ['where' => '(deleted_at IS NULL)'])]
 #[ORM\HasLifecycleCallbacks]
 class Role implements SoftDeletableInterface
 {

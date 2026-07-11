@@ -16,8 +16,10 @@ use Symfony\Component\Security\Core\User\UserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: 'users')]
-#[ORM\UniqueConstraint(name: 'uq_user_username', columns: ['username'])]
-#[ORM\UniqueConstraint(name: 'uq_user_email', columns: ['email'])]
+// Unicidad parcial: solo aplica a registros NO eliminados lógicamente,
+// permitiendo reutilizar username/email de usuarios dados de baja (§23.7).
+#[ORM\UniqueConstraint(name: 'uq_user_username', columns: ['username'], options: ['where' => '(deleted_at IS NULL)'])]
+#[ORM\UniqueConstraint(name: 'uq_user_email', columns: ['email'], options: ['where' => '(deleted_at IS NULL)'])]
 #[ORM\HasLifecycleCallbacks]
 class User implements UserInterface, PasswordAuthenticatedUserInterface, SoftDeletableInterface
 {

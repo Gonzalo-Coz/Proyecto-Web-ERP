@@ -16,6 +16,7 @@
 
 - NO usar `symfony server:start -d` en Windows (bloqueo del archivo de log del daemon). Comando oficial del proyecto: `symfony server:start --port=8000`.
 - Pruebas de API en PowerShell con `Invoke-RestMethod` (NO `curl.exe -d "{...}"`: PowerShell mutila las comillas escapadas del JSON).
+- **Estándar del proyecto — unicidad + soft delete:** los índices únicos de entidades con eliminación lógica se definen como índices parciales de PostgreSQL (`WHERE deleted_at IS NULL`), permitiendo reutilizar el identificador de un registro dado de baja sin perder el histórico. Aplicado a users (username, email) y roles (code). Pendiente evaluar excepción para VIN en Fase 2.
 - Gestor de paquetes frontend: **pnpm**.
 - Advertencias informativas del Symfony CLI (TLS, listen 127.0.0.1) aceptadas sin acción para entorno de red local.
 

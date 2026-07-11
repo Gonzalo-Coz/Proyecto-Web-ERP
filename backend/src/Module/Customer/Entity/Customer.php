@@ -1,0 +1,208 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Customer\Entity;
+
+use App\Module\Customer\Repository\CustomerRepository;
+use App\Shared\Doctrine\SoftDeletableInterface;
+use App\Shared\Doctrine\SoftDeletableTrait;
+use App\Shared\Doctrine\TimestampableTrait;
+use Doctrine\ORM\Mapping as ORM;
+
+/**
+ * Cliente (§7 del Documento Maestro): natural o jurídico según el tipo
+ * de documento. Único por (tipo, número) entre registros vigentes.
+ */
+#[ORM\Entity(repositoryClass: CustomerRepository::class)]
+#[ORM\Table(name: 'customers')]
+#[ORM\UniqueConstraint(name: 'uq_customer_document', columns: ['document_type', 'document_number'], options: ['where' => '(deleted_at IS NULL)'])]
+#[ORM\Index(columns: ['name'], name: 'idx_customer_name')]
+#[ORM\HasLifecycleCallbacks]
+class Customer implements SoftDeletableInterface
+{
+    use TimestampableTrait;
+    use SoftDeletableTrait;
+
+    public const DOCUMENT_TYPES = ['DNI', 'RUC', 'CE', 'PASAPORTE', 'OTRO'];
+
+    #[ORM\Id]
+    #[ORM\GeneratedValue]
+    #[ORM\Column]
+    private ?int $id = null;
+
+    #[ORM\Column(length: 15)]
+    private string $documentType;
+
+    #[ORM\Column(length: 20)]
+    private string $documentNumber;
+
+    /** Nombres y apellidos (persona natural) o razón social (jurídica). */
+    #[ORM\Column(length: 200)]
+    private string $name;
+
+    #[ORM\Column(length: 150, nullable: true)]
+    private ?string $tradeName = null;
+
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $address = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $district = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $province = null;
+
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $department = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $phone = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $mobile = null;
+
+    #[ORM\Column(length: 150, nullable: true)]
+    private ?string $email = null;
+
+    #[ORM\Column(options: ['default' => true])]
+    private bool $isActive = true;
+
+    public function __construct(string $documentType, string $documentNumber, string $name)
+    {
+        $this->documentType = $documentType;
+        $this->documentNumber = $documentNumber;
+        $this->name = $name;
+    }
+
+    public function getId(): ?int
+    {
+        return $this->id;
+    }
+
+    public function getDocumentType(): string
+    {
+        return $this->documentType;
+    }
+
+    public function setDocumentType(string $documentType): void
+    {
+        $this->documentType = $documentType;
+    }
+
+    public function getDocumentNumber(): string
+    {
+        return $this->documentNumber;
+    }
+
+    public function setDocumentNumber(string $documentNumber): void
+    {
+        $this->documentNumber = $documentNumber;
+    }
+
+    public function getName(): string
+    {
+        return $this->name;
+    }
+
+    public function setName(string $name): void
+    {
+        $this->name = $name;
+    }
+
+    public function getTradeName(): ?string
+    {
+        return $this->tradeName;
+    }
+
+    public function setTradeName(?string $tradeName): void
+    {
+        $this->tradeName = $tradeName;
+    }
+
+    public function getAddress(): ?string
+    {
+        return $this->address;
+    }
+
+    public function setAddress(?string $address): void
+    {
+        $this->address = $address;
+    }
+
+    public function getDistrict(): ?string
+    {
+        return $this->district;
+    }
+
+    public function setDistrict(?string $district): void
+    {
+        $this->district = $district;
+    }
+
+    public function getProvince(): ?string
+    {
+        return $this->province;
+    }
+
+    public function setProvince(?string $province): void
+    {
+        $this->province = $province;
+    }
+
+    public function getDepartment(): ?string
+    {
+        return $this->department;
+    }
+
+    public function setDepartment(?string $department): void
+    {
+        $this->department = $department;
+    }
+
+    public function getPhone(): ?string
+    {
+        return $this->phone;
+    }
+
+    public function setPhone(?string $phone): void
+    {
+        $this->phone = $phone;
+    }
+
+    public function getMobile(): ?string
+    {
+        return $this->mobile;
+    }
+
+    public function setMobile(?string $mobile): void
+    {
+        $this->mobile = $mobile;
+    }
+
+    public function getEmail(): ?string
+    {
+        return $this->email;
+    }
+
+    public function setEmail(?string $email): void
+    {
+        $this->email = $email;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->isActive;
+    }
+
+    public function setActive(bool $isActive): void
+    {
+        $this->isActive = $isActive;
+    }
+
+    /** Persona jurídica cuando el documento es RUC. */
+    public function isLegalEntity(): bool
+    {
+        return $this->documentType === 'RUC';
+    }
+}

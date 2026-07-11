@@ -24,6 +24,12 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.setItem('yigm_token', data.token)
   }
 
+  /** Restaura los datos del usuario a partir del token (recarga de página). */
+  async function fetchMe(): Promise<void> {
+    const { data } = await api.get<AuthUser>('/auth/me')
+    user.value = data
+  }
+
   function logout(): void {
     token.value = null
     user.value = null
@@ -39,5 +45,5 @@ export const useAuthStore = defineStore('auth', () => {
     return permissions.includes('*') || permissions.includes(permission)
   }
 
-  return { token, user, isAuthenticated, login, logout, can }
+  return { token, user, isAuthenticated, login, logout, fetchMe, can }
 })

@@ -26,7 +26,47 @@ function handleLogout(): void {
         >
           Dashboard
         </RouterLink>
-        <!-- Los módulos se agregarán aquí conforme avancen las fases -->
+
+        <template v-if="auth.can('customers.list.view') || auth.can('suppliers.list.view')">
+          <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase text-white/40">Comercial</p>
+          <RouterLink
+            v-if="auth.can('customers.list.view')"
+            :to="{ name: 'customers' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Clientes
+          </RouterLink>
+          <RouterLink
+            v-if="auth.can('suppliers.list.view')"
+            :to="{ name: 'suppliers' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Proveedores
+          </RouterLink>
+        </template>
+
+        <template v-if="auth.can('security.users.view') || auth.can('security.roles.view')">
+          <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase text-white/40">Seguridad</p>
+          <RouterLink
+            v-if="auth.can('security.users.view')"
+            :to="{ name: 'security-users' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Usuarios
+          </RouterLink>
+          <RouterLink
+            v-if="auth.can('security.roles.view')"
+            :to="{ name: 'security-roles' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Roles y Permisos
+          </RouterLink>
+        </template>
+        <!-- Los módulos de negocio se agregarán aquí conforme avancen las fases -->
       </nav>
     </aside>
 
