@@ -56,6 +56,21 @@ final class SyncPermissionsCommand extends Command
                 'list' => ['label' => 'Proveedores', 'actions' => ['view', 'create', 'edit', 'delete', 'export']],
             ],
         ],
+        'inventory' => [
+            'label' => 'Inventario',
+            'screens' => [
+                'spare_parts' => ['label' => 'Repuestos', 'actions' => ['view', 'create', 'edit', 'delete', 'export']],
+                'kardex' => ['label' => 'Kardex', 'actions' => ['view', 'export']],
+                'adjustments' => ['label' => 'Ajustes de Stock', 'actions' => ['create']],
+            ],
+        ],
+        'motorcycles' => [
+            'label' => 'Motocicletas',
+            'screens' => [
+                'models' => ['label' => 'Modelos', 'actions' => ['view', 'create', 'edit', 'delete', 'export']],
+                'units' => ['label' => 'Unidades', 'actions' => ['view', 'create', 'edit', 'delete', 'export']],
+            ],
+        ],
         'settings' => [
             'label' => 'Configuración',
             'screens' => [

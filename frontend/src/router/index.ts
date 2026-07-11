@@ -29,6 +29,24 @@ const router = createRouter({
       meta: { title: 'Proveedores', permission: 'suppliers.list.view' },
     },
     {
+      path: '/motorcycles/models',
+      name: 'moto-models',
+      component: () => import('@/views/motorcycles/ModelsView.vue'),
+      meta: { title: 'Modelos de Motocicleta', permission: 'motorcycles.models.view' },
+    },
+    {
+      path: '/motorcycles/units',
+      name: 'moto-units',
+      component: () => import('@/views/motorcycles/UnitsView.vue'),
+      meta: { title: 'Unidades de Motocicleta', permission: 'motorcycles.units.view' },
+    },
+    {
+      path: '/inventory/spare-parts',
+      name: 'spare-parts',
+      component: () => import('@/views/inventory/SparePartsView.vue'),
+      meta: { title: 'Repuestos e Inventario', permission: 'inventory.spare_parts.view' },
+    },
+    {
       path: '/settings/catalogs',
       name: 'settings-catalogs',
       component: () => import('@/views/catalogs/CatalogsView.vue'),

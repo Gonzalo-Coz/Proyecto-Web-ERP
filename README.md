@@ -66,6 +66,22 @@ pnpm dev
 
 Abrir: http://localhost:5173 (el proxy `/api` apunta al backend en el puerto 8000).
 
+## Arranque diario (tras reiniciar el equipo)
+
+PostgreSQL arranca automáticamente como servicio de Windows. Solo necesitas dos terminales en VS Code:
+
+```powershell
+# Terminal 1 — Backend
+cd D:\Development\ERP\YIGM-ERP\backend
+symfony server:start --port=8000
+
+# Terminal 2 — Frontend
+cd D:\Development\ERP\YIGM-ERP\frontend
+pnpm dev
+```
+
+Abrir http://localhost:5173. Las migraciones (`doctrine:migrations:migrate`) solo se ejecutan cuando hay código nuevo con cambios de base de datos.
+
 ## Ramas Git
 
 - `main` — producción (estable)

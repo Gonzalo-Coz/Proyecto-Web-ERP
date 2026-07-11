@@ -1,5 +1,15 @@
 # Pendientes técnicos — YIGM ERP
 
+## P-002 · Historial de migraciones sin DDL de inventario — ABIERTO (no bloqueante)
+
+**Situación (2026-07-11):** las tablas `spare_parts`, `spare_part_compatibility` y `kardex_movements` existen en la BD y funcionan, pero ninguna migración del historial las contiene (secuela del incidente "Duplicate table"). `make:migration` no genera nada porque BD y entidades ya están en sincronía.
+
+**Impacto:** ninguno en la operación actual. Solo afectaría una reconstrucción desde cero (`doctrine:migrations:migrate` en BD vacía no crearía esas 3 tablas).
+
+**Solución cuando se retome:** en una BD de prueba vacía ejecutar todas las migraciones, correr `make:migration` ahí (generará el DDL de inventario faltante) y añadir esa migración al repositorio; o extraer el DDL real con `pg_dump --schema-only`.
+
+**Verificación previa recomendada:** `php bin/console doctrine:schema:validate` debe responder "The database schema is in sync with the mapping files".
+
 ## P-001 · No se puede recrear usuario eliminado ("javier") — ABIERTO
 
 **Síntoma:** tras crear la migración `Version20260711001000` (índices únicos parciales `WHERE deleted_at IS NULL`), la creación del usuario "javier" sigue fallando en la interfaz.

@@ -47,6 +47,37 @@ function handleLogout(): void {
           </RouterLink>
         </template>
 
+        <template v-if="auth.can('motorcycles.models.view') || auth.can('motorcycles.units.view')">
+          <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase text-white/40">Motocicletas</p>
+          <RouterLink
+            v-if="auth.can('motorcycles.models.view')"
+            :to="{ name: 'moto-models' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Modelos
+          </RouterLink>
+          <RouterLink
+            v-if="auth.can('motorcycles.units.view')"
+            :to="{ name: 'moto-units' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Unidades
+          </RouterLink>
+        </template>
+
+        <template v-if="auth.can('inventory.spare_parts.view')">
+          <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase text-white/40">Inventario</p>
+          <RouterLink
+            :to="{ name: 'spare-parts' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Repuestos
+          </RouterLink>
+        </template>
+
         <template v-if="auth.can('settings.catalogs.view')">
           <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase text-white/40">Configuración</p>
           <RouterLink
