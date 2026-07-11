@@ -29,6 +29,12 @@ const router = createRouter({
       meta: { title: 'Proveedores', permission: 'suppliers.list.view' },
     },
     {
+      path: '/settings/catalogs',
+      name: 'settings-catalogs',
+      component: () => import('@/views/catalogs/CatalogsView.vue'),
+      meta: { title: 'Catálogos', permission: 'settings.catalogs.view' },
+    },
+    {
       path: '/security/users',
       name: 'security-users',
       component: () => import('@/views/security/UsersView.vue'),

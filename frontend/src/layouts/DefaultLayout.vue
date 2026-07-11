@@ -47,6 +47,17 @@ function handleLogout(): void {
           </RouterLink>
         </template>
 
+        <template v-if="auth.can('settings.catalogs.view')">
+          <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase text-white/40">Configuración</p>
+          <RouterLink
+            :to="{ name: 'settings-catalogs' }"
+            class="block rounded-lg px-3 py-2 transition hover:bg-white/10"
+            active-class="bg-white/15 font-medium"
+          >
+            Catálogos
+          </RouterLink>
+        </template>
+
         <template v-if="auth.can('security.users.view') || auth.can('security.roles.view')">
           <p class="px-3 pb-1 pt-4 text-xs font-semibold uppercase text-white/40">Seguridad</p>
           <RouterLink

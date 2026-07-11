@@ -56,6 +56,12 @@ final class SyncPermissionsCommand extends Command
                 'list' => ['label' => 'Proveedores', 'actions' => ['view', 'create', 'edit', 'delete', 'export']],
             ],
         ],
+        'settings' => [
+            'label' => 'Configuración',
+            'screens' => [
+                'catalogs' => ['label' => 'Catálogos', 'actions' => ['view', 'create', 'edit', 'delete']],
+            ],
+        ],
     ];
 
     private const ACTION_LABELS = [
