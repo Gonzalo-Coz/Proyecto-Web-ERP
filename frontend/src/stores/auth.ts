@@ -30,9 +30,13 @@ export const useAuthStore = defineStore('auth', () => {
     sessionStorage.removeItem('yigm_token')
   }
 
-  /** Verifica un permiso módulo/pantalla/acción (§23.9). */
+  /**
+   * Verifica un permiso módulo/pantalla/acción (§23.9).
+   * El comodín "*" corresponde a un rol superadministrador.
+   */
   function can(permission: string): boolean {
-    return user.value?.permissions.includes(permission) ?? false
+    const permissions = user.value?.permissions ?? []
+    return permissions.includes('*') || permissions.includes(permission)
   }
 
   return { token, user, isAuthenticated, login, logout, can }

@@ -11,7 +11,7 @@ ERP empresarial para la gestión integral de venta de motocicletas, repuestos, t
 | Backend | Symfony (PHP 8.5) — API REST |
 | Frontend | Vue 3 + Vite + TypeScript + Tailwind CSS |
 | Estado | Pinia |
-| Base de datos | PostgreSQL 16 |
+| Base de datos | PostgreSQL 17 |
 | Autenticación | JWT (LexikJWTAuthenticationBundle) |
 | ORM | Doctrine ORM + Migrations |
 | Documentación API | OpenAPI / Swagger (NelmioApiDocBundle) |
@@ -40,7 +40,7 @@ CREATE DATABASE yigm_erp;
 Ajustar credenciales en `backend/.env.local` (crear el archivo si no existe):
 
 ```
-DATABASE_URL="postgresql://postgres:TU_PASSWORD@127.0.0.1:5432/yigm_erp?serverVersion=16&charset=utf8"
+DATABASE_URL="postgresql://postgres:TU_PASSWORD@127.0.0.1:5432/yigm_erp?serverVersion=17&charset=utf8"
 ```
 
 ### 2. Backend
@@ -60,8 +60,8 @@ Verificar: http://127.0.0.1:8000/api/v1/health
 
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Abrir: http://localhost:5173 (el proxy `/api` apunta al backend en el puerto 8000).
