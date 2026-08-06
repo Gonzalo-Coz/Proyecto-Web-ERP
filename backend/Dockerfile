@@ -1,5 +1,5 @@
 # Backend Symfony para Railway — nginx + php-fpm en un contenedor.
-FROM php:8.3-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 # Extensiones que usan Symfony / Doctrine / PostgreSQL, y nginx + gettext (envsubst).
 RUN apk add --no-cache nginx gettext icu-libs libpq \
