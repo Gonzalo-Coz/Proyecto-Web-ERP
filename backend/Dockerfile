@@ -8,12 +8,17 @@ RUN apk add --no-cache nginx gettext icu-libs libpq \
  && apk del .build-deps
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Permite que los plugins de Composer corran como root (symfony/runtime genera
+# vendor/autoload_runtime.php, necesario para arrancar la app).
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 WORKDIR /app
 COPY . .
 
-# Dependencias de producción (los scripts de Symfony corren en runtime, no en build).
-RUN composer install --no-dev --optimize-autoloader --no-interaction --no-progress --no-scripts \
+# Instala dependencias (sin auto-scripts de Symfony) y regenera el autoload CON
+# los plugins activos → así se crea vendor/autoload_runtime.php.
+RUN composer install --no-dev --no-interaction --no-progress --no-scripts \
+ && composer dump-autoload --no-dev --optimize \
  && mkdir -p var public/uploads && chmod -R 777 var public/uploads
 
 COPY docker/nginx.conf.template /etc/nginx/nginx.conf.template
