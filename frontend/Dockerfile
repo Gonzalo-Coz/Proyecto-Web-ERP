@@ -2,7 +2,7 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 # VITE_API_URL queda relativo (/api/v1); nginx lo proxya al backend (ver plantilla).
 RUN npm run build
