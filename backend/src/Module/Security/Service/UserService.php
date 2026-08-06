@@ -8,6 +8,7 @@ use App\Module\Security\Dto\UserPayload;
 use App\Module\Security\Entity\User;
 use App\Module\Security\Repository\RoleRepository;
 use App\Module\Security\Repository\UserRepository;
+use App\Shared\Media\ImageStorageService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -27,6 +28,7 @@ final class UserService
         private readonly UserRepository $userRepository,
         private readonly RoleRepository $roleRepository,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly ImageStorageService $imageStorage,
     ) {
     }
 
@@ -154,6 +156,8 @@ final class UserService
             'username' => $user->getUsername(),
             'email' => $user->getEmail(),
             'fullName' => $user->getFullName(),
+            'phone' => $user->getPhone(),
+            'avatarUrl' => $this->imageStorage->publicUrl($user->getAvatarPath()),
             'isActive' => $user->isActive(),
             'roles' => array_map(
                 static fn ($r) => ['id' => $r->getId(), 'code' => $r->getCode(), 'name' => $r->getName()],

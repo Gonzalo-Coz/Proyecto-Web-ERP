@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
+import CatalogSelect from '@/components/ui/CatalogSelect.vue'
 import { modelService } from '@/services/motorcycles'
 import { catalogService } from '@/services/catalogs'
 import { useAuthStore } from '@/stores/auth'
@@ -50,8 +51,13 @@ const emptyForm = {
   warrantyMonths: null as number | null,
   referencePrice: null as number | null,
   isActive: true,
+  priceChangeReason: null as string | null,
 }
 const form = reactive({ ...emptyForm })
+/** Muestra el motivo solo al editar y cuando el precio de referencia cambió (Adición A3). */
+const referencePriceChanged = computed(
+  () => editing.value !== null && Number(form.referencePrice ?? 0) !== Number(editing.value.referencePrice ?? 0),
+)
 const confirmTarget = ref<ModelItem | null>(null)
 
 async function load(): Promise<void> {
@@ -81,7 +87,10 @@ function openCreate(): void {
 function openEdit(item: ModelItem): void {
   editing.value = item
   const { id, brandName, fullName, referencePrice, ...rest } = item
-  Object.assign(form, rest, { referencePrice: referencePrice !== null ? Number(referencePrice) : null })
+  Object.assign(form, rest, {
+    referencePrice: referencePrice !== null ? Number(referencePrice) : null,
+    priceChangeReason: null,
+  })
   formError.value = ''
   modalOpen.value = true
 }
@@ -146,13 +155,18 @@ onMounted(async () => {
       </template>
     </DataTable>
 
-    <BaseModal :open="modalOpen" :title="editing ? `Editar modelo: ${editing.fullName}` : 'Nuevo modelo'" @close="modalOpen = false">
+    <BaseModal :open="modalOpen" :title="editing ? `Editar modelo: ${editing.fullName}` : 'Nuevo modelo'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Marca" required>
-            <select v-model.number="form.brandId" class="form-input" required>
-              <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-            </select>
+            <CatalogSelect
+              v-model="form.brandId"
+              :items="brands"
+              type="brands"
+              :allow-null="false"
+              add-label="Nueva marca"
+              @created="brands.push($event)"
+            />
           </FormField>
           <FormField label="Año Modelo" required>
             <input v-model.number="form.modelYear" type="number" class="form-input" required min="1990" max="2100" />
@@ -199,6 +213,15 @@ onMounted(async () => {
             <input v-model.number="form.referencePrice" type="number" step="0.01" class="form-input" min="0" />
           </FormField>
         </div>
+        <FormField v-if="referencePriceChanged" label="Motivo del cambio de precio">
+          <input
+            v-model="form.priceChangeReason"
+            class="form-input"
+            maxlength="255"
+            placeholder="Opcional: p. ej. actualización de lista, tipo de cambio, promoción, etc."
+          />
+          <p class="mt-1 text-xs text-gray-500">Se registrará en el historial de precios.</p>
+        </FormField>
         <FormField label="Colores disponibles (separados por coma)">
           <input v-model="form.colors" class="form-input" maxlength="200" placeholder="Azul Racing, Negro, Gris" />
         </FormField>

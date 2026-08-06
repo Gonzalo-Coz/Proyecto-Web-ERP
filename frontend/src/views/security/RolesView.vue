@@ -25,6 +25,7 @@ const form = reactive({
   description: '' as string | null,
   permissionCodes: [] as string[],
   isActive: true,
+  maxDiscountPercent: null as number | null,
 })
 
 const confirmTarget = ref<RoleItem | null>(null)
@@ -42,7 +43,7 @@ async function load(): Promise<void> {
 
 function openCreate(): void {
   editing.value = null
-  Object.assign(form, { code: '', name: '', description: '', permissionCodes: [], isActive: true })
+  Object.assign(form, { code: '', name: '', description: '', permissionCodes: [], isActive: true, maxDiscountPercent: null })
   formError.value = ''
   modalOpen.value = true
 }
@@ -55,6 +56,7 @@ function openEdit(role: RoleItem): void {
     description: role.description ?? '',
     permissionCodes: [...role.permissionCodes],
     isActive: role.isActive,
+    maxDiscountPercent: role.maxDiscountPercent,
   })
   formError.value = ''
   modalOpen.value = true
@@ -70,7 +72,14 @@ async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
-    const payload = { ...form, description: form.description || null }
+    const payload = {
+      ...form,
+      description: form.description || null,
+      maxDiscountPercent:
+        form.maxDiscountPercent === null || String(form.maxDiscountPercent) === ''
+          ? null
+          : Number(form.maxDiscountPercent),
+    }
     if (editing.value) {
       await securityService.updateRole(editing.value.id, payload)
     } else {

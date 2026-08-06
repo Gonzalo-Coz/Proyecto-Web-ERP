@@ -56,6 +56,51 @@ final class SyncPermissionsCommand extends Command
                 'list' => ['label' => 'Proveedores', 'actions' => ['view', 'create', 'edit', 'delete', 'export']],
             ],
         ],
+        'dashboard' => [
+            'label' => 'Dashboard',
+            'screens' => [
+                'main' => ['label' => 'Panel Gerencial', 'actions' => ['view']],
+            ],
+        ],
+        'reports' => [
+            'label' => 'Reportes',
+            'screens' => [
+                'main' => ['label' => 'Reportes', 'actions' => ['view', 'export']],
+            ],
+        ],
+        'workshop' => [
+            'label' => 'Taller',
+            'screens' => [
+                'orders' => ['label' => 'Órdenes de Servicio', 'actions' => ['view', 'create', 'edit', 'approve', 'export']],
+            ],
+        ],
+        'invoicing' => [
+            'label' => 'Facturación Electrónica',
+            'screens' => [
+                'documents' => ['label' => 'Comprobantes', 'actions' => ['view', 'create', 'print', 'export']],
+            ],
+        ],
+        'sales' => [
+            'label' => 'Ventas',
+            'screens' => [
+                'list' => ['label' => 'Ventas', 'actions' => ['view', 'create', 'edit', 'cancel', 'export']],
+                'payments' => ['label' => 'Cobros', 'actions' => ['view', 'create']],
+                'promotions' => ['label' => 'Promociones', 'actions' => ['view', 'create', 'edit', 'delete']],
+            ],
+        ],
+        'cash' => [
+            'label' => 'Caja',
+            'screens' => [
+                'sessions' => ['label' => 'Apertura y Cierre', 'actions' => ['view', 'create', 'edit', 'export']],
+                'movements' => ['label' => 'Movimientos', 'actions' => ['view', 'create', 'export']],
+            ],
+        ],
+        'purchases' => [
+            'label' => 'Compras',
+            'screens' => [
+                'list' => ['label' => 'Compras', 'actions' => ['view', 'create', 'cancel', 'export']],
+            ],
+        ],
         'inventory' => [
             'label' => 'Inventario',
             'screens' => [
@@ -75,6 +120,20 @@ final class SyncPermissionsCommand extends Command
             'label' => 'Configuración',
             'screens' => [
                 'catalogs' => ['label' => 'Catálogos', 'actions' => ['view', 'create', 'edit', 'delete']],
+                'general' => ['label' => 'Configuración General', 'actions' => ['view', 'edit']],
+            ],
+        ],
+        'pricing' => [
+            'label' => 'Precios',
+            'screens' => [
+                'history' => ['label' => 'Historial de Precios', 'actions' => ['view', 'export']],
+                'price_lists' => ['label' => 'Listas de Precios', 'actions' => ['view', 'create', 'edit', 'delete']],
+            ],
+        ],
+        'payments' => [
+            'label' => 'Pagos',
+            'screens' => [
+                'gateway' => ['label' => 'Pasarela de Pago', 'actions' => ['view', 'create', 'validate']],
             ],
         ],
     ];

@@ -7,10 +7,7 @@ defineProps<{
 </script>
 
 <template>
-  <span
-    class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium"
-    :class="active ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-600'"
-  >
+  <span class="chip" :class="active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
     {{ active ? (activeLabel ?? 'Activo') : (inactiveLabel ?? 'Inactivo') }}
   </span>
 </template>

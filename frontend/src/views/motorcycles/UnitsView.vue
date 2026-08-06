@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
+import ImportModal from '@/components/ui/ImportModal.vue'
 import { modelService, unitService } from '@/services/motorcycles'
-import { supplierService } from '@/services/masters'
 import { useAuthStore } from '@/stores/auth'
 import type { PageMeta, TableColumn } from '@/types/common'
 import type { ModelItem, UnitItem, UnitStatus } from '@/types/motorcycles'
 import { SYSTEM_STATUSES, UNIT_STATUSES } from '@/types/motorcycles'
-import type { SupplierItem } from '@/types/masters'
 
 const auth = useAuthStore()
 
@@ -36,7 +35,6 @@ const rows = ref<UnitItem[]>([])
 const meta = ref<PageMeta | null>(null)
 const loading = ref(false)
 const models = ref<ModelItem[]>([])
-const suppliers = ref<SupplierItem[]>([])
 const statusFilter = ref('')
 const query = reactive({ page: 1, perPage: 10, search: '', sort: 'internalCode', direction: 'asc' as const })
 
@@ -52,16 +50,35 @@ const emptyForm = {
   engineNumber: null as string | null,
   chassisNumber: null as string | null,
   series: null as string | null,
-  manufactureYear: null as number | null,
   entryDate: null as string | null,
-  purchaseDate: null as string | null,
-  supplierId: null as number | null,
   purchasePrice: null as number | null,
   salePrice: null as number | null,
-  location: null as string | null,
   notes: null as string | null,
+  duaNumber: null as string | null,
+  duaItem: null as string | null,
 }
 const form = reactive({ ...emptyForm })
+
+/** Modelo seleccionado y sus colores disponibles (para el desplegable de color). */
+const selectedModel = computed(() => models.value.find((m) => m.id === form.modelId) ?? null)
+const modelColors = computed<string[]>(() =>
+  (selectedModel.value?.colors ?? '')
+    .split(',')
+    .map((c) => c.trim())
+    .filter((c) => c !== ''),
+)
+
+/** Al elegir modelo: prellena el precio de venta con el referencial del modelo. */
+function onModelChange(): void {
+  const m = selectedModel.value
+  if (m && (form.salePrice === null || form.salePrice === 0) && m.referencePrice !== null) {
+    form.salePrice = Number(m.referencePrice)
+  }
+  if (modelColors.value.length && !modelColors.value.includes(form.color)) {
+    form.color = ''
+  }
+}
+
 const confirmTarget = ref<UnitItem | null>(null)
 const statusTarget = ref<UnitItem | null>(null)
 const newStatus = ref<UnitStatus>('DISPONIBLE')
@@ -100,14 +117,12 @@ function openEdit(unit: UnitItem): void {
     engineNumber: unit.engineNumber,
     chassisNumber: unit.chassisNumber,
     series: unit.series,
-    manufactureYear: unit.manufactureYear,
     entryDate: unit.entryDate,
-    purchaseDate: unit.purchaseDate,
-    supplierId: unit.supplierId,
     purchasePrice: unit.purchasePrice !== null ? Number(unit.purchasePrice) : null,
     salePrice: unit.salePrice !== null ? Number(unit.salePrice) : null,
-    location: unit.location,
     notes: unit.notes,
+    duaNumber: unit.duaNumber,
+    duaItem: unit.duaItem,
   })
   formError.value = ''
   modalOpen.value = true
@@ -153,12 +168,12 @@ async function confirmDelete(): Promise<void> {
   }
 }
 
+const importOpen = ref(false)
+
 onMounted(async () => {
   await load()
   const modelsResult = await modelService.list({ page: 1, perPage: 100, search: '', sort: 'model', direction: 'asc' })
   models.value = modelsResult.data.filter((m) => m.isActive)
-  const suppliersResult = await supplierService.list({ page: 1, perPage: 100, search: '', sort: 'businessName', direction: 'asc' })
-  suppliers.value = suppliersResult.data.filter((s) => s.isActive)
 })
 </script>
 
@@ -192,6 +207,9 @@ onMounted(async () => {
       @change="onTableChange"
     >
       <template #toolbar>
+        <button v-if="auth.can('motorcycles.units.create')" class="btn-secondary" @click="importOpen = true">
+          Importar Excel
+        </button>
         <button v-if="auth.can('motorcycles.units.create')" class="btn-primary" @click="openCreate">
           Nueva unidad
         </button>
@@ -231,7 +249,7 @@ onMounted(async () => {
       </template>
     </DataTable>
 
-    <BaseModal :open="modalOpen" :title="editing ? `Editar unidad: ${editing.internalCode}` : 'Nueva unidad'" @close="modalOpen = false">
+    <BaseModal :open="modalOpen" :title="editing ? `Editar unidad: ${editing.internalCode}` : 'Nueva unidad'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Código Interno" required>
@@ -243,12 +261,16 @@ onMounted(async () => {
         </div>
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Modelo" required>
-            <select v-model.number="form.modelId" class="form-input" required>
+            <select v-model.number="form.modelId" class="form-input" required @change="onModelChange">
               <option v-for="m in models" :key="m.id" :value="m.id">{{ m.fullName }}</option>
             </select>
           </FormField>
           <FormField label="Color" required>
-            <input v-model="form.color" class="form-input" required maxlength="50" />
+            <select v-if="modelColors.length" v-model="form.color" class="form-input" required>
+              <option value="">— elige color —</option>
+              <option v-for="c in modelColors" :key="c" :value="c">{{ c }}</option>
+            </select>
+            <input v-else v-model="form.color" class="form-input" required maxlength="50" placeholder="Color" />
           </FormField>
         </div>
         <div class="grid grid-cols-3 gap-4">
@@ -263,22 +285,8 @@ onMounted(async () => {
           </FormField>
         </div>
         <div class="grid grid-cols-3 gap-4">
-          <FormField label="Año Fabricación">
-            <input v-model.number="form.manufactureYear" type="number" class="form-input" min="1990" max="2100" />
-          </FormField>
           <FormField label="Fecha de Ingreso">
             <input v-model="form.entryDate" type="date" class="form-input" />
-          </FormField>
-          <FormField label="Fecha de Compra">
-            <input v-model="form.purchaseDate" type="date" class="form-input" />
-          </FormField>
-        </div>
-        <div class="grid grid-cols-3 gap-4">
-          <FormField label="Proveedor">
-            <select v-model.number="form.supplierId" class="form-input">
-              <option :value="null">—</option>
-              <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.businessName }}</option>
-            </select>
           </FormField>
           <FormField label="Precio Compra (S/)">
             <input v-model.number="form.purchasePrice" type="number" step="0.01" class="form-input" min="0" />
@@ -287,14 +295,17 @@ onMounted(async () => {
             <input v-model.number="form.salePrice" type="number" step="0.01" class="form-input" min="0" />
           </FormField>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <FormField label="Ubicación">
-            <input v-model="form.location" class="form-input" maxlength="100" />
+        <div class="grid grid-cols-3 gap-4">
+          <FormField label="DUA (importación)" class="col-span-2">
+            <input v-model="form.duaNumber" class="form-input" maxlength="40" placeholder="118-2026-10-177946-01-4-00" />
           </FormField>
-          <FormField label="Observaciones">
-            <input v-model="form.notes" class="form-input" />
+          <FormField label="Ítem DUA">
+            <input v-model="form.duaItem" class="form-input" maxlength="10" placeholder="34" />
           </FormField>
         </div>
+        <FormField label="Observaciones">
+          <input v-model="form.notes" class="form-input" />
+        </FormField>
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" class="btn-secondary" @click="modalOpen = false">Cancelar</button>
@@ -329,5 +340,24 @@ onMounted(async () => {
       @confirm="confirmDelete"
       @cancel="confirmTarget = null"
     />
+
+    <ImportModal
+      :open="importOpen"
+      title="Importar motos desde Excel/CSV"
+      code-header="VIN"
+      :download="unitService.downloadImportTemplate"
+      :run="unitService.importFile"
+      @close="importOpen = false"
+      @imported="load"
+    >
+      <template #help>
+        <p class="text-xs">
+          Columnas: Código Interno · VIN · Modelo · Color · Nº de Motor · Nº de Chasis · Serie · Año ·
+          Fecha de Ingreso · Proveedor (RUC) · Precio de Compra · Precio de Venta · Ubicación. La clave es el
+          <strong>VIN</strong>. El <strong>Modelo</strong> debe escribirse igual que en Modelos (p. ej.
+          «Yamaha YBR125 2024»). Cada fila es una moto física; las motos vendidas no se modifican.
+        </p>
+      </template>
+    </ImportModal>
   </DefaultLayout>
 </template>

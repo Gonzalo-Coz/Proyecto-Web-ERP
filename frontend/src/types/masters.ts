@@ -16,12 +16,18 @@ export interface CustomerItem {
   phone: string | null
   mobile: string | null
   email: string | null
+  /** Lista de precios asignada (Adición A4). */
+  priceListId: number | null
+  priceListName: string | null
   isLegalEntity: boolean
   isActive: boolean
   createdAt: string | null
 }
 
-export type CustomerPayload = Omit<CustomerItem, 'id' | 'isLegalEntity' | 'createdAt'>
+export type CustomerPayload = Omit<
+  CustomerItem,
+  'id' | 'isLegalEntity' | 'createdAt' | 'priceListName'
+>
 
 export interface SupplierItem {
   id: number

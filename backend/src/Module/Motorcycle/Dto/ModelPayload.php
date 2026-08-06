@@ -54,6 +54,10 @@ final class ModelPayload
         public readonly ?float $referencePrice = null,
 
         public readonly bool $isActive = true,
+
+        /** Motivo del cambio de precio de referencia (Adición A3); no se persiste en la entidad. */
+        #[Assert\Length(max: 255)]
+        public readonly ?string $priceChangeReason = null,
     ) {
     }
 }

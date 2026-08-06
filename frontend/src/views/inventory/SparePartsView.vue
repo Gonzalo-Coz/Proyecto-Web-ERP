@@ -1,20 +1,24 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
-import { sparePartService } from '@/services/inventory'
+import CatalogSelect from '@/components/ui/CatalogSelect.vue'
+import { UNITS_OF_MEASURE } from '@/constants/units'
+import { sparePartService, type ImportResult } from '@/services/inventory'
 import { modelService } from '@/services/motorcycles'
 import { catalogService } from '@/services/catalogs'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
 import type { CatalogItem } from '@/types/catalogs'
 import type { ModelItem } from '@/types/motorcycles'
 import type { KardexEntry, SparePartItem } from '@/types/inventory'
 
 const auth = useAuthStore()
+const toast = useToast()
 
 const columns: TableColumn[] = [
   { key: 'internalCode', label: 'Código', sortable: true },
@@ -40,20 +44,23 @@ const formError = ref('')
 const emptyForm = {
   internalCode: '',
   partCode: '',
-  barcode: null as string | null,
   description: '',
   brandId: null as number | null,
   categoryId: null as number | null,
   unitOfMeasure: 'UNIDAD',
   compatibleModelIds: [] as number[],
   minStock: 0,
-  maxStock: null as number | null,
   purchasePrice: null as number | null,
   salePrice: null as number | null,
   location: null as string | null,
   isActive: true,
+  priceChangeReason: null as string | null,
 }
 const form = reactive({ ...emptyForm })
+/** Muestra el motivo solo al editar y cuando el precio de venta cambió (Adición A3). */
+const salePriceChanged = computed(
+  () => editing.value !== null && Number(form.salePrice ?? 0) !== Number(editing.value.salePrice ?? 0),
+)
 const confirmTarget = ref<SparePartItem | null>(null)
 
 // Kardex y ajuste
@@ -64,6 +71,61 @@ const adjustTarget = ref<SparePartItem | null>(null)
 const adjustQty = ref(0)
 const adjustReason = ref('')
 const adjustError = ref('')
+
+// Importación masiva (CSV/Excel)
+const importOpen = ref(false)
+const importFile = ref<File | null>(null)
+const importResult = ref<ImportResult | null>(null)
+const importing = ref(false)
+const importError = ref('')
+
+function openImport(): void {
+  importFile.value = null
+  importResult.value = null
+  importError.value = ''
+  importOpen.value = true
+}
+
+async function downloadTemplate(): Promise<void> {
+  try {
+    await sparePartService.downloadImportTemplate()
+  } catch {
+    toast.error('No se pudo descargar la plantilla.')
+  }
+}
+
+function onImportFile(e: Event): void {
+  const target = e.target as HTMLInputElement
+  importFile.value = target.files?.[0] ?? null
+  importResult.value = null
+  importError.value = ''
+}
+
+async function runImport(dryRun: boolean): Promise<void> {
+  if (!importFile.value) return
+  importing.value = true
+  importError.value = ''
+  try {
+    importResult.value = await sparePartService.importFile(importFile.value, dryRun)
+    if (!dryRun) {
+      const s = importResult.value.summary
+      toast.success(`Importación aplicada: ${s.create} creados, ${s.update} actualizados.`)
+      await load()
+    }
+  } catch (e: any) {
+    importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo procesar el archivo.'
+  } finally {
+    importing.value = false
+  }
+}
+
+const importHasErrors = computed(() => (importResult.value?.summary.error ?? 0) > 0)
+const importStatusText: Record<string, string> = { create: 'Crear', update: 'Actualizar', error: 'Error' }
+const importStatusClass: Record<string, string> = {
+  create: 'bg-green-100 text-green-800',
+  update: 'bg-blue-100 text-blue-800',
+  error: 'bg-red-100 text-red-800',
+}
 
 async function load(): Promise<void> {
   loading.value = true
@@ -94,18 +156,17 @@ function openEdit(part: SparePartItem): void {
   Object.assign(form, {
     internalCode: part.internalCode,
     partCode: part.partCode,
-    barcode: part.barcode,
     description: part.description,
     brandId: part.brandId,
     categoryId: part.categoryId,
     unitOfMeasure: part.unitOfMeasure,
     compatibleModelIds: [...part.compatibleModelIds],
     minStock: part.minStock,
-    maxStock: part.maxStock,
     purchasePrice: part.purchasePrice !== null ? Number(part.purchasePrice) : null,
     salePrice: part.salePrice !== null ? Number(part.salePrice) : null,
     location: part.location,
     isActive: part.isActive,
+    priceChangeReason: null,
   })
   formError.value = ''
   modalOpen.value = true
@@ -197,6 +258,9 @@ onMounted(async () => {
       @change="onTableChange"
     >
       <template #toolbar>
+        <button v-if="auth.can('inventory.spare_parts.create')" class="btn-secondary" @click="openImport">
+          Importar Excel
+        </button>
         <button v-if="auth.can('inventory.spare_parts.create')" class="btn-primary" @click="openCreate">
           Nuevo repuesto
         </button>
@@ -220,17 +284,14 @@ onMounted(async () => {
     </DataTable>
 
     <!-- Formulario de repuesto -->
-    <BaseModal :open="modalOpen" :title="editing ? `Editar repuesto: ${editing.internalCode}` : 'Nuevo repuesto'" @close="modalOpen = false">
+    <BaseModal :open="modalOpen" :title="editing ? `Editar repuesto: ${editing.internalCode}` : 'Nuevo repuesto'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-2 gap-4">
           <FormField label="Código Interno" required>
             <input v-model="form.internalCode" class="form-input uppercase" required maxlength="20" />
           </FormField>
-          <FormField label="Código de Repuesto" required>
+          <FormField label="Código de Repuesto (código de barras)" required>
             <input v-model="form.partCode" class="form-input uppercase" required maxlength="40" placeholder="5SL-E3440-00" />
-          </FormField>
-          <FormField label="Código de Barras">
-            <input v-model="form.barcode" class="form-input" maxlength="50" />
           </FormField>
         </div>
         <FormField label="Descripción" required>
@@ -238,19 +299,27 @@ onMounted(async () => {
         </FormField>
         <div class="grid grid-cols-3 gap-4">
           <FormField label="Marca">
-            <select v-model.number="form.brandId" class="form-input">
-              <option :value="null">—</option>
-              <option v-for="b in brands" :key="b.id" :value="b.id">{{ b.name }}</option>
-            </select>
+            <CatalogSelect
+              v-model="form.brandId"
+              :items="brands"
+              type="brands"
+              add-label="Nueva marca"
+              @created="brands.push($event)"
+            />
           </FormField>
           <FormField label="Categoría">
-            <select v-model.number="form.categoryId" class="form-input">
-              <option :value="null">—</option>
-              <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <CatalogSelect
+              v-model="form.categoryId"
+              :items="categories"
+              type="categories"
+              add-label="Nueva categoría"
+              @created="categories.push($event)"
+            />
           </FormField>
           <FormField label="Unidad de Medida">
-            <input v-model="form.unitOfMeasure" class="form-input uppercase" maxlength="20" />
+            <select v-model="form.unitOfMeasure" class="form-input">
+              <option v-for="u in UNITS_OF_MEASURE" :key="u" :value="u">{{ u }}</option>
+            </select>
           </FormField>
         </div>
         <FormField label="Modelos compatibles">
@@ -262,12 +331,9 @@ onMounted(async () => {
             <p v-if="models.length === 0" class="text-xs text-gray-400">No hay modelos registrados.</p>
           </div>
         </FormField>
-        <div class="grid grid-cols-4 gap-4">
+        <div class="grid grid-cols-3 gap-4">
           <FormField label="Stock Mínimo">
             <input v-model.number="form.minStock" type="number" class="form-input" min="0" />
-          </FormField>
-          <FormField label="Stock Máximo">
-            <input v-model.number="form.maxStock" type="number" class="form-input" min="0" />
           </FormField>
           <FormField label="Precio Compra (S/)">
             <input v-model.number="form.purchasePrice" type="number" step="0.01" class="form-input" min="0" />
@@ -276,6 +342,15 @@ onMounted(async () => {
             <input v-model.number="form.salePrice" type="number" step="0.01" class="form-input" min="0" />
           </FormField>
         </div>
+        <FormField v-if="salePriceChanged" label="Motivo del cambio de precio">
+          <input
+            v-model="form.priceChangeReason"
+            class="form-input"
+            maxlength="255"
+            placeholder="Opcional: p. ej. ajuste por lista de proveedor, promoción, etc."
+          />
+          <p class="mt-1 text-xs text-gray-500">Se registrará en el historial de precios.</p>
+        </FormField>
         <FormField label="Ubicación">
           <input v-model="form.location" class="form-input" maxlength="100" placeholder="Estante A-3" />
         </FormField>
@@ -341,6 +416,88 @@ onMounted(async () => {
         <div class="flex justify-end gap-3">
           <button type="button" class="btn-secondary" @click="adjustTarget = null">Cancelar</button>
           <button type="button" class="btn-primary" @click="applyAdjust">Aplicar ajuste</button>
+        </div>
+      </div>
+    </BaseModal>
+
+    <!-- Importación masiva -->
+    <BaseModal :open="importOpen" title="Importar productos desde Excel/CSV" size="xl" @close="importOpen = false">
+      <div class="space-y-4">
+        <div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+          <p class="mb-2">
+            <strong>Cómo funciona:</strong> descarga la plantilla, complétala en Excel y súbela. Si un
+            <strong>código</strong> ya existe, se <strong>actualiza</strong>; si no, se <strong>crea</strong>.
+            El <strong>stock inicial</strong> solo aplica a productos nuevos. La plantilla trae una fila de
+            ejemplo (REP-001): reemplázala o elimínala antes de subir.
+          </p>
+          <button class="btn-secondary" @click="downloadTemplate">Descargar plantilla</button>
+        </div>
+
+        <FormField label="Archivo (.csv o .xlsx guardado como CSV)">
+          <input type="file" accept=".csv,text/csv,.xlsx" class="form-input" @change="onImportFile" />
+        </FormField>
+
+        <div class="flex flex-wrap gap-2">
+          <button class="btn-secondary" :disabled="!importFile || importing" @click="runImport(true)">
+            {{ importing ? 'Procesando…' : 'Previsualizar' }}
+          </button>
+        </div>
+
+        <p v-if="importError" class="text-sm text-red-600">{{ importError }}</p>
+
+        <div v-if="importResult" class="space-y-3">
+          <div class="flex flex-wrap gap-2 text-sm">
+            <span class="rounded-full bg-gray-100 px-3 py-1">Total: <strong>{{ importResult.summary.total }}</strong></span>
+            <span class="rounded-full bg-green-100 px-3 py-1 text-green-800">Crear: <strong>{{ importResult.summary.create }}</strong></span>
+            <span class="rounded-full bg-blue-100 px-3 py-1 text-blue-800">Actualizar: <strong>{{ importResult.summary.update }}</strong></span>
+            <span class="rounded-full bg-red-100 px-3 py-1 text-red-800">Errores: <strong>{{ importResult.summary.error }}</strong></span>
+          </div>
+
+          <div class="max-h-72 overflow-y-auto rounded-lg border border-gray-200">
+            <table class="w-full text-left text-sm">
+              <thead class="sticky top-0 bg-gray-50 text-xs uppercase text-gray-500">
+                <tr>
+                  <th class="px-3 py-2">Fila</th>
+                  <th class="px-3 py-2">Código</th>
+                  <th class="px-3 py-2">Descripción</th>
+                  <th class="px-3 py-2">Acción</th>
+                  <th class="px-3 py-2">Detalle</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in importResult.rows" :key="r.line" class="border-t border-gray-100">
+                  <td class="px-3 py-2 text-gray-500">{{ r.line }}</td>
+                  <td class="px-3 py-2 font-medium">{{ r.internalCode || '—' }}</td>
+                  <td class="px-3 py-2">{{ r.description || '—' }}</td>
+                  <td class="px-3 py-2">
+                    <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium" :class="importStatusClass[r.status]">
+                      {{ importStatusText[r.status] }}
+                    </span>
+                  </td>
+                  <td class="px-3 py-2 text-xs text-gray-600">{{ r.message }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p v-if="importResult.committed" class="text-sm font-medium text-green-700">
+            ✓ Importación aplicada. Puedes cerrar esta ventana.
+          </p>
+          <p v-else-if="importHasErrors" class="text-xs text-amber-700">
+            Hay filas con error: se omitirán al confirmar. Corrígelas en el Excel si quieres incluirlas.
+          </p>
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-gray-200 pt-3">
+          <button class="btn-secondary" @click="importOpen = false">Cerrar</button>
+          <button
+            v-if="importResult && !importResult.committed && (importResult.summary.create + importResult.summary.update) > 0"
+            class="btn-primary"
+            :disabled="importing"
+            @click="runImport(false)"
+          >
+            {{ importing ? 'Aplicando…' : `Confirmar (${importResult.summary.create + importResult.summary.update})` }}
+          </button>
         </div>
       </div>
     </BaseModal>

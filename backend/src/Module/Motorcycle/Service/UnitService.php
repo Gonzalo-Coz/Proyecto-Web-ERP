@@ -44,8 +44,12 @@ final class UnitService
             ->setMaxResults($perPage);
 
         if ($search !== '') {
-            $qb->andWhere('LOWER(u.vin) LIKE :s OR LOWER(u.internalCode) LIKE :s OR LOWER(u.engineNumber) LIKE :s OR LOWER(m.model) LIKE :s')
-                ->setParameter('s', '%'.mb_strtolower($search).'%');
+            // Búsqueda "por cualquier información" de la moto.
+            $qb->andWhere(
+                'LOWER(u.vin) LIKE :s OR LOWER(u.internalCode) LIKE :s OR LOWER(u.engineNumber) LIKE :s '
+                .'OR LOWER(u.chassisNumber) LIKE :s OR LOWER(u.series) LIKE :s OR LOWER(u.color) LIKE :s '
+                .'OR LOWER(m.model) LIKE :s OR LOWER(m.version) LIKE :s OR LOWER(b.name) LIKE :s',
+            )->setParameter('s', '%'.mb_strtolower($search).'%');
         }
 
         if ($status !== '' && in_array($status, MotorcycleUnit::STATUSES, true)) {
@@ -185,6 +189,8 @@ final class UnitService
         $unit->setSalePrice($payload->salePrice !== null ? number_format($payload->salePrice, 2, '.', '') : null);
         $unit->setLocation($payload->location);
         $unit->setNotes($payload->notes);
+        $unit->setDuaNumber($payload->duaNumber);
+        $unit->setDuaItem($payload->duaItem);
     }
 
     public function toArray(MotorcycleUnit $unit): array
@@ -210,6 +216,8 @@ final class UnitService
             'status' => $unit->getStatus(),
             'location' => $unit->getLocation(),
             'notes' => $unit->getNotes(),
+            'duaNumber' => $unit->getDuaNumber(),
+            'duaItem' => $unit->getDuaItem(),
         ];
     }
 }

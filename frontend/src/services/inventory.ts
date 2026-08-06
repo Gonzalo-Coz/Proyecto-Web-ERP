@@ -21,4 +21,36 @@ export const sparePartService = {
   kardex(id: number, page = 1, perPage = 10): Promise<Paginated<KardexEntry>> {
     return api.get(`/inventory/spare-parts/${id}/kardex`, { params: { page, perPage } }).then((r) => r.data)
   },
+  downloadImportTemplate(): Promise<void> {
+    return api.get('/inventory/spare-parts/import/template', { responseType: 'blob' }).then((r) => {
+      const url = URL.createObjectURL(r.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'plantilla_productos_YIGM.csv'
+      a.click()
+      URL.revokeObjectURL(url)
+    })
+  },
+  importFile(file: File, dryRun: boolean): Promise<ImportResult> {
+    const form = new FormData()
+    form.append('file', file)
+    return api
+      .post('/inventory/spare-parts/import', form, { params: { dryRun: dryRun ? 1 : 0 } })
+      .then((r) => r.data)
+  },
+}
+
+export interface ImportRow {
+  line: number
+  internalCode: string
+  partCode: string
+  description: string
+  status: 'create' | 'update' | 'error'
+  message: string
+}
+
+export interface ImportResult {
+  summary: { total: number; create: number; update: number; error: number }
+  rows: ImportRow[]
+  committed: boolean
 }

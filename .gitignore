@@ -6,6 +6,10 @@ backend/.env.*.local
 backend/config/jwt/*.pem
 backend/.phpunit.cache/
 
+# Imágenes subidas por usuarios (datos, no código; se respaldan aparte)
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep
+
 # Frontend (Vue/Vite)
 frontend/node_modules/
 frontend/dist/

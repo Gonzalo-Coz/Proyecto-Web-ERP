@@ -27,6 +27,8 @@ export interface ModelItem {
 
 export type ModelPayload = Omit<ModelItem, 'id' | 'brandName' | 'fullName' | 'referencePrice'> & {
   referencePrice: number | null
+  /** Motivo del cambio de precio de referencia (Adición A3); opcional. */
+  priceChangeReason?: string | null
 }
 
 export interface UnitItem {
@@ -50,6 +52,8 @@ export interface UnitItem {
   status: UnitStatus
   location: string | null
   notes: string | null
+  duaNumber: string | null
+  duaItem: string | null
 }
 
 export interface UnitPayload {
@@ -68,4 +72,6 @@ export interface UnitPayload {
   salePrice: number | null
   location: string | null
   notes: string | null
+  duaNumber: string | null
+  duaItem: string | null
 }

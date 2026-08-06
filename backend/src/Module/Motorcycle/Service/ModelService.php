@@ -8,6 +8,7 @@ use App\Module\Catalog\Repository\CatalogItemRepository;
 use App\Module\Motorcycle\Dto\ModelPayload;
 use App\Module\Motorcycle\Entity\MotorcycleModel;
 use App\Module\Motorcycle\Repository\MotorcycleModelRepository;
+use App\Shared\Pricing\Service\PriceHistoryService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -21,6 +22,7 @@ final class ModelService
         private readonly EntityManagerInterface $entityManager,
         private readonly MotorcycleModelRepository $modelRepository,
         private readonly CatalogItemRepository $catalogRepository,
+        private readonly PriceHistoryService $priceHistory,
     ) {
     }
 
@@ -65,18 +67,46 @@ final class ModelService
         $this->entityManager->persist($model);
         $this->entityManager->flush();
 
+        // Historial de precios (A3): precio de referencia inicial.
+        $this->priceHistory->record(
+            PriceHistoryService::SUBJECT_MOTORCYCLE_MODEL,
+            (int) $model->getId(),
+            $this->priceLabel($model),
+            null,
+            $model->getReferencePrice(),
+            $payload->priceChangeReason,
+        );
+
         return $this->toArray($model);
+    }
+
+    /** Etiqueta legible del modelo para el historial de precios. */
+    private function priceLabel(MotorcycleModel $model): string
+    {
+        return mb_substr($model->getFullName(), 0, 200);
     }
 
     public function update(int $id, ModelPayload $payload): array
     {
         $model = $this->find($id);
+        $oldReferencePrice = $model->getReferencePrice();
+
         $model->setBrand($this->findBrand($payload->brandId));
         $model->setModel($payload->model);
         $model->setModelYear($payload->modelYear);
         $this->apply($model, $payload);
 
         $this->entityManager->flush();
+
+        // Historial de precios (A3): cambio del precio de referencia con su motivo.
+        $this->priceHistory->record(
+            PriceHistoryService::SUBJECT_MOTORCYCLE_MODEL,
+            $id,
+            $this->priceLabel($model),
+            $oldReferencePrice,
+            $model->getReferencePrice(),
+            $payload->priceChangeReason,
+        );
 
         return $this->toArray($model);
     }

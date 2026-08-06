@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Customer\Entity;
 
 use App\Module\Customer\Repository\CustomerRepository;
+use App\Module\Pricing\Entity\PriceList;
 use App\Shared\Doctrine\SoftDeletableInterface;
 use App\Shared\Doctrine\SoftDeletableTrait;
 use App\Shared\Doctrine\TimestampableTrait;
@@ -18,6 +19,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'customers')]
 #[ORM\UniqueConstraint(name: 'uq_customer_document', columns: ['document_type', 'document_number'], options: ['where' => '(deleted_at IS NULL)'])]
 #[ORM\Index(columns: ['name'], name: 'idx_customer_name')]
+// Índice de la FK a la lista de precios (A4): nombre explícito para que el
+// esquema coincida con la migración y `doctrine:schema:validate` quede en sync.
+#[ORM\Index(columns: ['price_list_id'], name: 'IDX_customers_price_list')]
 #[ORM\HasLifecycleCallbacks]
 class Customer implements SoftDeletableInterface
 {
@@ -25,6 +29,9 @@ class Customer implements SoftDeletableInterface
     use SoftDeletableTrait;
 
     public const DOCUMENT_TYPES = ['DNI', 'RUC', 'CE', 'PASAPORTE', 'OTRO'];
+
+    /** Documento del cliente genérico "Público General" (boleta simple, sin datos). */
+    public const GENERIC_DOC_NUMBER = '00000000';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -68,6 +75,11 @@ class Customer implements SoftDeletableInterface
     #[ORM\Column(options: ['default' => true])]
     private bool $isActive = true;
 
+    /** Lista de precios asignada (Adición A4); null = usa la lista predeterminada / precio base. */
+    #[ORM\ManyToOne(targetEntity: PriceList::class)]
+    #[ORM\JoinColumn(name: 'price_list_id', nullable: true, onDelete: 'SET NULL')]
+    private ?PriceList $priceList = null;
+
     public function __construct(string $documentType, string $documentNumber, string $name)
     {
         $this->documentType = $documentType;
@@ -78,6 +90,16 @@ class Customer implements SoftDeletableInterface
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    public function getPriceList(): ?PriceList
+    {
+        return $this->priceList;
+    }
+
+    public function setPriceList(?PriceList $priceList): void
+    {
+        $this->priceList = $priceList;
     }
 
     public function getDocumentType(): string

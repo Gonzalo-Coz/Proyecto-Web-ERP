@@ -11,6 +11,7 @@ use App\Module\Inventory\Entity\SparePart;
 use App\Module\Inventory\Repository\KardexMovementRepository;
 use App\Module\Inventory\Repository\SparePartRepository;
 use App\Module\Motorcycle\Repository\MotorcycleModelRepository;
+use App\Shared\Pricing\Service\PriceHistoryService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -27,6 +28,7 @@ final class SparePartService
         private readonly CatalogItemRepository $catalogRepository,
         private readonly MotorcycleModelRepository $modelRepository,
         private readonly StockService $stockService,
+        private readonly PriceHistoryService $priceHistory,
     ) {
     }
 
@@ -46,8 +48,11 @@ final class SparePartService
             ->setMaxResults($perPage);
 
         if ($search !== '') {
-            $qb->andWhere('LOWER(p.description) LIKE :s OR LOWER(p.internalCode) LIKE :s OR LOWER(p.partCode) LIKE :s OR p.barcode LIKE :s')
-                ->setParameter('s', '%'.mb_strtolower($search).'%');
+            // Búsqueda "por cualquier información" del producto/repuesto.
+            $qb->andWhere(
+                'LOWER(p.description) LIKE :s OR LOWER(p.internalCode) LIKE :s OR LOWER(p.partCode) LIKE :s '
+                .'OR p.barcode LIKE :s OR LOWER(b.name) LIKE :s OR LOWER(c.name) LIKE :s',
+            )->setParameter('s', '%'.mb_strtolower($search).'%');
         }
         if ($compatibleModelId > 0) {
             $qb->join('p.compatibleModels', 'cm')->andWhere('cm.id = :mid')->setParameter('mid', $compatibleModelId);
@@ -82,6 +87,16 @@ final class SparePartService
         $this->entityManager->persist($part);
         $this->entityManager->flush();
 
+        // Historial de precios (A3): registra el precio de venta inicial.
+        $this->priceHistory->record(
+            PriceHistoryService::SUBJECT_SPARE_PART,
+            (int) $part->getId(),
+            $this->priceLabel($part),
+            null,
+            $part->getSalePrice(),
+            $payload->priceChangeReason,
+        );
+
         return $this->toArray($part);
     }
 
@@ -90,6 +105,8 @@ final class SparePartService
         $part = $this->find($id);
         $this->assertUnique($payload->internalCode, $payload->partCode, $id);
 
+        $oldSalePrice = $part->getSalePrice();
+
         $part->setInternalCode($payload->internalCode);
         $part->setPartCode($payload->partCode);
         $part->setDescription($payload->description);
@@ -97,7 +114,23 @@ final class SparePartService
 
         $this->entityManager->flush();
 
+        // Historial de precios (A3): registra el cambio del precio de venta con su motivo.
+        $this->priceHistory->record(
+            PriceHistoryService::SUBJECT_SPARE_PART,
+            $id,
+            $this->priceLabel($part),
+            $oldSalePrice,
+            $part->getSalePrice(),
+            $payload->priceChangeReason,
+        );
+
         return $this->toArray($part);
+    }
+
+    /** Etiqueta legible del repuesto para el historial de precios. */
+    private function priceLabel(SparePart $part): string
+    {
+        return mb_substr(sprintf('%s · %s', $part->getInternalCode(), $part->getDescription()), 0, 200);
     }
 
     public function delete(int $id): void
@@ -169,7 +202,8 @@ final class SparePartService
 
     private function apply(SparePart $part, SparePartPayload $payload): void
     {
-        $part->setBarcode($payload->barcode ?: null);
+        // El código de repuesto hace de código de barras (se usa lector de barras).
+        $part->setBarcode($part->getPartCode());
         $part->setUnitOfMeasure($payload->unitOfMeasure ?: 'UNIDAD');
         $part->setBrand($payload->brandId !== null ? $this->findCatalog($payload->brandId, 'brands') : null);
         $part->setCategory($payload->categoryId !== null ? $this->findCatalog($payload->categoryId, 'categories') : null);

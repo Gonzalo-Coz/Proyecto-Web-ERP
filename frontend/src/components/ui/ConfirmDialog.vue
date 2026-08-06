@@ -13,7 +13,7 @@ const emit = defineEmits<{ (e: 'confirm'): void; (e: 'cancel'): void }>()
 </script>
 
 <template>
-  <BaseModal :open="open" :title="title" @close="emit('cancel')">
+  <BaseModal :open="open" :title="title" size="md" @close="emit('cancel')">
     <p class="text-sm text-gray-600">{{ message }}</p>
     <div class="mt-6 flex justify-end gap-3">
       <button type="button" class="btn-secondary" @click="emit('cancel')">Cancelar</button>

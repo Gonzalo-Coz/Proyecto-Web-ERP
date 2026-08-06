@@ -50,6 +50,13 @@ class Role implements SoftDeletableInterface
     #[ORM\Column(options: ['default' => true])]
     private bool $isActive = true;
 
+    /**
+     * Límite de descuento en ventas para este rol (Adición A2 / 24.2).
+     * NULL = sin límite. Configurable desde la pantalla de Roles (§23.9).
+     */
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
+    private ?string $maxDiscountPercent = null;
+
     /** @var Collection<int, Permission> */
     #[ORM\ManyToMany(targetEntity: Permission::class, fetch: 'EAGER')]
     #[ORM\JoinTable(name: 'role_permissions')]
@@ -110,6 +117,16 @@ class Role implements SoftDeletableInterface
     public function setActive(bool $isActive): void
     {
         $this->isActive = $isActive;
+    }
+
+    public function getMaxDiscountPercent(): ?float
+    {
+        return $this->maxDiscountPercent !== null ? (float) $this->maxDiscountPercent : null;
+    }
+
+    public function setMaxDiscountPercent(?float $value): void
+    {
+        $this->maxDiscountPercent = $value !== null ? number_format($value, 2, '.', '') : null;
     }
 
     /** @return Collection<int, Permission> */

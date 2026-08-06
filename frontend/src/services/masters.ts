@@ -1,5 +1,7 @@
 import api from '@/services/api'
+import { downloadTemplate, runImport } from '@/services/importHelpers'
 import type { ListQuery, Paginated } from '@/types/common'
+import type { ImportResult } from '@/types/import'
 import type { CustomerItem, CustomerPayload, SupplierItem, SupplierPayload } from '@/types/masters'
 
 export const customerService = {
@@ -14,6 +16,16 @@ export const customerService = {
   },
   remove(id: number): Promise<void> {
     return api.delete(`/customers/${id}`).then(() => undefined)
+  },
+  /** Cliente genérico "Público General" para la boleta simple (sin datos). */
+  generic(): Promise<CustomerItem> {
+    return api.get('/customers/generic').then((r) => r.data)
+  },
+  downloadImportTemplate(): Promise<void> {
+    return downloadTemplate('/customers/import/template', 'plantilla_clientes_YIGM.csv')
+  },
+  importFile(file: File, dryRun: boolean): Promise<ImportResult> {
+    return runImport('/customers/import', file, dryRun)
   },
 }
 

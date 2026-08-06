@@ -53,6 +53,10 @@ final class SparePartPayload
         public readonly ?string $location = null,
 
         public readonly bool $isActive = true,
+
+        /** Motivo del cambio de precio de venta (Adición A3); no se persiste en la entidad. */
+        #[Assert\Length(max: 255)]
+        public readonly ?string $priceChangeReason = null,
     ) {
     }
 }

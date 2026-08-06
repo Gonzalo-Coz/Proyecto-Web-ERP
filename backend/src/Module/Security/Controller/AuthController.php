@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Module\Security\Controller;
 
 use App\Module\Security\Entity\User;
+use App\Shared\Media\ImageStorageService;
 use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -15,6 +16,10 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 #[OA\Tag(name: 'Autenticación')]
 final class AuthController extends AbstractController
 {
+    public function __construct(private readonly ImageStorageService $imageStorage)
+    {
+    }
+
     /**
      * Interceptado por el firewall json_login: nunca se ejecuta.
      * Existe para que la ruta esté registrada y documentada en OpenAPI.
@@ -51,6 +56,8 @@ final class AuthController extends AbstractController
             'username' => $user->getUsername(),
             'fullName' => $user->getFullName(),
             'email' => $user->getEmail(),
+            'phone' => $user->getPhone(),
+            'avatarUrl' => $this->imageStorage->publicUrl($user->getAvatarPath()),
             'roles' => $user->getRoles(),
             'permissions' => $user->getPermissionCodes(),
         ]);

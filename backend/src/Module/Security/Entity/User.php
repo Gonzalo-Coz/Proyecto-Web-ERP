@@ -40,6 +40,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, SoftDel
     #[ORM\Column(length: 150)]
     private string $fullName;
 
+    /** Teléfono de contacto (opcional; editable desde el perfil). */
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $phone = null;
+
+    /**
+     * Ruta RELATIVA de la fotografía de perfil (p. ej. "uploads/avatars/..").
+     * Nunca se almacena la imagen en BD, solo su ruta (§Almacenamiento).
+     */
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $avatarPath = null;
+
     /** Hash de contraseña (nunca en claro; §23.14). */
     #[ORM\Column]
     private string $password;
@@ -93,6 +104,26 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, SoftDel
     public function setFullName(string $fullName): void
     {
         $this->fullName = $fullName;
+    }
+
+    public function getPhone(): ?string
+    {
+        return $this->phone;
+    }
+
+    public function setPhone(?string $phone): void
+    {
+        $this->phone = ($phone === null || trim($phone) === '') ? null : trim($phone);
+    }
+
+    public function getAvatarPath(): ?string
+    {
+        return $this->avatarPath;
+    }
+
+    public function setAvatarPath(?string $avatarPath): void
+    {
+        $this->avatarPath = $avatarPath;
     }
 
     public function getPassword(): string
@@ -172,6 +203,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, SoftDel
         }
 
         return array_keys($codes);
+    }
+
+    /**
+     * Límite efectivo de descuento del usuario (Adición A2):
+     * NULL = sin límite (superadmin o algún rol sin límite);
+     * sin roles con límite definido = 0 (no puede descontar).
+     */
+    public function getMaxDiscountPercent(): ?float
+    {
+        $max = null;
+        foreach ($this->assignedRoles as $role) {
+            if (!$role->isActive() || $role->isDeleted()) {
+                continue;
+            }
+            if ($role->isSuperAdmin() || $role->getMaxDiscountPercent() === null) {
+                return null; // sin límite
+            }
+            $max = max($max ?? 0.0, $role->getMaxDiscountPercent());
+        }
+
+        return $max ?? 0.0;
     }
 
     public function eraseCredentials(): void

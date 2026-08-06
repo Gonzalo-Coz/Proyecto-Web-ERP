@@ -9,6 +9,24 @@ services:
         autowire: true      # Inyección automática de dependencias
         autoconfigure: true # Registro automático de listeners, commands, etc.
 
+    # Proveedor de facturación electrónica activo (decisión #2 / pendiente P1).
+    # ACTIVO: NubefactProvider (real, ambiente según NUBEFACT_AMBIENTE en .env.local).
+    # Para volver al simulador, cambiar este alias a:
+    #   alias: App\Module\Invoicing\Provider\SimulatedProvider
+    App\Module\Invoicing\Provider\ElectronicInvoiceProviderInterface:
+        alias: App\Module\Invoicing\Provider\Nubefact\NubefactProvider
+
+    # Pasarela de pago activa (Adición A6): v1 registro manual. Al contratar un
+    # agregador (Izipay/Niubiz/Culqi/Mercado Pago), crear su adaptador y cambiar
+    # SOLO este alias, sin tocar los módulos de negocio.
+    App\Module\Payment\Provider\PaymentGatewayInterface:
+        alias: App\Module\Payment\Provider\ManualGateway
+
+    # Proveedor de consultas de documentos (DNI/RUC) activo. Para cambiar a
+    # RENIEC/SUNAT u otro, crear su adaptador y cambiar SOLO este alias.
+    App\Module\Lookup\Provider\DocumentLookupProviderInterface:
+        alias: App\Module\Lookup\Infrastructure\ApisPeru\ApisPeruClient
+
     App\:
         resource: '../src/'
         exclude:

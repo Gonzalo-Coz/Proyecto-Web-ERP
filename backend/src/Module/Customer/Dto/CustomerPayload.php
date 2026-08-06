@@ -48,6 +48,10 @@ final class CustomerPayload
         public readonly ?string $email = null,
 
         public readonly bool $isActive = true,
+
+        /** Lista de precios asignada (Adición A4); null = predeterminada / precio base. */
+        #[Assert\Positive]
+        public readonly ?int $priceListId = null,
     ) {
     }
 }

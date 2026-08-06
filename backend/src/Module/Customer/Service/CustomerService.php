@@ -7,6 +7,7 @@ namespace App\Module\Customer\Service;
 use App\Module\Customer\Dto\CustomerPayload;
 use App\Module\Customer\Entity\Customer;
 use App\Module\Customer\Repository\CustomerRepository;
+use App\Module\Pricing\Repository\PriceListRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
@@ -20,6 +21,7 @@ final class CustomerService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly CustomerRepository $customerRepository,
+        private readonly PriceListRepository $priceListRepository,
     ) {
     }
 
@@ -58,6 +60,26 @@ final class CustomerService
     public function get(int $id): array
     {
         return $this->toArray($this->find($id));
+    }
+
+    /**
+     * Cliente genérico "Público General" para la boleta simple (venta sin pedir
+     * DNI/RUC). Se busca por documento reservado 00000000; si no existe, se crea.
+     * En el comprobante va como "sin documento" (SUNAT lo permite ≤ S/ 700).
+     */
+    public function ensureGeneric(): array
+    {
+        $existing = $this->customerRepository->findOneByDocument('OTRO', Customer::GENERIC_DOC_NUMBER);
+        if ($existing !== null) {
+            return $this->toArray($existing);
+        }
+
+        $customer = new Customer('OTRO', Customer::GENERIC_DOC_NUMBER, 'Público General');
+        $customer->setActive(true);
+        $this->entityManager->persist($customer);
+        $this->entityManager->flush();
+
+        return $this->toArray($customer);
     }
 
     public function create(CustomerPayload $payload): array
@@ -144,6 +166,9 @@ final class CustomerService
         $customer->setMobile($payload->mobile);
         $customer->setEmail($payload->email);
         $customer->setActive($payload->isActive);
+        $customer->setPriceList(
+            $payload->priceListId !== null ? $this->priceListRepository->find($payload->priceListId) : null,
+        );
     }
 
     public function toArray(Customer $customer): array
@@ -161,6 +186,8 @@ final class CustomerService
             'phone' => $customer->getPhone(),
             'mobile' => $customer->getMobile(),
             'email' => $customer->getEmail(),
+            'priceListId' => $customer->getPriceList()?->getId(),
+            'priceListName' => $customer->getPriceList()?->getName(),
             'isLegalEntity' => $customer->isLegalEntity(),
             'isActive' => $customer->isActive(),
             'createdAt' => $customer->getCreatedAt()?->format(\DateTimeInterface::ATOM),

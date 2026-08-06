@@ -91,6 +91,7 @@ final class RoleService
         $role->setName($payload->name);
         $role->setDescription($payload->description);
         $role->setActive($payload->isActive);
+        $role->setMaxDiscountPercent($payload->maxDiscountPercent);
 
         $role->getPermissions()->clear();
         foreach (array_unique($payload->permissionCodes) as $code) {
@@ -110,6 +111,7 @@ final class RoleService
             'description' => $role->getDescription(),
             'isSuperAdmin' => $role->isSuperAdmin(),
             'isActive' => $role->isActive(),
+            'maxDiscountPercent' => $role->getMaxDiscountPercent(),
             'permissionCodes' => array_map(
                 static fn ($p) => $p->getCode(),
                 $role->getPermissions()->toArray(),

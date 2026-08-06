@@ -55,6 +55,13 @@ final class UnitPayload
         public readonly ?string $location = null,
 
         public readonly ?string $notes = null,
+
+        /** Datos de importación (comprobante de vehículos importados). */
+        #[Assert\Length(max: 40)]
+        public readonly ?string $duaNumber = null,
+
+        #[Assert\Length(max: 10)]
+        public readonly ?string $duaItem = null,
     ) {
     }
 }

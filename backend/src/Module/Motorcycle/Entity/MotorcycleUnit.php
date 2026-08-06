@@ -88,6 +88,13 @@ class MotorcycleUnit implements SoftDeletableInterface
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $notes = null;
 
+    // Datos de importación (obligatorios en el comprobante de venta de vehículos importados).
+    #[ORM\Column(length: 40, nullable: true)]
+    private ?string $duaNumber = null;
+
+    #[ORM\Column(length: 10, nullable: true)]
+    private ?string $duaItem = null;
+
     public function __construct(string $internalCode, string $vin, MotorcycleModel $model, string $color)
     {
         $this->internalCode = strtoupper($internalCode);
@@ -255,6 +262,26 @@ class MotorcycleUnit implements SoftDeletableInterface
     public function setNotes(?string $value): void
     {
         $this->notes = $value;
+    }
+
+    public function getDuaNumber(): ?string
+    {
+        return $this->duaNumber;
+    }
+
+    public function setDuaNumber(?string $value): void
+    {
+        $this->duaNumber = $value !== null && trim($value) !== '' ? trim($value) : null;
+    }
+
+    public function getDuaItem(): ?string
+    {
+        return $this->duaItem;
+    }
+
+    public function setDuaItem(?string $value): void
+    {
+        $this->duaItem = $value !== null && trim($value) !== '' ? trim($value) : null;
     }
 
     public function isSold(): bool

@@ -39,6 +39,26 @@ final class CatalogService
         return $this->toArray($item);
     }
 
+    /**
+     * Resuelve un elemento de catálogo por nombre (case-insensitive) y lo crea si no existe.
+     * Usado por la importación masiva para dar de alta marcas/categorías al vuelo.
+     */
+    public function findOrCreateByName(string $type, string $name): CatalogItem
+    {
+        $name = trim($name);
+        $existing = $this->repository->findOneByTypeAndName($type, $name);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $item = new CatalogItem($type, $name);
+        $item->setActive(true);
+        $this->entityManager->persist($item);
+        $this->entityManager->flush();
+
+        return $item;
+    }
+
     public function update(string $type, int $id, CatalogItemPayload $payload): array
     {
         $item = $this->find($type, $id);

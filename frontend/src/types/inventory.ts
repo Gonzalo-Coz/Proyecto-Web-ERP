@@ -38,6 +38,8 @@ export interface SparePartPayload {
   salePrice: number | null
   location: string | null
   isActive: boolean
+  /** Motivo del cambio de precio de venta (Adición A3); opcional. */
+  priceChangeReason?: string | null
 }
 
 export interface KardexEntry {

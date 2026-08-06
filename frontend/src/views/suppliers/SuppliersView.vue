@@ -7,11 +7,32 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { supplierService } from '@/services/masters'
+import { lookupService } from '@/services/lookup'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
 import type { SupplierItem } from '@/types/masters'
 
 const auth = useAuthStore()
+const toast = useToast()
+const lookingUp = ref(false)
+
+/** Autocompletado por RUC (integración APISPERU). */
+async function autoFillFromRuc(): Promise<void> {
+  lookingUp.value = true
+  try {
+    const c = await lookupService.ruc(form.ruc.trim())
+    form.businessName = c.razonSocial
+    form.tradeName = c.nombreComercial ?? form.tradeName
+    form.address = c.direccion ?? form.address
+    form.city = c.distrito ?? c.provincia ?? form.city
+    toast.success('Datos del RUC cargados.')
+  } catch (error: any) {
+    toast.error(error.response?.data?.message ?? 'No se pudo consultar el RUC.')
+  } finally {
+    lookingUp.value = false
+  }
+}
 
 const columns: TableColumn[] = [
   { key: 'ruc', label: 'RUC', sortable: true },
@@ -161,7 +182,25 @@ onMounted(load)
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
           <FormField label="RUC" required>
-            <input v-model="form.ruc" class="form-input" required maxlength="11" pattern="\d{11}" />
+            <div class="flex gap-2">
+              <input
+                v-model="form.ruc"
+                class="form-input"
+                required
+                maxlength="11"
+                pattern="\d{11}"
+                @keyup.enter.prevent="autoFillFromRuc"
+              />
+              <button
+                type="button"
+                class="btn-secondary shrink-0"
+                :disabled="lookingUp || !form.ruc"
+                title="Consultar RUC en línea"
+                @click="autoFillFromRuc"
+              >
+                {{ lookingUp ? '…' : 'Buscar' }}
+              </button>
+            </div>
           </FormField>
           <FormField label="Nombre Comercial">
             <input v-model="form.tradeName" class="form-input" maxlength="150" />

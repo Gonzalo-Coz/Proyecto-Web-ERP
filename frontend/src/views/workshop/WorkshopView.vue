@@ -1,0 +1,393 @@
+<script setup lang="ts">
+import { onMounted, reactive, ref } from 'vue'
+import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import BaseModal from '@/components/ui/BaseModal.vue'
+import FormField from '@/components/ui/FormField.vue'
+import { workshopService } from '@/services/workshop'
+import { customerService } from '@/services/masters'
+import { unitService } from '@/services/motorcycles'
+import { sparePartService } from '@/services/inventory'
+import { useAuthStore } from '@/stores/auth'
+import type { PageMeta } from '@/types/common'
+import type { CustomerItem } from '@/types/masters'
+import type { UnitItem } from '@/types/motorcycles'
+import type { SparePartItem } from '@/types/inventory'
+import { ORDER_STATUSES, type OrderStatus, type ServiceOrderSummary } from '@/types/workshop'
+
+const auth = useAuthStore()
+
+const STATUS_COLORS: Record<OrderStatus, string> = {
+  RECIBIDA: 'bg-gray-200 text-gray-700',
+  EN_DIAGNOSTICO: 'bg-blue-100 text-blue-800',
+  ESPERANDO_REPUESTOS: 'bg-orange-100 text-orange-800',
+  EN_REPARACION: 'bg-yellow-100 text-yellow-800',
+  LISTA_PARA_ENTREGA: 'bg-teal-100 text-teal-800',
+  ENTREGADA: 'bg-green-100 text-green-800',
+  GARANTIA: 'bg-purple-100 text-purple-800',
+}
+
+const rows = ref<ServiceOrderSummary[]>([])
+const meta = ref<PageMeta | null>(null)
+const loading = ref(false)
+const search = ref('')
+const statusFilter = ref('')
+let debounce: ReturnType<typeof setTimeout> | undefined
+
+const customers = ref<CustomerItem[]>([])
+const units = ref<UnitItem[]>([])
+const spareParts = ref<SparePartItem[]>([])
+
+const modalOpen = ref(false)
+const saving = ref(false)
+const formError = ref('')
+const form = reactive({
+  customerId: 0,
+  motorcycleUnitId: null as number | null,
+  motorcycleDescription: null as string | null,
+  plate: null as string | null,
+  mileage: null as number | null,
+  entryDate: new Date().toISOString().slice(0, 10),
+  estimatedDate: null as string | null,
+  mechanicName: null as string | null,
+  diagnosis: null as string | null,
+  notes: null as string | null,
+})
+
+const detail = ref<ServiceOrderSummary | null>(null)
+const detailError = ref('')
+const itemForm = reactive({
+  itemType: 'LABOR' as 'PART' | 'LABOR',
+  sparePartId: null as number | null,
+  description: '',
+  quantity: 1,
+  unitPrice: 0,
+})
+const newStatus = ref<OrderStatus>('RECIBIDA')
+
+async function load(page = 1): Promise<void> {
+  loading.value = true
+  try {
+    const result = await workshopService.list(page, 10, search.value, statusFilter.value)
+    rows.value = result.data
+    meta.value = result.meta
+  } finally {
+    loading.value = false
+  }
+}
+
+function onSearch(): void {
+  clearTimeout(debounce)
+  debounce = setTimeout(() => load(1), 300)
+}
+
+function openCreate(): void {
+  Object.assign(form, {
+    customerId: customers.value[0]?.id ?? 0,
+    motorcycleUnitId: null,
+    motorcycleDescription: null,
+    plate: null,
+    mileage: null,
+    entryDate: new Date().toISOString().slice(0, 10),
+    estimatedDate: null,
+    mechanicName: null,
+    diagnosis: null,
+    notes: null,
+  })
+  formError.value = ''
+  modalOpen.value = true
+}
+
+async function save(): Promise<void> {
+  saving.value = true
+  formError.value = ''
+  try {
+    const created = await workshopService.create({ ...form })
+    modalOpen.value = false
+    detail.value = created
+    newStatus.value = created.status
+    await load()
+  } catch (e: any) {
+    formError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo crear la orden.'
+  } finally {
+    saving.value = false
+  }
+}
+
+async function openDetail(row: ServiceOrderSummary): Promise<void> {
+  detail.value = await workshopService.get(row.id)
+  newStatus.value = detail.value.status
+  detailError.value = ''
+  Object.assign(itemForm, { itemType: 'LABOR', sparePartId: spareParts.value[0]?.id ?? null, description: '', quantity: 1, unitPrice: 0 })
+}
+
+async function doAddItem(): Promise<void> {
+  if (!detail.value) return
+  detailError.value = ''
+  try {
+    detail.value = await workshopService.addItem(detail.value.id, { ...itemForm })
+    Object.assign(itemForm, { description: '', quantity: 1, unitPrice: 0 })
+    await load(meta.value?.page ?? 1)
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo agregar la línea.'
+  }
+}
+
+async function doRemoveItem(itemId: number): Promise<void> {
+  if (!detail.value) return
+  try {
+    detail.value = await workshopService.removeItem(detail.value.id, itemId)
+    await load(meta.value?.page ?? 1)
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo retirar la línea.'
+  }
+}
+
+async function doChangeStatus(): Promise<void> {
+  if (!detail.value) return
+  detailError.value = ''
+  try {
+    detail.value = await workshopService.changeStatus(detail.value.id, newStatus.value)
+    await load(meta.value?.page ?? 1)
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo cambiar el estado.'
+  }
+}
+
+async function doInvoice(): Promise<void> {
+  if (!detail.value) return
+  detailError.value = ''
+  try {
+    detail.value = await workshopService.invoice(detail.value.id)
+    await load(meta.value?.page ?? 1)
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo facturar la orden.'
+  }
+}
+
+onMounted(async () => {
+  // Los datos del formulario se cargan PRIMERO e independientes: si la lista de
+  // órdenes falla, el formulario de recepción igual tiene clientes/motos/repuestos.
+  try {
+    customers.value = (await customerService.list({ page: 1, perPage: 100, search: '', sort: 'name', direction: 'asc' })).data.filter((c) => c.isActive)
+  } catch { /* no bloquear el formulario */ }
+  try {
+    units.value = (await unitService.list({ page: 1, perPage: 100, search: '', sort: 'internalCode', direction: 'asc' })).data.filter((u) => u.status !== 'BAJA')
+  } catch { units.value = [] }
+  try {
+    spareParts.value = (await sparePartService.list({ page: 1, perPage: 100, search: '', sort: 'description', direction: 'asc' })).data.filter((p) => p.isActive)
+  } catch { spareParts.value = [] }
+  load().catch(() => undefined)
+})
+</script>
+
+<template>
+  <DefaultLayout>
+    <div class="mb-4 flex flex-wrap gap-2">
+      <button
+        v-for="f in ['', ...ORDER_STATUSES]"
+        :key="f"
+        class="rounded-lg px-3 py-1.5 text-sm font-medium transition"
+        :class="statusFilter === f ? 'bg-primary-600 text-white' : 'border border-gray-300 bg-white text-gray-700'"
+        @click="statusFilter = f; load(1)"
+      >
+        {{ f === '' ? 'Todas' : f.replaceAll('_', ' ') }}
+      </button>
+    </div>
+
+    <div class="card p-0">
+      <div class="flex items-center justify-between gap-4 border-b border-gray-200 p-4">
+        <input v-model="search" type="search" class="form-input max-w-xs" placeholder="Buscar por orden, cliente o placa…" @input="onSearch" />
+        <button v-if="auth.can('workshop.orders.create')" class="btn-primary" @click="openCreate">
+          Recepcionar motocicleta
+        </button>
+      </div>
+      <table class="w-full text-left text-sm">
+        <thead class="bg-gray-50 text-xs uppercase text-gray-500">
+          <tr>
+            <th class="px-4 py-3">Orden</th>
+            <th class="px-4 py-3">Cliente</th>
+            <th class="px-4 py-3">Motocicleta</th>
+            <th class="px-4 py-3">Mecánico</th>
+            <th class="px-4 py-3 text-right">Total</th>
+            <th class="px-4 py-3">Estado</th>
+            <th class="px-4 py-3 text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="loading"><td colspan="7" class="px-4 py-8 text-center text-gray-400">Cargando…</td></tr>
+          <tr v-else-if="rows.length === 0"><td colspan="7" class="px-4 py-8 text-center text-gray-400">Sin órdenes.</td></tr>
+          <tr v-for="o in rows" v-else :key="o.id" class="border-t border-gray-100 hover:bg-gray-50">
+            <td class="px-4 py-3 font-medium">{{ o.orderNumber }}</td>
+            <td class="px-4 py-3">{{ o.customerName }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ o.motorcycleLabel }} <span v-if="o.plate" class="text-xs text-gray-400">({{ o.plate }})</span></td>
+            <td class="px-4 py-3 text-gray-500">{{ o.mechanicName ?? '—' }}</td>
+            <td class="px-4 py-3 text-right">S/ {{ o.total }}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium" :class="STATUS_COLORS[o.status]">
+                {{ o.status.replaceAll('_', ' ') }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-right"><button class="btn-secondary" @click="openDetail(o)">Ver</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="meta && meta.totalPages > 1" class="flex justify-end gap-2 border-t border-gray-200 p-3">
+        <button class="btn-secondary" :disabled="meta.page <= 1" @click="load(meta.page - 1)">Anterior</button>
+        <button class="btn-secondary" :disabled="meta.page >= meta.totalPages" @click="load(meta.page + 1)">Siguiente</button>
+      </div>
+    </div>
+
+    <!-- Recepción -->
+    <BaseModal :open="modalOpen" title="Recepción de motocicleta" @close="modalOpen = false">
+      <form class="space-y-4" @submit.prevent="save">
+        <FormField label="Cliente" required>
+          <select v-model.number="form.customerId" class="form-input" required>
+            <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.documentNumber }})</option>
+          </select>
+        </FormField>
+        <FormField label="Unidad vendida por la empresa (expediente digital)">
+          <select v-model.number="form.motorcycleUnitId" class="form-input">
+            <option :value="null">— Motocicleta externa —</option>
+            <option v-for="u in units" :key="u.id" :value="u.id">{{ u.internalCode }} — {{ u.modelName }} ({{ u.vin }})</option>
+          </select>
+        </FormField>
+        <div v-if="form.motorcycleUnitId === null" class="grid grid-cols-3 gap-4">
+          <div class="col-span-2">
+            <FormField label="Descripción de la motocicleta" required>
+              <input v-model="form.motorcycleDescription" class="form-input" required maxlength="200" placeholder="Honda CB190R 2022 roja" />
+            </FormField>
+          </div>
+          <FormField label="Placa">
+            <input v-model="form.plate" class="form-input uppercase" maxlength="10" />
+          </FormField>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <FormField label="Kilometraje">
+            <input v-model.number="form.mileage" type="number" min="0" class="form-input" />
+          </FormField>
+          <FormField label="Fecha de ingreso" required>
+            <input v-model="form.entryDate" type="date" class="form-input" required />
+          </FormField>
+          <FormField label="Fecha estimada">
+            <input v-model="form.estimatedDate" type="date" class="form-input" />
+          </FormField>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Mecánico asignado">
+            <input v-model="form.mechanicName" class="form-input" maxlength="100" />
+          </FormField>
+          <FormField label="Diagnóstico inicial">
+            <input v-model="form.diagnosis" class="form-input" />
+          </FormField>
+        </div>
+        <FormField label="Observaciones">
+          <input v-model="form.notes" class="form-input" />
+        </FormField>
+        <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" class="btn-secondary" @click="modalOpen = false">Cancelar</button>
+          <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Guardando…' : 'Crear orden' }}</button>
+        </div>
+      </form>
+    </BaseModal>
+
+    <!-- Detalle -->
+    <BaseModal :open="detail !== null" :title="`${detail?.orderNumber} — ${detail?.customerName}`" size="xl" @close="detail = null">
+      <div v-if="detail" class="space-y-4 text-sm">
+        <div class="grid grid-cols-2 gap-2 text-gray-600">
+          <p>Motocicleta: <strong class="text-gray-900">{{ detail.motorcycleLabel }}</strong></p>
+          <p>Kilometraje: <strong class="text-gray-900">{{ detail.mileage ?? '—' }}</strong></p>
+          <p>Ingreso: <strong class="text-gray-900">{{ detail.entryDate }}</strong></p>
+          <p>Estimada: <strong class="text-gray-900">{{ detail.estimatedDate ?? '—' }}</strong></p>
+          <p>Mecánico: <strong class="text-gray-900">{{ detail.mechanicName ?? '—' }}</strong></p>
+          <p>Diagnóstico: <strong class="text-gray-900">{{ detail.diagnosis ?? '—' }}</strong></p>
+        </div>
+
+        <!-- Estado -->
+        <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="flex items-end gap-2 rounded-lg bg-gray-50 p-3">
+          <div class="flex-1">
+            <label class="form-label text-xs">Estado de la orden</label>
+            <select v-model="newStatus" class="form-input">
+              <option v-for="s in ORDER_STATUSES" :key="s" :value="s">{{ s.replaceAll('_', ' ') }}</option>
+            </select>
+          </div>
+          <button class="btn-primary" @click="doChangeStatus">Actualizar</button>
+        </div>
+
+        <!-- Items -->
+        <table class="w-full text-left">
+          <thead class="text-xs uppercase text-gray-500">
+            <tr><th class="py-1">Tipo</th><th class="py-1">Descripción</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Total</th><th /></tr>
+          </thead>
+          <tbody>
+            <tr v-if="!detail.items?.length"><td colspan="6" class="py-3 text-center text-gray-400">Sin trabajos registrados.</td></tr>
+            <tr v-for="i in detail.items" :key="i.id" class="border-t border-gray-100">
+              <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
+              <td class="py-1">{{ i.description }}</td>
+              <td class="py-1 text-right">{{ i.quantity }}</td>
+              <td class="py-1 text-right">{{ i.unitPrice }}</td>
+              <td class="py-1 text-right">{{ i.lineTotal }}</td>
+              <td class="py-1 text-right">
+                <button
+                  v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt"
+                  class="text-xs text-red-600 hover:underline"
+                  @click="doRemoveItem(i.id)"
+                >
+                  Retirar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="text-right">Total de la orden: <strong>S/ {{ detail.total }}</strong></p>
+
+        <!-- Agregar item -->
+        <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="rounded-lg border border-gray-200 p-3">
+          <p class="mb-2 text-xs font-semibold uppercase text-gray-500">Agregar trabajo o repuesto</p>
+          <div class="grid grid-cols-12 items-end gap-2">
+            <div class="col-span-2">
+              <label class="form-label text-xs">Tipo</label>
+              <select v-model="itemForm.itemType" class="form-input">
+                <option value="LABOR">Mano de obra</option>
+                <option value="PART">Repuesto</option>
+              </select>
+            </div>
+            <div class="col-span-5">
+              <label class="form-label text-xs">{{ itemForm.itemType === 'PART' ? 'Repuesto (descuenta stock)' : 'Descripción' }}</label>
+              <select v-if="itemForm.itemType === 'PART'" v-model.number="itemForm.sparePartId" class="form-input">
+                <option v-for="p in spareParts" :key="p.id" :value="p.id">{{ p.internalCode }} — {{ p.description }} (stock {{ p.stock }})</option>
+              </select>
+              <input v-else v-model="itemForm.description" class="form-input" placeholder="Cambio de aceite y filtro" />
+            </div>
+            <div class="col-span-2">
+              <label class="form-label text-xs">Cant.</label>
+              <input v-model.number="itemForm.quantity" type="number" min="1" class="form-input" />
+            </div>
+            <div class="col-span-2">
+              <label class="form-label text-xs">P. Unit.</label>
+              <input v-model.number="itemForm.unitPrice" type="number" step="0.01" min="0" class="form-input" />
+            </div>
+            <div class="col-span-1">
+              <button class="btn-primary !px-3" @click="doAddItem">+</button>
+            </div>
+          </div>
+        </div>
+
+        <p v-if="detailError" class="text-sm text-red-600">{{ detailError }}</p>
+
+        <div class="flex justify-end gap-2 border-t border-gray-200 pt-3">
+          <span v-if="detail.invoiceSaleId" class="rounded-full bg-green-100 px-3 py-1 text-xs text-green-800">
+            Facturada (venta #{{ detail.invoiceSaleId }})
+          </span>
+          <button
+            v-if="auth.can('workshop.orders.approve') && !detail.invoiceSaleId && (detail.items?.length ?? 0) > 0"
+            class="btn-primary"
+            @click="doInvoice"
+          >
+            Facturar orden
+          </button>
+        </div>
+      </div>
+    </BaseModal>
+  </DefaultLayout>
+</template>

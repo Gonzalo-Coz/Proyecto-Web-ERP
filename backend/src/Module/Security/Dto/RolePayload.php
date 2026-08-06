@@ -24,6 +24,10 @@ final class RolePayload
         public readonly array $permissionCodes = [],
 
         public readonly bool $isActive = true,
+
+        /** Límite de descuento (%) del rol; null = sin límite (Adición A2). */
+        #[Assert\Range(notInRangeMessage: 'El límite de descuento debe estar entre 0 y 100.', min: 0, max: 100)]
+        public readonly ?float $maxDiscountPercent = null,
     ) {
     }
 }

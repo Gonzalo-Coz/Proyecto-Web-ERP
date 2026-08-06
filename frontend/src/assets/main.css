@@ -2,25 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   YIGM ERP · Design System v2
+   Identidad: azul profundo · fondos claros · alto contraste
+   Tipografía: Inter · pensada para jornadas largas
+   ============================================================ */
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-slate-100 font-sans text-slate-800;
+  }
+
+  ::selection {
+    @apply bg-primary-200 text-primary-950;
+  }
+
+  /* Accesibilidad: foco visible consistente al navegar con teclado */
+  :focus-visible {
+    @apply outline-none ring-2 ring-primary-500 ring-offset-2;
+  }
+}
+
 @layer components {
-  /* Clases base reutilizables para mantener una interfaz homogénea (§5) */
+  /* ---------- Botones ---------- */
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition
+      hover:bg-primary-700 active:scale-[0.98]
+      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+      disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm transition
+      hover:border-primary-300 hover:bg-primary-50 hover:text-primary-800 active:scale-[0.98]
+      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+      disabled:cursor-not-allowed disabled:opacity-50;
   }
 
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-3.5 py-2 text-sm font-medium text-red-600 shadow-sm transition
+      hover:border-red-300 hover:bg-red-50 active:scale-[0.98]
+      focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-500 transition
+      hover:bg-slate-100 hover:text-slate-800
+      focus:outline-none focus:ring-2 focus:ring-primary-500;
+  }
+
+  /* ---------- Formularios ---------- */
   .form-input {
-    @apply block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500;
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm transition
+      placeholder:text-slate-400
+      hover:border-slate-400
+      focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-100
+      disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500;
   }
 
   .form-label {
-    @apply mb-1 block text-sm font-medium text-gray-700;
+    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500;
   }
 
+  /* ---------- Superficies ---------- */
   .card {
-    @apply rounded-xl border border-gray-200 bg-white p-6 shadow-sm;
+    @apply rounded-xl border border-slate-200/80 bg-white p-6 shadow-card;
+  }
+
+  /* KPI del dashboard: cifra protagonista */
+  .card > p:first-child + p {
+    @apply tabular-nums;
+  }
+
+  /* ---------- Tablas (global: cubre todos los módulos) ---------- */
+  table {
+    @apply w-full border-collapse;
+  }
+
+  thead {
+    @apply bg-slate-50/80;
+  }
+
+  thead th {
+    @apply text-[11px] font-bold uppercase tracking-wider text-slate-500;
+  }
+
+  tbody td {
+    @apply tabular-nums;
+  }
+
+  tbody tr {
+    @apply transition-colors;
+  }
+
+  tbody tr:hover {
+    @apply bg-primary-50/50;
+  }
+
+  /* ---------- Chips de estado con indicador ---------- */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+
+  .chip::before {
+    content: '';
+    @apply h-1.5 w-1.5 rounded-full bg-current opacity-70;
+  }
+}
+
+@layer utilities {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.slate.300') transparent;
   }
 }

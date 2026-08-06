@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Shared\Auditing\EventListener;
 
 use App\Shared\Auditing\Entity\AuditLog;
+use App\Shared\Pricing\Entity\PriceHistoryEntry;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Event\PostFlushEventArgs;
@@ -108,7 +109,9 @@ final class AuditListener
 
     private function isIgnored(object $entity): bool
     {
-        return $entity instanceof AuditLog;
+        // AuditLog: evita recursión. PriceHistoryEntry: ya es su propia bitácora
+        // de precios (Adición A3), auditarla de nuevo sería ruido redundante.
+        return $entity instanceof AuditLog || $entity instanceof PriceHistoryEntry;
     }
 
     /**

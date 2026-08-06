@@ -1,0 +1,25 @@
+server {
+    listen ${PORT};
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    client_max_body_size 20M;
+
+    # La API y los archivos subidos se proxyan al backend (evita CORS).
+    # BACKEND_URL = URL pública del servicio backend en Railway (sin barra final).
+    location /api/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /uploads/ {
+        proxy_pass ${BACKEND_URL};
+        proxy_set_header Host $host;
+    }
+
+    # SPA: cualquier ruta cae en index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

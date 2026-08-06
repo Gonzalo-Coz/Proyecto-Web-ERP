@@ -30,6 +30,7 @@ export interface RoleItem {
   description: string | null
   isSuperAdmin: boolean
   isActive: boolean
+  maxDiscountPercent: number | null
   permissionCodes: string[]
 }
 
@@ -39,6 +40,7 @@ export interface RolePayload {
   description: string | null
   permissionCodes: string[]
   isActive: boolean
+  maxDiscountPercent?: number | null
 }
 
 export interface PermissionItem {

@@ -6,12 +6,50 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
+import UbigeoSelect from '@/components/ui/UbigeoSelect.vue'
+import ImportModal from '@/components/ui/ImportModal.vue'
 import { customerService } from '@/services/masters'
+import { pricingService } from '@/services/pricing'
+import { lookupService } from '@/services/lookup'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
+import type { PriceListItem } from '@/types/pricing'
 import { DOCUMENT_TYPES, type CustomerItem } from '@/types/masters'
 
 const auth = useAuthStore()
+const toast = useToast()
+const lookingUp = ref(false)
+
+/** Autocompletado por DNI/RUC (integración APISPERU) sobre el formulario. */
+async function autoFillFromDocument(): Promise<void> {
+  const doc = form.documentNumber.trim()
+  if (form.documentType !== 'DNI' && form.documentType !== 'RUC') {
+    toast.info('La consulta automática solo aplica a DNI y RUC.')
+    return
+  }
+  lookingUp.value = true
+  try {
+    if (form.documentType === 'DNI') {
+      const p = await lookupService.dni(doc)
+      form.name = p.nombreCompleto
+      toast.success('Datos del DNI cargados.')
+    } else {
+      const c = await lookupService.ruc(doc)
+      form.name = c.razonSocial
+      form.tradeName = c.nombreComercial ?? form.tradeName
+      form.address = c.direccion ?? form.address
+      form.district = c.distrito ?? form.district
+      form.province = c.provincia ?? form.province
+      form.department = c.departamento ?? form.department
+      toast.success('Datos del RUC cargados.')
+    }
+  } catch (error: any) {
+    toast.error(error.response?.data?.message ?? 'No se pudo consultar el documento.')
+  } finally {
+    lookingUp.value = false
+  }
+}
 
 const columns: TableColumn[] = [
   { key: 'documentNumber', label: 'Documento', sortable: true },
@@ -40,11 +78,12 @@ const emptyForm = {
   province: null as string | null,
   department: null as string | null,
   phone: null as string | null,
-  mobile: null as string | null,
   email: null as string | null,
+  priceListId: null as number | null,
   isActive: true,
 }
 const form = reactive({ ...emptyForm })
+const priceLists = ref<PriceListItem[]>([])
 
 const confirmTarget = ref<CustomerItem | null>(null)
 
@@ -78,7 +117,7 @@ function openCreate(): void {
 
 function openEdit(customer: CustomerItem): void {
   editing.value = customer
-  const { id, isLegalEntity, createdAt, ...payload } = customer
+  const { id, isLegalEntity, createdAt, priceListName, mobile, ...payload } = customer
   Object.assign(form, payload)
   formError.value = ''
   modalOpen.value = true
@@ -113,7 +152,16 @@ async function confirmDelete(): Promise<void> {
   }
 }
 
-onMounted(load)
+const importOpen = ref(false)
+
+onMounted(async () => {
+  await load()
+  try {
+    priceLists.value = (await pricingService.listPriceLists({ perPage: 100 })).data.filter((l) => l.isActive)
+  } catch {
+    priceLists.value = []
+  }
+})
 </script>
 
 <template>
@@ -127,6 +175,9 @@ onMounted(load)
       @change="onTableChange"
     >
       <template #toolbar>
+        <button v-if="auth.can('customers.list.create')" class="btn-secondary" @click="importOpen = true">
+          Importar Excel
+        </button>
         <button v-if="auth.can('customers.list.create')" class="btn-primary" @click="openCreate">
           Nuevo cliente
         </button>
@@ -174,7 +225,24 @@ onMounted(load)
             </select>
           </FormField>
           <FormField label="Número de documento" required>
-            <input v-model="form.documentNumber" class="form-input" required maxlength="20" />
+            <div class="flex gap-2">
+              <input
+                v-model="form.documentNumber"
+                class="form-input"
+                required
+                maxlength="20"
+                @keyup.enter.prevent="autoFillFromDocument"
+              />
+              <button
+                type="button"
+                class="btn-secondary shrink-0"
+                :disabled="lookingUp || !form.documentNumber"
+                :title="`Consultar ${form.documentType} en línea`"
+                @click="autoFillFromDocument"
+              >
+                {{ lookingUp ? '…' : 'Buscar' }}
+              </button>
+            </div>
           </FormField>
         </div>
 
@@ -193,29 +261,28 @@ onMounted(load)
           <input v-model="form.address" class="form-input" maxlength="200" />
         </FormField>
 
-        <div class="grid grid-cols-3 gap-4">
-          <FormField label="Distrito">
-            <input v-model="form.district" class="form-input" maxlength="100" />
-          </FormField>
-          <FormField label="Provincia">
-            <input v-model="form.province" class="form-input" maxlength="100" />
-          </FormField>
-          <FormField label="Departamento">
-            <input v-model="form.department" class="form-input" maxlength="100" />
-          </FormField>
-        </div>
+        <UbigeoSelect
+          v-model:department="form.department"
+          v-model:province="form.province"
+          v-model:district="form.district"
+        />
 
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Teléfono">
             <input v-model="form.phone" class="form-input" maxlength="20" />
           </FormField>
-          <FormField label="Celular">
-            <input v-model="form.mobile" class="form-input" maxlength="20" />
+          <FormField label="Correo electrónico">
+            <input v-model="form.email" type="email" class="form-input" maxlength="150" />
           </FormField>
         </div>
 
-        <FormField label="Correo electrónico">
-          <input v-model="form.email" type="email" class="form-input" maxlength="150" />
+        <FormField label="Lista de precios">
+          <select v-model="form.priceListId" class="form-input">
+            <option :value="null">Predeterminada / precio base</option>
+            <option v-for="pl in priceLists" :key="pl.id" :value="pl.id">
+              {{ pl.name }}<template v-if="pl.isDefault"> (predeterminada)</template>
+            </option>
+          </select>
         </FormField>
 
         <label class="flex items-center gap-2 text-sm text-gray-700">
@@ -243,5 +310,24 @@ onMounted(load)
       @confirm="confirmDelete"
       @cancel="confirmTarget = null"
     />
+
+    <ImportModal
+      :open="importOpen"
+      title="Importar clientes desde Excel/CSV"
+      code-header="Documento"
+      :download="customerService.downloadImportTemplate"
+      :run="customerService.importFile"
+      @close="importOpen = false"
+      @imported="load"
+    >
+      <template #help>
+        <p class="text-xs">
+          Columnas: Tipo de Documento · Número de Documento · Nombre o Razón Social · Nombre Comercial ·
+          Dirección · Distrito · Provincia · Departamento · Teléfono · Email · Activo. La clave para crear o
+          actualizar es el <strong>número de documento</strong>. Si dejas el tipo vacío, se infiere del número
+          (8 dígitos → DNI, 11 → RUC).
+        </p>
+      </template>
+    </ImportModal>
   </DefaultLayout>
 </template>
