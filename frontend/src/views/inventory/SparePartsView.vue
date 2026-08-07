@@ -11,6 +11,9 @@ import api from '@/services/api'
 import { sparePartService, type ImportResult } from '@/services/inventory'
 import { modelService } from '@/services/motorcycles'
 import { catalogService } from '@/services/catalogs'
+import { supplierService } from '@/services/masters'
+import { purchaseService } from '@/services/purchases'
+import type { SupplierItem } from '@/types/masters'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
@@ -68,6 +71,12 @@ const priceCurrency = ref<'PEN' | 'USD'>('PEN')
 const dayRate = ref<number | null>(null)
 const toSoles = (v: number | null): number | null =>
   v !== null && priceCurrency.value === 'USD' && dayRate.value ? Math.round(v * dayRate.value * 100) / 100 : v
+
+/** Registrar también como compra (ingresa stock y costo). */
+const suppliers = ref<SupplierItem[]>([])
+const regPurchase = ref(true)
+const regSupplierId = ref<number | null>(null)
+const regQty = ref(1)
 const confirmTarget = ref<SparePartItem | null>(null)
 
 // Kardex y ajuste
@@ -183,11 +192,25 @@ async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
-    const payload = { ...form, purchasePrice: toSoles(form.purchasePrice), salePrice: toSoles(form.salePrice) }
+    const cost = toSoles(form.purchasePrice)
+    const payload = { ...form, purchasePrice: cost, salePrice: toSoles(form.salePrice) }
     if (editing.value) {
       await sparePartService.update(editing.value.id, payload)
     } else {
-      await sparePartService.create(payload)
+      const created = await sparePartService.create(payload)
+      // Registrar automáticamente como compra (ingresa stock + costo).
+      if (regPurchase.value && regSupplierId.value) {
+        await purchaseService.create({
+          supplierId: regSupplierId.value,
+          purchaseDate: new Date().toISOString().slice(0, 10),
+          documentType: 'OTRO',
+          items: [{ itemType: 'SPARE_PART', sparePartId: created.id, motorcycleUnitId: null, quantity: regQty.value, unitPrice: cost ?? 0, discount: 0 }],
+          series: null,
+          documentNumber: null,
+          paymentMethodId: null,
+          notes: 'Ingreso al crear repuesto',
+        })
+      }
     }
     modalOpen.value = false
     await load()
@@ -240,6 +263,12 @@ onMounted(async () => {
     dayRate.value = (await api.get('/exchange-rate')).data.sell
   } catch {
     dayRate.value = null
+  }
+  try {
+    suppliers.value = (await supplierService.list({ page: 1, perPage: 100, search: '', sort: 'businessName', direction: 'asc' })).data.filter((s) => s.isActive)
+    regSupplierId.value = suppliers.value[0]?.id ?? null
+  } catch {
+    suppliers.value = []
   }
   brands.value = (await catalogService.list('brands')).filter((b) => b.isActive)
   categories.value = (await catalogService.list('categories')).filter((c) => c.isActive)
@@ -367,6 +396,24 @@ onMounted(async () => {
             </select>
           </FormField>
         </div>
+        <!-- Registrar como compra (solo al crear): ingresa stock + costo -->
+        <div v-if="!editing" class="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input v-model="regPurchase" type="checkbox" />
+            Registrar también como compra (ingresa stock y costo)
+          </label>
+          <div v-if="regPurchase" class="mt-3 grid grid-cols-2 gap-4">
+            <FormField label="Proveedor">
+              <select v-model.number="regSupplierId" class="form-input">
+                <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.businessName }}</option>
+              </select>
+            </FormField>
+            <FormField label="Cantidad que ingresa">
+              <input v-model.number="regQty" type="number" min="1" class="form-input" />
+            </FormField>
+          </div>
+        </div>
+
         <FormField v-if="salePriceChanged" label="Motivo del cambio de precio">
           <input
             v-model="form.priceChangeReason"

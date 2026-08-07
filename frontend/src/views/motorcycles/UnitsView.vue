@@ -8,6 +8,9 @@ import FormField from '@/components/ui/FormField.vue'
 import ImportModal from '@/components/ui/ImportModal.vue'
 import api from '@/services/api'
 import { modelService, unitService } from '@/services/motorcycles'
+import { supplierService } from '@/services/masters'
+import { purchaseService } from '@/services/purchases'
+import type { SupplierItem } from '@/types/masters'
 import { useAuthStore } from '@/stores/auth'
 import type { PageMeta, TableColumn } from '@/types/common'
 import type { ModelItem, UnitItem, UnitStatus } from '@/types/motorcycles'
@@ -135,15 +138,33 @@ const dayRate = ref<number | null>(null)
 const toSoles = (v: number | null): number | null =>
   v !== null && priceCurrency.value === 'USD' && dayRate.value ? Math.round(v * dayRate.value * 100) / 100 : v
 
+/** Registrar también como compra (ingresa la unidad al inventario con su costo). */
+const suppliers = ref<SupplierItem[]>([])
+const regPurchase = ref(true)
+const regSupplierId = ref<number | null>(null)
+
 async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
-    const payload = { ...form, purchasePrice: toSoles(form.purchasePrice), salePrice: toSoles(form.salePrice) }
+    const cost = toSoles(form.purchasePrice)
+    const payload = { ...form, purchasePrice: cost, salePrice: toSoles(form.salePrice) }
     if (editing.value) {
       await unitService.update(editing.value.id, payload)
     } else {
-      await unitService.create(payload)
+      const created = await unitService.create(payload)
+      if (regPurchase.value && regSupplierId.value) {
+        await purchaseService.create({
+          supplierId: regSupplierId.value,
+          purchaseDate: new Date().toISOString().slice(0, 10),
+          documentType: 'OTRO',
+          items: [{ itemType: 'MOTORCYCLE_UNIT', sparePartId: null, motorcycleUnitId: created.id, quantity: 1, unitPrice: cost ?? 0, discount: 0 }],
+          series: null,
+          documentNumber: null,
+          paymentMethodId: null,
+          notes: 'Ingreso al crear unidad',
+        })
+      }
     }
     modalOpen.value = false
     await load()
@@ -184,6 +205,12 @@ onMounted(async () => {
     dayRate.value = (await api.get('/exchange-rate')).data.sell
   } catch {
     dayRate.value = null
+  }
+  try {
+    suppliers.value = (await supplierService.list({ page: 1, perPage: 100, search: '', sort: 'businessName', direction: 'asc' })).data.filter((s) => s.isActive)
+    regSupplierId.value = suppliers.value[0]?.id ?? null
+  } catch {
+    suppliers.value = []
   }
   const modelsResult = await modelService.list({ page: 1, perPage: 100, search: '', sort: 'model', direction: 'asc' })
   models.value = modelsResult.data.filter((m) => m.isActive)
@@ -330,6 +357,19 @@ onMounted(async () => {
             <input v-model="form.duaItem" class="form-input" maxlength="10" placeholder="34" />
           </FormField>
         </div>
+        <!-- Registrar como compra (solo al crear): ingresa la unidad con su costo -->
+        <div v-if="!editing" class="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+          <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
+            <input v-model="regPurchase" type="checkbox" />
+            Registrar también como compra (ingreso con costo)
+          </label>
+          <FormField v-if="regPurchase" label="Proveedor" class="mt-3">
+            <select v-model.number="regSupplierId" class="form-input">
+              <option v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.businessName }}</option>
+            </select>
+          </FormField>
+        </div>
+
         <FormField label="Observaciones">
           <input v-model="form.notes" class="form-input" />
         </FormField>
