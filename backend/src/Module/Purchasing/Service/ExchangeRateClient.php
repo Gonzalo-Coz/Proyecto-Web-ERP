@@ -29,16 +29,25 @@ final class ExchangeRateClient
     ) {
     }
 
-    /** Devuelve el tipo de cambio VENTA para la fecha (YYYY-MM-DD) o null. */
+    /** Compatibilidad: solo el tipo de cambio VENTA. */
     public function saleRate(string $date): ?float
+    {
+        return $this->rates($date)['sell'] ?? null;
+    }
+
+    /**
+     * Tipo de cambio SUNAT (compra y venta) para la fecha, o null si no disponible.
+     *
+     * @return array{buy: ?float, sell: float, date: string}|null
+     */
+    public function rates(string $date): ?array
     {
         if ($this->token === null || $this->token === '' || !\function_exists('curl_init')) {
             return null;
         }
 
-        $base = $this->baseUrl !== null && $this->baseUrl !== '' ? rtrim($this->baseUrl, '/') : 'https://api.apis.net.pe';
+        $base = $this->baseUrl !== null && $this->baseUrl !== '' ? rtrim($this->baseUrl, '/') : 'https://api.decolecta.com';
         // Decolecta: /v1/tipo-cambio/sunat (Bearer token) → devuelve el T.C. del día.
-        // El plan gratuito entrega el del día; para una fecha específica se agrega ?date=.
         $url = sprintf('%s/v1/tipo-cambio/sunat', $base);
         if ($date !== '' && $date !== date('Y-m-d')) {
             $url .= '?date='.rawurlencode($date);
@@ -69,19 +78,23 @@ final class ExchangeRateClient
 
             return null;
         }
-        // Si viene como lista de objetos, toma el primero.
         if (array_is_list($data) && isset($data[0]) && is_array($data[0])) {
             $data = $data[0];
         }
-        // Decolecta usa "sell_price"; se admiten otras variantes por compatibilidad.
-        $rate = $data['sell_price'] ?? $data['precio_venta'] ?? $data['venta'] ?? $data['sale'] ?? $data['selling'] ?? null;
 
-        if ($rate === null || (float) $rate <= 0) {
+        $sell = $data['sell_price'] ?? $data['precio_venta'] ?? $data['venta'] ?? $data['sale'] ?? null;
+        $buy = $data['buy_price'] ?? $data['precio_compra'] ?? $data['compra'] ?? $data['buy'] ?? null;
+
+        if ($sell === null || (float) $sell <= 0) {
             $this->logger->warning('Tipo de cambio: campo de venta no encontrado', ['keys' => implode(',', array_keys($data))]);
 
             return null;
         }
 
-        return round((float) $rate, 3);
+        return [
+            'buy' => $buy !== null && (float) $buy > 0 ? round((float) $buy, 3) : null,
+            'sell' => round((float) $sell, 3),
+            'date' => (string) ($data['date'] ?? $date),
+        ];
     }
 }

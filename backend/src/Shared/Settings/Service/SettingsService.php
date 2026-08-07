@@ -35,6 +35,7 @@ final class SettingsService
         'tax.igv_rate' => '18',
         // Tipo de cambio del día (SUNAT) y su fecha; se autocompleta o se edita manual.
         'tax.exchange_rate' => '',
+        'tax.exchange_rate_buy' => '',
         'tax.exchange_rate_date' => '',
         'sales.reservation_days' => '7',
     ];

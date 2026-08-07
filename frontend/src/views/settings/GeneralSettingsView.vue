@@ -55,16 +55,18 @@ async function load(): Promise<void> {
 }
 
 /* ===== Tipo de cambio del día (SUNAT) ===== */
-const ex = reactive({ rate: null as number | null, date: '', source: '', stale: false })
+const ex = reactive({ sell: null as number | null, buy: null as number | null, date: '', source: '', stale: false })
 const exLoading = ref(false)
-const exManual = ref<number | null>(null)
+const exManualSell = ref<number | null>(null)
+const exManualBuy = ref<number | null>(null)
 
 async function loadRate(): Promise<void> {
   exLoading.value = true
   try {
     const { data } = await api.get('/exchange-rate')
     Object.assign(ex, data)
-    exManual.value = data.rate
+    exManualSell.value = data.sell
+    exManualBuy.value = data.buy
   } catch {
     /* queda editable manual */
   } finally {
@@ -73,11 +75,12 @@ async function loadRate(): Promise<void> {
 }
 
 async function saveRate(): Promise<void> {
-  if (!exManual.value || exManual.value <= 0) return
+  if (!exManualSell.value || exManualSell.value <= 0) return
   exLoading.value = true
   try {
-    const { data } = await api.put('/exchange-rate', { rate: exManual.value })
+    const { data } = await api.put('/exchange-rate', { sell: exManualSell.value, buy: exManualBuy.value })
     Object.assign(ex, data)
+    exManualBuy.value = data.buy
     message.value = 'Tipo de cambio guardado.'
   } catch (e: any) {
     errorMsg.value = e.response?.data?.detail ?? 'No se pudo guardar el tipo de cambio.'
@@ -223,26 +226,35 @@ onMounted(() => {
               {{ exLoading ? 'Consultando…' : 'Actualizar de SUNAT' }}
             </button>
           </div>
-          <div class="flex flex-wrap items-end gap-4">
-            <div>
-              <p class="text-3xl font-bold text-gray-900">S/ {{ ex.rate ? Number(ex.rate).toFixed(3) : '—' }}</p>
-              <p class="text-xs text-gray-500">
-                por US$ 1
-                <template v-if="ex.date"> · {{ ex.date }}</template>
-                <span
-                  class="ml-1 font-medium"
-                  :class="ex.source === 'sunat' || ex.source === 'guardado' ? 'text-green-600' : ex.stale ? 'text-amber-600' : 'text-gray-400'"
-                >
-                  ({{ ex.source === 'sunat' ? 'SUNAT hoy' : ex.source === 'guardado' ? 'guardado hoy' : ex.source === 'manual' ? 'manual' : ex.stale ? 'no es de hoy — revisar' : 'sin datos' }})
-                </span>
-              </p>
-            </div>
-            <FormField v-if="canEdit" label="Ajustar manualmente (S/ por US$)">
-              <div class="flex gap-2">
-                <input v-model.number="exManual" type="number" step="0.001" min="0" class="form-input w-32" />
-                <button type="button" class="btn-secondary" :disabled="exLoading" @click="saveRate">Guardar</button>
+          <div class="flex flex-wrap items-end gap-6">
+            <div class="flex gap-6">
+              <div>
+                <p class="text-xs font-medium uppercase text-gray-400">Compra</p>
+                <p class="text-2xl font-bold text-gray-700">S/ {{ ex.buy ? Number(ex.buy).toFixed(3) : '—' }}</p>
               </div>
+              <div>
+                <p class="text-xs font-medium uppercase text-gray-400">Venta</p>
+                <p class="text-2xl font-bold text-gray-900">S/ {{ ex.sell ? Number(ex.sell).toFixed(3) : '—' }}</p>
+              </div>
+            </div>
+            <div class="text-xs text-gray-500">
+              por US$ 1<template v-if="ex.date"> · {{ ex.date }}</template><br />
+              <span
+                class="font-medium"
+                :class="ex.source === 'sunat' || ex.source === 'guardado' ? 'text-green-600' : ex.stale ? 'text-amber-600' : 'text-gray-400'"
+              >
+                {{ ex.source === 'sunat' ? 'SUNAT hoy' : ex.source === 'guardado' ? 'guardado hoy' : ex.source === 'manual' ? 'manual' : ex.stale ? 'no es de hoy — revisar' : 'sin datos' }}
+              </span>
+            </div>
+          </div>
+          <div v-if="canEdit" class="mt-3 flex flex-wrap items-end gap-3">
+            <FormField label="Compra (S/)">
+              <input v-model.number="exManualBuy" type="number" step="0.001" min="0" class="form-input w-28" />
             </FormField>
+            <FormField label="Venta (S/)">
+              <input v-model.number="exManualSell" type="number" step="0.001" min="0" class="form-input w-28" />
+            </FormField>
+            <button type="button" class="btn-secondary" :disabled="exLoading" @click="saveRate">Guardar manual</button>
           </div>
           <p class="mt-2 text-xs text-gray-400">
             Se usa para convertir compras/ventas en dólares a soles. Se intenta traer de SUNAT automáticamente; si no está disponible, ingrésalo manual.

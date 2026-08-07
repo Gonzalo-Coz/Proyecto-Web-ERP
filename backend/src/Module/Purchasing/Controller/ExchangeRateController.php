@@ -33,56 +33,61 @@ final class ExchangeRateController
     {
         $today = date('Y-m-d');
         $stored = (string) $this->settings->get('tax.exchange_rate');
+        $storedBuy = (string) $this->settings->get('tax.exchange_rate_buy');
         $storedDate = (string) $this->settings->get('tax.exchange_rate_date');
 
         if ($storedDate === $today && $stored !== '') {
-            return $this->payload($today, (float) $stored, 'guardado');
+            return $this->payload($today, (float) $stored, $storedBuy !== '' ? (float) $storedBuy : null, 'guardado');
         }
 
-        $rate = $this->client->saleRate($today);
-        if ($rate !== null) {
-            $this->store($today, $rate);
+        $rates = $this->client->rates($today);
+        if ($rates !== null) {
+            $this->store($today, $rates['sell'], $rates['buy']);
 
-            return $this->payload($today, $rate, 'sunat');
+            return $this->payload($today, $rates['sell'], $rates['buy'], 'sunat');
         }
 
         if ($stored !== '') {
-            return $this->payload($storedDate, (float) $stored, 'anterior', true);
+            return $this->payload($storedDate, (float) $stored, $storedBuy !== '' ? (float) $storedBuy : null, 'anterior', true);
         }
 
-        return $this->payload($today, null, 'ninguno');
+        return $this->payload($today, null, null, 'ninguno');
     }
 
-    /** Guarda manualmente el T.C. del día. */
+    /** Guarda manualmente el T.C. del día (venta y, opcional, compra). */
     #[Route('', name: 'exchange_rate_set', methods: ['PUT'])]
     public function set(Request $request): JsonResponse
     {
         $data = $request->toArray();
-        $rate = (float) ($data['rate'] ?? 0);
-        if ($rate <= 0 || $rate > 100) {
+        $sell = (float) ($data['rate'] ?? $data['sell'] ?? 0);
+        $buy = isset($data['buy']) && $data['buy'] !== '' && $data['buy'] !== null ? (float) $data['buy'] : null;
+        if ($sell <= 0 || $sell > 100) {
             throw new UnprocessableEntityHttpException('Tipo de cambio inválido.');
         }
         $today = date('Y-m-d');
-        $this->store($today, $rate);
+        $this->store($today, $sell, $buy);
 
-        return $this->payload($today, $rate, 'manual');
+        return $this->payload($today, $sell, $buy, 'manual');
     }
 
-    private function store(string $date, float $rate): void
+    private function store(string $date, float $sell, ?float $buy): void
     {
         $this->settings->update([
-            'tax.exchange_rate' => number_format($rate, 3, '.', ''),
+            'tax.exchange_rate' => number_format($sell, 3, '.', ''),
+            'tax.exchange_rate_buy' => $buy !== null ? number_format($buy, 3, '.', '') : '',
             'tax.exchange_rate_date' => $date,
         ]);
     }
 
-    private function payload(string $date, ?float $rate, string $source, bool $stale = false): JsonResponse
+    private function payload(string $date, ?float $sell, ?float $buy, string $source, bool $stale = false): JsonResponse
     {
         return new JsonResponse([
             'date' => $date,
-            'rate' => $rate,
+            'rate' => $sell,       // venta (compat)
+            'sell' => $sell,
+            'buy' => $buy,
             'source' => $source,   // sunat | guardado | manual | anterior | ninguno
-            'stale' => $stale,     // true = no es de hoy (revisar)
+            'stale' => $stale,
         ]);
     }
 }
