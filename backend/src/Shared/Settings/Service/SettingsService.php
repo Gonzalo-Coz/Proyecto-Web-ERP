@@ -33,6 +33,9 @@ final class SettingsService
         'company.logo_full_path' => '',
         'company.logo_icon_path' => '',
         'tax.igv_rate' => '18',
+        // Tipo de cambio del día (SUNAT) y su fecha; se autocompleta o se edita manual.
+        'tax.exchange_rate' => '',
+        'tax.exchange_rate_date' => '',
         'sales.reservation_days' => '7',
     ];
 

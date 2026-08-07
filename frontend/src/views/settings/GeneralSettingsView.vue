@@ -54,6 +54,38 @@ async function load(): Promise<void> {
   loading.value = false
 }
 
+/* ===== Tipo de cambio del día (SUNAT) ===== */
+const ex = reactive({ rate: null as number | null, date: '', source: '', stale: false })
+const exLoading = ref(false)
+const exManual = ref<number | null>(null)
+
+async function loadRate(): Promise<void> {
+  exLoading.value = true
+  try {
+    const { data } = await api.get('/exchange-rate')
+    Object.assign(ex, data)
+    exManual.value = data.rate
+  } catch {
+    /* queda editable manual */
+  } finally {
+    exLoading.value = false
+  }
+}
+
+async function saveRate(): Promise<void> {
+  if (!exManual.value || exManual.value <= 0) return
+  exLoading.value = true
+  try {
+    const { data } = await api.put('/exchange-rate', { rate: exManual.value })
+    Object.assign(ex, data)
+    message.value = 'Tipo de cambio guardado.'
+  } catch (e: any) {
+    errorMsg.value = e.response?.data?.detail ?? 'No se pudo guardar el tipo de cambio.'
+  } finally {
+    exLoading.value = false
+  }
+}
+
 async function save(): Promise<void> {
   saving.value = true
   message.value = ''
@@ -68,7 +100,10 @@ async function save(): Promise<void> {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadRate()
+})
 </script>
 
 <template>
@@ -177,6 +212,40 @@ onMounted(load)
           </div>
           <p class="mt-2 text-xs text-gray-500">
             El IGV se aplica a las nuevas ventas y compras. Los comprobantes ya emitidos no cambian (§19).
+          </p>
+        </section>
+
+        <!-- Tipo de cambio del día -->
+        <section class="card">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-gray-500">Tipo de cambio del día (SUNAT)</h2>
+            <button type="button" class="btn-secondary !py-1 !text-xs" :disabled="exLoading" @click="loadRate">
+              {{ exLoading ? 'Consultando…' : 'Actualizar de SUNAT' }}
+            </button>
+          </div>
+          <div class="flex flex-wrap items-end gap-4">
+            <div>
+              <p class="text-3xl font-bold text-gray-900">S/ {{ ex.rate ? Number(ex.rate).toFixed(3) : '—' }}</p>
+              <p class="text-xs text-gray-500">
+                por US$ 1
+                <template v-if="ex.date"> · {{ ex.date }}</template>
+                <span
+                  class="ml-1 font-medium"
+                  :class="ex.source === 'sunat' || ex.source === 'guardado' ? 'text-green-600' : ex.stale ? 'text-amber-600' : 'text-gray-400'"
+                >
+                  ({{ ex.source === 'sunat' ? 'SUNAT hoy' : ex.source === 'guardado' ? 'guardado hoy' : ex.source === 'manual' ? 'manual' : ex.stale ? 'no es de hoy — revisar' : 'sin datos' }})
+                </span>
+              </p>
+            </div>
+            <FormField v-if="canEdit" label="Ajustar manualmente (S/ por US$)">
+              <div class="flex gap-2">
+                <input v-model.number="exManual" type="number" step="0.001" min="0" class="form-input w-32" />
+                <button type="button" class="btn-secondary" :disabled="exLoading" @click="saveRate">Guardar</button>
+              </div>
+            </FormField>
+          </div>
+          <p class="mt-2 text-xs text-gray-400">
+            Se usa para convertir compras/ventas en dólares a soles. Se intenta traer de SUNAT automáticamente; si no está disponible, ingrésalo manual.
           </p>
         </section>
 
