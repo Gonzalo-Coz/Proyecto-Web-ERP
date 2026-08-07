@@ -37,7 +37,8 @@ final class ExchangeRateClient
         }
 
         $base = $this->baseUrl !== null && $this->baseUrl !== '' ? rtrim($this->baseUrl, '/') : 'https://api.apis.net.pe';
-        $url = sprintf('%s/v2/sunat/tipo-cambio?date=%s', $base, rawurlencode($date));
+        // Decolecta: /v1/tipo-cambio/sunat?date=YYYY-MM-DD (Bearer token).
+        $url = sprintf('%s/v1/tipo-cambio/sunat?date=%s', $base, rawurlencode($date));
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
@@ -62,8 +63,8 @@ final class ExchangeRateClient
         if (!is_array($data)) {
             return null;
         }
-        // Distintas fuentes usan "venta" o "sale".
-        $rate = $data['venta'] ?? $data['sale'] ?? $data['precio_venta'] ?? null;
+        // Decolecta usa "sell_price"; se admiten otras variantes por compatibilidad.
+        $rate = $data['sell_price'] ?? $data['venta'] ?? $data['sale'] ?? $data['precio_venta'] ?? null;
 
         return $rate !== null && (float) $rate > 0 ? round((float) $rate, 3) : null;
     }
