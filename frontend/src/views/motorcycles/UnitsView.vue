@@ -252,8 +252,12 @@ onMounted(async () => {
     <BaseModal :open="modalOpen" :title="editing ? `Editar unidad: ${editing.internalCode}` : 'Nueva unidad'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
-          <FormField label="Código Interno" required>
-            <input v-model="form.internalCode" class="form-input uppercase" required maxlength="20" />
+          <FormField label="Código Interno">
+            <input
+              :value="editing ? editing.internalCode : 'Se generará automáticamente (M-00001…)'"
+              class="form-input bg-gray-100 text-gray-500"
+              disabled
+            />
           </FormField>
           <FormField label="VIN (17 caracteres)" required>
             <input v-model="form.vin" class="form-input font-mono uppercase" required maxlength="17" minlength="17" :disabled="editing !== null" />

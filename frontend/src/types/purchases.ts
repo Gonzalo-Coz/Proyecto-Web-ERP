@@ -52,6 +52,7 @@ export interface ImportSparePart {
   quantity: number
   netUnit: number
   costPen: number
+  salePrice: number | null
   existingId: number | null
   existingStock: number | null
 }
@@ -68,6 +69,7 @@ export interface ImportMotorcycle {
   year: string
   netUnit: number
   costPen: number
+  salePrice: number | null
   duaNumber: string | null
   duaItem: string | null
   alreadyExists: boolean

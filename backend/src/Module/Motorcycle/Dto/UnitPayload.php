@@ -9,10 +9,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class UnitPayload
 {
     public function __construct(
-        #[Assert\NotBlank(message: 'El código interno es obligatorio.')]
-        #[Assert\Length(min: 2, max: 20)]
-        public readonly string $internalCode,
-
         #[Assert\NotBlank(message: 'El VIN es obligatorio.')]
         #[Assert\Regex(pattern: '/^[A-HJ-NPR-Za-hj-npr-z0-9]{17}$/', message: 'El VIN debe tener 17 caracteres alfanuméricos (sin I, O, Q).')]
         public readonly string $vin,
@@ -24,6 +20,13 @@ final class UnitPayload
         #[Assert\NotBlank(message: 'El color es obligatorio.')]
         #[Assert\Length(max: 50)]
         public readonly string $color,
+
+        /**
+         * Código interno correlativo. Vacío al crear: el sistema asigna el
+         * siguiente (M-00001, M-00002, …). En edición se conserva el existente.
+         */
+        #[Assert\Length(max: 20)]
+        public readonly ?string $internalCode = null,
 
         #[Assert\Length(max: 30)]
         public readonly ?string $engineNumber = null,

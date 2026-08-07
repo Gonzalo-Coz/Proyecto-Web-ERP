@@ -42,6 +42,11 @@ async function onXmlSelected(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+  if (file.size === 0) {
+    importError.value = 'El archivo XML está vacío (0 KB). Vuelve a descargar el XML de Yamaha y adjúntalo de nuevo.'
+    input.value = ''
+    return
+  }
   xmlFile.value = file
   importLoading.value = true
   importError.value = ''
@@ -448,7 +453,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo S/</th></tr>
+                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo S/</th><th class="px-2 py-1 text-right">P. Venta S/</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(m, i) in preview.motorcycles" :key="i" class="border-t border-gray-100" :class="m.alreadyExists ? 'bg-red-50' : ''">
@@ -458,6 +463,7 @@ onMounted(async () => {
                     <td class="px-2 py-1 font-mono">{{ m.engine }}</td>
                     <td class="px-2 py-1"><div class="flex gap-1"><input v-model="m.duaNumber" placeholder="DUA" class="form-input !w-20 !py-1 !text-xs" /><input v-model="m.duaItem" placeholder="Ítem" class="form-input !w-14 !py-1 !text-xs" /></div></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="m.costPen" type="number" step="0.01" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
+                    <td class="px-2 py-1 text-right"><input v-model.number="m.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
                   </tr>
                 </tbody>
               </table>
@@ -470,7 +476,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Código</th><th class="px-2 py-1">Descripción</th><th class="px-2 py-1 text-right">Cant.</th><th class="px-2 py-1 text-right">Costo S/</th><th class="px-2 py-1">Estado</th></tr>
+                  <tr><th class="px-2 py-1">Código</th><th class="px-2 py-1">Descripción</th><th class="px-2 py-1 text-right">Cant.</th><th class="px-2 py-1 text-right">Costo S/</th><th class="px-2 py-1 text-right">P. Venta S/</th><th class="px-2 py-1">Estado</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(s, i) in preview.spareParts" :key="i" class="border-t border-gray-100">
@@ -478,6 +484,7 @@ onMounted(async () => {
                     <td class="px-2 py-1"><input v-model="s.description" class="form-input !py-1 !text-xs" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="s.quantity" type="number" min="1" class="form-input !w-16 !py-1 !text-right !text-xs" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="s.costPen" type="number" step="0.01" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
+                    <td class="px-2 py-1 text-right"><input v-model.number="s.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
                     <td class="px-2 py-1">
                       <span v-if="s.existingId" class="text-green-600">existe (stock {{ s.existingStock }}) +{{ s.quantity }}</span>
                       <span v-else class="text-blue-600">nuevo</span>

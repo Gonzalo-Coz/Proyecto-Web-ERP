@@ -75,7 +75,12 @@ final class UnitService
         $this->assertVinUnique($payload->vin, null);
         $this->assertEngineNumberUnique($payload->engineNumber, null);
 
-        $unit = new MotorcycleUnit($payload->internalCode, $payload->vin, $this->findModel($payload->modelId), $payload->color);
+        // Código interno correlativo automático (M-00001, M-00002, …) si no se envía.
+        $internalCode = ($payload->internalCode !== null && trim($payload->internalCode) !== '')
+            ? strtoupper(trim($payload->internalCode))
+            : $this->unitRepository->nextInternalCode();
+
+        $unit = new MotorcycleUnit($internalCode, $payload->vin, $this->findModel($payload->modelId), $payload->color);
         $this->apply($unit, $payload);
 
         $this->entityManager->persist($unit);
@@ -96,7 +101,7 @@ final class UnitService
         }
         $this->assertEngineNumberUnique($payload->engineNumber, $id);
 
-        $unit->setInternalCode($payload->internalCode);
+        // El código interno no se cambia en edición (correlativo asignado al crear).
         $unit->setModel($this->findModel($payload->modelId));
         $unit->setColor($payload->color);
         $this->apply($unit, $payload);

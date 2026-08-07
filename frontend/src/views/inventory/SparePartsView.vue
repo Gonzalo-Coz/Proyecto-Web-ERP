@@ -287,8 +287,12 @@ onMounted(async () => {
     <BaseModal :open="modalOpen" :title="editing ? `Editar repuesto: ${editing.internalCode}` : 'Nuevo repuesto'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
-          <FormField label="Código Interno" required>
-            <input v-model="form.internalCode" class="form-input uppercase" required maxlength="20" />
+          <FormField label="Código Interno">
+            <input
+              :value="editing ? editing.internalCode : 'Se generará automáticamente (R-0001…)'"
+              class="form-input bg-gray-100 text-gray-500"
+              disabled
+            />
           </FormField>
           <FormField label="Código de Repuesto (código de barras)" required>
             <input v-model="form.partCode" class="form-input uppercase" required maxlength="40" placeholder="5SL-E3440-00" />

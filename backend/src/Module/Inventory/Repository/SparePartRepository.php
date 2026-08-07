@@ -27,4 +27,23 @@ class SparePartRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['partCode' => strtoupper($code)]);
     }
+
+    /** Siguiente código interno correlativo (R-0001, R-0002, …). */
+    public function nextInternalCode(): string
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('p.internalCode')
+            ->where("p.internalCode LIKE 'R-%'")
+            ->getQuery()
+            ->getScalarResult();
+
+        $max = 0;
+        foreach ($rows as $r) {
+            if (preg_match('/^R-(\d+)$/', (string) $r['internalCode'], $m)) {
+                $max = max($max, (int) $m[1]);
+            }
+        }
+
+        return 'R-'.str_pad((string) ($max + 1), 4, '0', \STR_PAD_LEFT);
+    }
 }

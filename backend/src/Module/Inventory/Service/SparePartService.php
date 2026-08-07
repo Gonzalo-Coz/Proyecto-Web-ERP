@@ -79,9 +79,14 @@ final class SparePartService
 
     public function create(SparePartPayload $payload): array
     {
-        $this->assertUnique($payload->internalCode, $payload->partCode, null);
+        // Código interno correlativo automático (R-0001, R-0002, …) si no se envía.
+        $internalCode = ($payload->internalCode !== null && trim($payload->internalCode) !== '')
+            ? strtoupper(trim($payload->internalCode))
+            : $this->partRepository->nextInternalCode();
 
-        $part = new SparePart($payload->internalCode, $payload->partCode, $payload->description);
+        $this->assertUnique($internalCode, $payload->partCode, null);
+
+        $part = new SparePart($internalCode, $payload->partCode, $payload->description);
         $this->apply($part, $payload);
 
         $this->entityManager->persist($part);
@@ -103,11 +108,11 @@ final class SparePartService
     public function update(int $id, SparePartPayload $payload): array
     {
         $part = $this->find($id);
-        $this->assertUnique($payload->internalCode, $payload->partCode, $id);
+        // El código interno no se cambia en edición (correlativo asignado al crear).
+        $this->assertUnique($part->getInternalCode(), $payload->partCode, $id);
 
         $oldSalePrice = $part->getSalePrice();
 
-        $part->setInternalCode($payload->internalCode);
         $part->setPartCode($payload->partCode);
         $part->setDescription($payload->description);
         $this->apply($part, $payload);

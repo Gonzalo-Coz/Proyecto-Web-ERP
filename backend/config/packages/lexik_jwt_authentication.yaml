@@ -2,5 +2,5 @@ lexik_jwt_authentication:
     secret_key: '%env(resolve:JWT_SECRET_KEY)%'
     public_key: '%env(resolve:JWT_PUBLIC_KEY)%'
     pass_phrase: '%env(JWT_PASSPHRASE)%'
-    # El TTL definitivo se leerá de la configuración del sistema (§23.10).
-    token_ttl: 3600
+    # Duración de la sesión (segundos). Configurable por JWT_TTL; por defecto 4 horas.
+    token_ttl: '%env(int:JWT_TTL)%'

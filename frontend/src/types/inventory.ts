@@ -24,7 +24,8 @@ export interface SparePartItem {
 }
 
 export interface SparePartPayload {
-  internalCode: string
+  /** Opcional: se autogenera (R-0001…) al crear si no se envía. */
+  internalCode?: string
   partCode: string
   barcode: string | null
   description: string

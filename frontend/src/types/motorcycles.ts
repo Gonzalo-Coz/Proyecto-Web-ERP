@@ -57,7 +57,8 @@ export interface UnitItem {
 }
 
 export interface UnitPayload {
-  internalCode: string
+  /** Opcional: se autogenera (M-00001…) al crear si no se envía. */
+  internalCode?: string
   vin: string
   modelId: number
   color: string

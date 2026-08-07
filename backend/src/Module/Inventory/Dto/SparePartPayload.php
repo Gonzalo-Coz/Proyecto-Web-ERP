@@ -9,10 +9,6 @@ use Symfony\Component\Validator\Constraints as Assert;
 final class SparePartPayload
 {
     public function __construct(
-        #[Assert\NotBlank(message: 'El código interno es obligatorio.')]
-        #[Assert\Length(min: 2, max: 20)]
-        public readonly string $internalCode,
-
         #[Assert\NotBlank(message: 'El código de repuesto es obligatorio.')]
         #[Assert\Length(min: 2, max: 40)]
         public readonly string $partCode,
@@ -20,6 +16,13 @@ final class SparePartPayload
         #[Assert\NotBlank(message: 'La descripción es obligatoria.')]
         #[Assert\Length(min: 3, max: 200)]
         public readonly string $description,
+
+        /**
+         * Código interno correlativo. Se deja vacío al crear: el sistema asigna
+         * el siguiente (R-0001, R-0002, …). En edición se conserva el existente.
+         */
+        #[Assert\Length(max: 20)]
+        public readonly ?string $internalCode = null,
 
         #[Assert\Length(max: 50)]
         public readonly ?string $barcode = null,

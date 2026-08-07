@@ -77,6 +77,7 @@ final class InvoiceImportService
                     'year' => $m['year'],
                     'netUnit' => (float) $line['netUnit'],
                     'costPen' => $costPen,
+                    'salePrice' => null,
                     'duaNumber' => $dua['dua'] ?? null,
                     'duaItem' => $dua['item'] ?? null,
                     'alreadyExists' => $existing !== null,
@@ -89,6 +90,7 @@ final class InvoiceImportService
                     'quantity' => (int) round((float) $line['quantity']),
                     'netUnit' => (float) $line['netUnit'],
                     'costPen' => $costPen,
+                    'salePrice' => null,
                     'existingId' => $part?->getId(),
                     'existingStock' => $part?->getStock(),
                 ];
@@ -139,13 +141,15 @@ final class InvoiceImportService
             if ($code === '') {
                 continue;
             }
+            $sale = isset($sp['salePrice']) && $sp['salePrice'] !== null && $sp['salePrice'] !== ''
+                ? round((float) $sp['salePrice'], 2) : null;
             $part = $this->sparePartRepository->findOneByPartCode($code);
             if ($part === null) {
                 $created = $this->sparePartService->create(new SparePartPayload(
-                    internalCode: substr($code, 0, 20),
                     partCode: substr($code, 0, 40),
                     description: (string) ($sp['description'] ?? $code),
                     purchasePrice: $cost,
+                    salePrice: $sale,
                 ));
                 $partId = (int) $created['id'];
             } else {
@@ -162,8 +166,9 @@ final class InvoiceImportService
             }
             $model = $this->resolveModel((string) ($mt['brand'] ?? 'YAMAHA'), (string) ($mt['model'] ?? ''), (string) ($mt['year'] ?? ''));
 
+            $sale = isset($mt['salePrice']) && $mt['salePrice'] !== null && $mt['salePrice'] !== ''
+                ? round((float) $mt['salePrice'], 2) : null;
             $created = $this->unitService->create(new UnitPayload(
-                internalCode: $this->unitCode($vin),
                 vin: $vin,
                 modelId: (int) $model->getId(),
                 color: (string) ($mt['color'] ?? '') ?: 'N/D',
@@ -171,6 +176,7 @@ final class InvoiceImportService
                 chassisNumber: $this->nullify((string) ($mt['chassis'] ?? '')),
                 manufactureYear: ctype_digit((string) ($mt['year'] ?? '')) ? (int) $mt['year'] : null,
                 purchasePrice: $cost,
+                salePrice: $sale,
                 duaNumber: $this->nullify((string) ($mt['duaNumber'] ?? '')),
                 duaItem: $this->nullify((string) ($mt['duaItem'] ?? '')),
             ));
@@ -214,11 +220,6 @@ final class InvoiceImportService
         $this->entityManager->flush();
 
         return $m;
-    }
-
-    private function unitCode(string $vin): string
-    {
-        return substr('U'.preg_replace('/[^A-Za-z0-9]/', '', $vin), -18);
     }
 
     private function nullify(string $s): ?string
