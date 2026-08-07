@@ -52,9 +52,6 @@ async function onXmlSelected(event: Event): Promise<void> {
   importError.value = ''
   try {
     preview.value = await purchaseService.importPreview(file)
-    if (preview.value.document.currency === 'USD' && !preview.value.exchangeRate) {
-      importError.value = 'No se pudo obtener el tipo de cambio automáticamente. Ingrésalo manualmente.'
-    }
   } catch (e: any) {
     importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo leer el XML.'
   } finally {
@@ -82,14 +79,8 @@ async function onPdfSelected(event: Event): Promise<void> {
   }
 }
 
-/** Recalcula los costos en soles al cambiar el tipo de cambio (facturas en USD). */
-function applyRate(): void {
-  const p = preview.value
-  if (!p || p.document.currency !== 'USD' || !p.exchangeRate) return
-  const r = Number(p.exchangeRate)
-  p.spareParts.forEach((s) => (s.costPen = Math.round(s.netUnit * r * 100) / 100))
-  p.motorcycles.forEach((m) => (m.costPen = Math.round(m.netUnit * r * 100) / 100))
-}
+/** Símbolo de moneda de la factura para las columnas de costo. */
+const curSym = computed(() => (preview.value?.document.currency === 'USD' ? 'US$' : 'S/'))
 
 /** Margen de ganancia: % y monto entre costo y precio de venta. */
 function margin(cost: number, sale: number | null): { pct: number; amount: number } | null {
@@ -440,12 +431,9 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Tipo de cambio (solo USD) -->
-          <div v-if="preview.document.currency === 'USD'" class="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <label class="text-sm font-medium text-amber-800">Tipo de cambio (S/ por US$):</label>
-            <input v-model.number="preview.exchangeRate" type="number" step="0.001" min="0" class="form-input w-32" @input="applyRate" />
-            <span class="text-xs text-amber-700">{{ preview.exchangeRateAuto ? 'Obtenido automáticamente (editable)' : 'Ingrésalo manualmente' }}</span>
-          </div>
+          <p v-if="preview.document.currency === 'USD'" class="rounded-lg border border-blue-100 bg-blue-50 p-2 text-xs text-blue-700">
+            Factura en dólares: el costo se guarda tal cual en US$ (sin convertir). La conversión a soles solo se hace al vender.
+          </p>
 
           <!-- Motos -->
           <div v-if="preview.motorcycles.length">
@@ -459,7 +447,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo S/</th><th class="px-2 py-1 text-right">P. Venta S/</th><th class="px-2 py-1 text-right">Margen</th></tr>
+                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta {{ curSym }}</th><th class="px-2 py-1 text-right">Margen</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(m, i) in preview.motorcycles" :key="i" class="border-t border-gray-100" :class="m.alreadyExists ? 'bg-red-50' : ''">
@@ -490,7 +478,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Código</th><th class="px-2 py-1">Descripción</th><th class="px-2 py-1 text-right">Cant.</th><th class="px-2 py-1 text-right">Costo S/</th><th class="px-2 py-1 text-right">P. Venta S/</th><th class="px-2 py-1 text-right">Margen</th><th class="px-2 py-1">Estado</th></tr>
+                  <tr><th class="px-2 py-1">Código</th><th class="px-2 py-1">Descripción</th><th class="px-2 py-1 text-right">Cant.</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta {{ curSym }}</th><th class="px-2 py-1 text-right">Margen</th><th class="px-2 py-1">Estado</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(s, i) in preview.spareParts" :key="i" class="border-t border-gray-100">
@@ -518,7 +506,7 @@ onMounted(async () => {
           </div>
 
           <div class="flex items-center justify-between border-t border-gray-200 pt-3">
-            <p class="text-sm text-gray-600">Total estimado (sin IGV): <strong>S/ {{ importTotal.toFixed(2) }}</strong></p>
+            <p class="text-sm text-gray-600">Total (costo, tal cual factura): <strong>{{ curSym }} {{ importTotal.toFixed(2) }}</strong></p>
             <p class="text-xs text-gray-400">Se registrará como Compra; el stock y las unidades entran al sistema.</p>
           </div>
         </template>
@@ -531,7 +519,7 @@ onMounted(async () => {
             v-if="preview"
             type="button"
             class="btn-primary"
-            :disabled="importing || (preview.document.currency === 'USD' && !preview.exchangeRate)"
+            :disabled="importing"
             @click="confirmImport"
           >
             {{ importing ? 'Importando…' : 'Confirmar e importar' }}

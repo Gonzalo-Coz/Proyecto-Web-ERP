@@ -32,6 +32,10 @@ final class PurchasePayload
         #[Assert\Count(min: 1, minMessage: 'La compra debe tener al menos una línea.')]
         public readonly array $items,
 
+        /** Moneda del comprobante (PEN o USD). */
+        #[Assert\Choice(choices: ['PEN', 'USD'])]
+        public readonly string $currency = 'PEN',
+
         #[Assert\Length(max: 10)]
         public readonly ?string $series = null,
 

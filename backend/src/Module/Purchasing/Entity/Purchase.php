@@ -142,6 +142,12 @@ class Purchase
         return $this->currency;
     }
 
+    public function setCurrency(string $currency): void
+    {
+        $currency = strtoupper(trim($currency));
+        $this->currency = in_array($currency, ['PEN', 'USD'], true) ? $currency : 'PEN';
+    }
+
     public function getPaymentMethod(): ?CatalogItem
     {
         return $this->paymentMethod;

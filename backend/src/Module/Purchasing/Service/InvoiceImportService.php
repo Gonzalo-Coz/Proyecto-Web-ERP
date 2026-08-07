@@ -60,7 +60,8 @@ final class InvoiceImportService
         $spareParts = [];
         $motorcycles = [];
         foreach ($data['lines'] as $line) {
-            $costPen = $currency === 'USD' ? round((float) $line['netUnit'] * $factor, 2) : (float) $line['netUnit'];
+            // COSTO = PRECIO VTA. UNITARIO tal cual la factura (con IGV), en su moneda, SIN convertir.
+            $cost = round((float) $line['facturaUnit'], 2);
             if ($line['kind'] === 'MOTORCYCLE') {
                 $m = $line['moto'];
                 $existing = $m['vin'] !== '' ? $this->unitRepository->findOneBy(['vin' => $m['vin']]) : null;
@@ -76,7 +77,7 @@ final class InvoiceImportService
                     'chassis' => $m['chassis'],
                     'year' => $m['year'],
                     'netUnit' => (float) $line['netUnit'],
-                    'costPen' => $costPen,
+                    'costPen' => $cost,
                     'salePrice' => null,
                     'duaNumber' => $dua['dua'] ?? null,
                     'duaItem' => $dua['item'] ?? null,
@@ -89,7 +90,7 @@ final class InvoiceImportService
                     'description' => $line['description'],
                     'quantity' => (int) round((float) $line['quantity']),
                     'netUnit' => (float) $line['netUnit'],
-                    'costPen' => $costPen,
+                    'costPen' => $cost,
                     'salePrice' => null,
                     'existingId' => $part?->getId(),
                     'existingStock' => $part?->getStock(),
@@ -148,7 +149,8 @@ final class InvoiceImportService
         foreach (($payload['spareParts'] ?? []) as $sp) {
             $code = trim((string) ($sp['code'] ?? ''));
             $qty = max(1, (int) ($sp['quantity'] ?? 1));
-            $cost = round((float) ($sp['costPen'] ?? 0), 2);
+            $cost = round((float) ($sp['costPen'] ?? 0), 2);          // costo tal cual factura (con IGV)
+            $net = round((float) ($sp['netUnit'] ?? $cost), 2);       // neto (sin IGV) para la compra
             if ($code === '') {
                 continue;
             }
@@ -166,12 +168,13 @@ final class InvoiceImportService
             } else {
                 $partId = (int) $part->getId();
             }
-            $items[] = ['itemType' => 'SPARE_PART', 'sparePartId' => $partId, 'quantity' => $qty, 'unitPrice' => $cost, 'discount' => 0];
+            $items[] = ['itemType' => 'SPARE_PART', 'sparePartId' => $partId, 'quantity' => $qty, 'unitPrice' => $net, 'discount' => 0];
         }
 
         foreach (($payload['motorcycles'] ?? []) as $mt) {
             $vin = trim((string) ($mt['vin'] ?? ''));
-            $cost = round((float) ($mt['costPen'] ?? 0), 2);
+            $cost = round((float) ($mt['costPen'] ?? 0), 2);        // costo tal cual factura (US$ en motos)
+            $net = round((float) ($mt['netUnit'] ?? $cost), 2);     // neto para la compra
             if ($vin === '') {
                 throw new UnprocessableEntityHttpException('Una motocicleta no tiene VIN; corrígelo antes de confirmar.');
             }
@@ -191,7 +194,7 @@ final class InvoiceImportService
                 duaNumber: $this->nullify((string) ($mt['duaNumber'] ?? '')),
                 duaItem: $this->nullify((string) ($mt['duaItem'] ?? '')),
             ));
-            $items[] = ['itemType' => 'MOTORCYCLE_UNIT', 'motorcycleUnitId' => (int) $created['id'], 'quantity' => 1, 'unitPrice' => $cost, 'discount' => 0];
+            $items[] = ['itemType' => 'MOTORCYCLE_UNIT', 'motorcycleUnitId' => (int) $created['id'], 'quantity' => 1, 'unitPrice' => $net, 'discount' => 0];
         }
 
         if ($items === []) {
@@ -200,6 +203,7 @@ final class InvoiceImportService
 
         return $this->purchaseService->create(new PurchasePayload(
             supplierId: (int) $supplier->getId(),
+            currency: (string) ($doc['currency'] ?? 'PEN'),
             purchaseDate: (string) ($doc['issueDate'] ?? date('Y-m-d')),
             documentType: 'FACTURA',
             items: $items,

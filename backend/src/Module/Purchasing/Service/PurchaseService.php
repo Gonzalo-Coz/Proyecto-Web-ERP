@@ -81,6 +81,7 @@ final class PurchaseService
         return $this->entityManager->wrapInTransaction(function () use ($payload, $supplier): array {
             $purchase = new Purchase($supplier, new \DateTimeImmutable($payload->purchaseDate), $payload->documentType);
             $purchase->assignNumber($this->purchaseRepository->nextSequence());
+            $purchase->setCurrency($payload->currency);
             $purchase->setSeries($payload->series);
             $purchase->setDocumentNumber($payload->documentNumber);
             $purchase->setNotes($payload->notes);
