@@ -283,7 +283,7 @@ onMounted(async () => {
             class="btn-secondary !text-red-600"
             @click="confirmTarget = row as unknown as UnitItem"
           >
-            Baja
+            Eliminar
           </button>
         </div>
       </template>
@@ -400,9 +400,9 @@ onMounted(async () => {
 
     <ConfirmDialog
       :open="confirmTarget !== null"
-      title="Dar de baja unidad"
+      title="Eliminar unidad"
       :message="`La unidad «${confirmTarget?.internalCode}» (VIN ${confirmTarget?.vin}) se eliminará por completo. No se puede si tiene ventas asociadas. ¿Continuar?`"
-      confirm-label="Dar de baja"
+      confirm-label="Eliminar"
       danger
       @confirm="confirmDelete"
       @cancel="confirmTarget = null"
