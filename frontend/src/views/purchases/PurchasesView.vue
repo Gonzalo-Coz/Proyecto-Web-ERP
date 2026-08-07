@@ -28,9 +28,12 @@ const importLoading = ref(false)
 const importing = ref(false)
 const importError = ref('')
 const preview = ref<ImportPreview | null>(null)
+const xmlFile = ref<File | null>(null)
+const pdfLoading = ref(false)
 
 function openImport(): void {
   preview.value = null
+  xmlFile.value = null
   importError.value = ''
   importOpen.value = true
 }
@@ -39,6 +42,7 @@ async function onXmlSelected(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+  xmlFile.value = file
   importLoading.value = true
   importError.value = ''
   try {
@@ -50,6 +54,25 @@ async function onXmlSelected(event: Event): Promise<void> {
     importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo leer el XML.'
   } finally {
     importLoading.value = false
+    input.value = ''
+  }
+}
+
+/** Re-lee la factura adjuntando el PDF para autocompletar el DUA por VIN. */
+async function onPdfSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !xmlFile.value) return
+  pdfLoading.value = true
+  importError.value = ''
+  try {
+    preview.value = await purchaseService.importPreview(xmlFile.value, file)
+    const filled = preview.value.motorcycles.filter((m) => m.duaNumber).length
+    if (filled === 0) importError.value = 'No se encontraron DUAs en el PDF (¿es el PDF de esta misma factura?).'
+  } catch (e: any) {
+    importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo leer el PDF.'
+  } finally {
+    pdfLoading.value = false
     input.value = ''
   }
 }
@@ -415,7 +438,13 @@ onMounted(async () => {
 
           <!-- Motos -->
           <div v-if="preview.motorcycles.length">
-            <h3 class="mb-2 text-sm font-bold text-gray-700">Motocicletas ({{ preview.motorcycles.length }})</h3>
+            <div class="mb-2 flex items-center justify-between">
+              <h3 class="text-sm font-bold text-gray-700">Motocicletas ({{ preview.motorcycles.length }})</h3>
+              <label class="btn-secondary cursor-pointer !py-1 !text-xs">
+                {{ pdfLoading ? 'Leyendo PDF…' : 'Adjuntar PDF para DUA' }}
+                <input type="file" accept="application/pdf,.pdf" class="hidden" @change="onPdfSelected" />
+              </label>
+            </div>
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">

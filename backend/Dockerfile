@@ -2,7 +2,7 @@
 FROM php:8.4-fpm-alpine
 
 # Extensiones que usan Symfony / Doctrine / PostgreSQL, y nginx + gettext (envsubst).
-RUN apk add --no-cache nginx gettext icu-libs libpq \
+RUN apk add --no-cache nginx gettext icu-libs libpq poppler-utils \
  && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev postgresql-dev \
  && docker-php-ext-install pdo_pgsql intl opcache \
  && apk del .build-deps

@@ -27,7 +27,10 @@ final class InvoiceImportController
     #[IsGranted('purchases.list.create')]
     public function preview(Request $request): JsonResponse
     {
-        return new JsonResponse($this->importService->preview($this->readXml($request)));
+        $pdf = $request->files->get('pdf');
+        $pdfContent = $pdf instanceof UploadedFile ? (string) file_get_contents($pdf->getPathname()) : null;
+
+        return new JsonResponse($this->importService->preview($this->readXml($request), $pdfContent));
     }
 
     /** Confirma: crea repuestos/unidades faltantes y registra la compra. */

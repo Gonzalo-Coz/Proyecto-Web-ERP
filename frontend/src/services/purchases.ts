@@ -3,9 +3,10 @@ import type { ListQuery, Paginated } from '@/types/common'
 import type { ImportPreview, PurchaseItemSummary, PurchasePayload } from '@/types/purchases'
 
 export const purchaseService = {
-  importPreview(file: File): Promise<ImportPreview> {
+  importPreview(file: File, pdf?: File | null): Promise<ImportPreview> {
     const fd = new FormData()
     fd.append('file', file)
+    if (pdf) fd.append('pdf', pdf)
     return api
       .post('/purchases/import/preview', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
       .then((r) => r.data)

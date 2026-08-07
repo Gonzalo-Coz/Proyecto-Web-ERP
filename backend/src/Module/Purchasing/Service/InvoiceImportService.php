@@ -29,6 +29,7 @@ final class InvoiceImportService
     public function __construct(
         private readonly YamahaInvoiceParser $parser,
         private readonly ExchangeRateClient $exchangeRate,
+        private readonly PdfDuaExtractor $duaExtractor,
         private readonly EntityManagerInterface $entityManager,
         private readonly SupplierRepository $supplierRepository,
         private readonly SparePartRepository $sparePartRepository,
@@ -42,11 +43,14 @@ final class InvoiceImportService
     }
 
     /** @return array<string, mixed> */
-    public function preview(string $xml): array
+    public function preview(string $xml, ?string $pdf = null): array
     {
         $data = $this->parser->parse($xml);
         $doc = $data['document'];
         $currency = $doc['currency'];
+
+        // DUA por VIN desde el PDF (si se adjuntó); el XML no lo incluye.
+        $duaByVin = ($pdf !== null && $pdf !== '') ? $this->duaExtractor->extractByVin($pdf) : [];
 
         $rate = $currency === 'USD' ? $this->exchangeRate->saleRate($doc['issueDate']) : 1.0;
         $factor = $rate ?? 0.0; // si no hay T.C., el frontend lo pedirá
@@ -60,6 +64,7 @@ final class InvoiceImportService
             if ($line['kind'] === 'MOTORCYCLE') {
                 $m = $line['moto'];
                 $existing = $m['vin'] !== '' ? $this->unitRepository->findOneBy(['vin' => $m['vin']]) : null;
+                $dua = $duaByVin[strtoupper($m['vin'])] ?? null;
                 $motorcycles[] = [
                     'code' => $line['code'],
                     'description' => $line['description'],
@@ -72,8 +77,8 @@ final class InvoiceImportService
                     'year' => $m['year'],
                     'netUnit' => (float) $line['netUnit'],
                     'costPen' => $costPen,
-                    'duaNumber' => null,
-                    'duaItem' => null,
+                    'duaNumber' => $dua['dua'] ?? null,
+                    'duaItem' => $dua['item'] ?? null,
                     'alreadyExists' => $existing !== null,
                 ];
             } else {
@@ -189,8 +194,17 @@ final class InvoiceImportService
 
     private function resolveModel(string $brand, string $model, string $year): MotorcycleModel
     {
-        $model = trim($model) !== '' ? trim($model) : 'MODELO';
-        $existing = $this->modelRepository->findOneBy(['model' => $model]);
+        // Normaliza espacios para no crear modelos "duplicados" por espaciado.
+        $model = trim((string) preg_replace('/\s+/', ' ', $model));
+        $model = $model !== '' ? $model : 'MODELO';
+
+        // Reutiliza un modelo existente (comparación sin distinguir mayúsculas).
+        $existing = $this->modelRepository->createQueryBuilder('m')
+            ->where('LOWER(m.model) = LOWER(:name)')
+            ->setParameter('name', $model)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
         if ($existing !== null) {
             return $existing;
         }
