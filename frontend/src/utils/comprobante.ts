@@ -84,22 +84,25 @@ function itemsRows(doc: InvoiceDocument): string {
 }
 
 function bodyHtml(doc: InvoiceDocument, format: PrintFormat): string {
+  return format === 'a4' ? a4Body(doc) : ticketBody(doc)
+}
+
+/** Ticket 80mm: compacto. */
+function ticketBody(doc: InvoiceDocument): string {
   const co = doc.company
   const igvRate = doc.igvRate ?? 18
-  const totalNum = Number(doc.total ?? 0)
   const aviso =
     doc.status !== 'ACEPTADO'
       ? `<div class="warn">COMPROBANTE ${esc(doc.status)} — aún no validado por SUNAT (sin validez tributaria)</div>`
       : ''
-
   return `
-    <div class="doc ${format}">
+    <div class="doc ticket">
       <div class="head">
         <div class="emp">
           ${logoTag(co?.logo)}
           <div class="emp-name">${esc(co?.name)}</div>
           ${co?.address ? `<div>${esc(co.address)}</div>` : ''}
-          ${co?.phone || co?.email ? `<div>${esc(co?.phone)}${co?.phone && co?.email ? ' · ' : ''}${esc(co?.email)}</div>` : ''}
+          ${co?.phone ? `<div>${esc(co?.phone)}</div>` : ''}
         </div>
         <div class="box">
           <div>RUC ${esc(co?.ruc)}</div>
@@ -107,34 +110,112 @@ function bodyHtml(doc: InvoiceDocument, format: PrintFormat): string {
           <div class="box-num">${esc(doc.fullNumber)}</div>
         </div>
       </div>
-
       <div class="cli">
         <div><b>Cliente:</b> ${esc(doc.customerName)}</div>
         <div><b>Doc:</b> ${esc(doc.customerDocument)}</div>
-        ${doc.customerAddress ? `<div><b>Dirección:</b> ${esc(doc.customerAddress)}</div>` : ''}
-        <div><b>Fecha de emisión:</b> ${esc(doc.issueDate)}</div>
+        <div><b>Fecha:</b> ${esc(doc.issueDate)}</div>
       </div>
-
       <table>
-        <thead>
-          <tr><th class="c">Cant.</th><th>Descripción</th><th class="r">P. Unit</th><th class="r">Importe</th></tr>
-        </thead>
+        <thead><tr><th class="c">Cant.</th><th>Descripción</th><th class="r">P.Unit</th><th class="r">Importe</th></tr></thead>
         <tbody>${itemsRows(doc)}</tbody>
       </table>
-
       <div class="tot">
-        ${Number(doc.discountTotal ?? 0) > 0 ? `<div><span>Descuentos:</span><span>${money(doc.discountTotal)}</span></div>` : ''}
         <div><span>Op. Gravada:</span><span>${money(doc.subtotal)}</span></div>
         <div><span>IGV (${igvRate}%):</span><span>${money(doc.igv)}</span></div>
-        <div class="grand"><span>IMPORTE TOTAL:</span><span>${money(doc.total)}</span></div>
+        <div class="grand"><span>TOTAL:</span><span>${money(doc.total)}</span></div>
       </div>
-
-      <div class="letras">SON: ${numeroALetras(totalNum)}</div>
-
+      <div class="letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
       <div class="foot">
-        ${doc.qrData ? `<div class="qr"><div class="qr-ph">QR</div><div class="qr-data">${esc(doc.qrData)}</div></div>` : ''}
         ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
         <div class="rep">Representación impresa del comprobante electrónico.</div>
+        ${aviso}
+      </div>
+    </div>`
+}
+
+/** A4: diseño formal con recuadros, totales y logo de la tienda. */
+function a4Body(doc: InvoiceDocument): string {
+  const co = doc.company
+  const igvRate = doc.igvRate ?? 18
+  const aviso =
+    doc.status !== 'ACEPTADO'
+      ? `<div class="a4-warn">COMPROBANTE ${esc(doc.status)} — aún no validado por SUNAT (sin validez tributaria)</div>`
+      : ''
+  const rows = (doc.items ?? [])
+    .map(
+      (i, n) => `<tr>
+        <td class="c">${n + 1}</td>
+        <td class="c">${i.quantity}</td>
+        <td>${esc(i.description).replace(/\n/g, '<br>')}</td>
+        <td class="r">${money(i.unitPrice)}</td>
+        <td class="r">${money(i.lineTotal)}</td>
+      </tr>`,
+    )
+    .join('')
+
+  return `
+    <div class="doc a4">
+      <div class="a4-head">
+        <div class="a4-emp">
+          ${logoTag(co?.logo)}
+          <div class="a4-empinfo">
+            <div class="a4-name">${esc(co?.name)}</div>
+            ${co?.tradeName ? `<div>${esc(co.tradeName)}</div>` : ''}
+            ${co?.address ? `<div>${esc(co.address)}</div>` : ''}
+            ${co?.phone ? `<div>Tel: ${esc(co.phone)}</div>` : ''}
+            ${co?.email ? `<div>${esc(co.email)}</div>` : ''}
+          </div>
+        </div>
+        <div class="a4-box">
+          <div><b>RUC:</b> ${esc(co?.ruc)}</div>
+          <div class="a4-boxtype">${esc(doc.docTypeName)}</div>
+          <div class="a4-boxnum">${esc(doc.fullNumber)}</div>
+        </div>
+      </div>
+
+      <div class="a4-grid2">
+        <div class="a4-panel">
+          <div class="a4-panel-h">Datos del Receptor</div>
+          <div class="a4-panel-b">
+            <div><b>Cliente:</b> ${esc(doc.customerName)}</div>
+            <div><b>Documento:</b> ${esc(doc.customerDocument)}</div>
+            ${doc.customerAddress ? `<div><b>Dirección:</b> ${esc(doc.customerAddress)}</div>` : ''}
+          </div>
+        </div>
+        <div class="a4-panel">
+          <div class="a4-panel-h">Datos Generales</div>
+          <div class="a4-panel-b">
+            <div><b>Fecha de emisión:</b> ${esc(doc.issueDate)}</div>
+            <div><b>Moneda:</b> Soles</div>
+            <div><b>Tipo de operación:</b> Venta interna</div>
+            <div><b>Forma de pago:</b> Contado</div>
+          </div>
+        </div>
+      </div>
+
+      <table class="a4-items">
+        <thead><tr><th class="c">Ítem</th><th class="c">Cant.</th><th>Descripción</th><th class="r">P. Unitario</th><th class="r">Importe</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <div class="a4-obs"><b>Observaciones:</b></div>
+
+      <div class="a4-bottom">
+        <div class="a4-left">
+          <div class="a4-letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
+          ${doc.qrData ? `<div class="qr"><div class="qr-ph">QR</div><div class="qr-data">${esc(doc.qrData)}</div></div>` : ''}
+          ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
+        </div>
+        <div class="a4-tot">
+          ${Number(doc.discountTotal ?? 0) > 0 ? `<div><span>Descuento total</span><span>${money(doc.discountTotal)}</span></div>` : ''}
+          <div><span>Op. Gravada</span><span>${money(doc.subtotal)}</span></div>
+          <div><span>IGV (${igvRate}%)</span><span>${money(doc.igv)}</span></div>
+          <div class="a4-grand"><span>Importe Total</span><span>${money(doc.total)}</span></div>
+        </div>
+      </div>
+
+      <div class="a4-foot">
+        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}. Consulte su comprobante en el portal de SUNAT.</div>
         ${aviso}
       </div>
     </div>`
@@ -171,6 +252,32 @@ function css(format: PrintFormat): string {
     .hash { margin-top: 6px; word-break: break-all; }
     .rep { margin-top: 6px; color: #555; font-style: italic; }
     .warn { margin-top: 6px; color: #b91c1c; font-weight: 700; }
+
+    /* ===== Diseño A4 formal ===== */
+    .a4-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #12233A; padding-bottom: 10px; }
+    .a4-emp { display: flex; gap: 14px; align-items: center; }
+    .a4-name { font-weight: 800; font-size: 16px; color: #12233A; }
+    .a4-empinfo div { font-size: 11px; color: #333; line-height: 1.35; }
+    .a4-box { border: 2px solid #12233A; border-radius: 10px; padding: 10px 18px; text-align: center; min-width: 210px; }
+    .a4-boxtype { font-weight: 800; color: #12233A; margin-top: 3px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+    .a4-boxnum { font-weight: 800; font-size: 15px; margin-top: 2px; }
+    .a4-grid2 { display: flex; gap: 10px; margin-top: 12px; }
+    .a4-panel { flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+    .a4-panel-h { background: #12233A; color: #fff; font-weight: 700; font-size: 10px; padding: 5px 10px; text-transform: uppercase; letter-spacing: .6px; }
+    .a4-panel-b { padding: 7px 10px; font-size: 11px; }
+    .a4-panel-b div { margin: 1.5px 0; }
+    .a4-items { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .a4-items th { background: #eef2f7; border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; }
+    .a4-items td { border: 1px solid #e2e8f0; padding: 6px; font-size: 11px; vertical-align: top; }
+    .a4-obs { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 11px; min-height: 40px; }
+    .a4-bottom { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; align-items: flex-start; }
+    .a4-left { flex: 1; }
+    .a4-letras { font-weight: 700; text-transform: uppercase; font-size: 11px; margin-bottom: 10px; }
+    .a4-tot { width: 44%; }
+    .a4-tot > div { display: flex; justify-content: space-between; padding: 4px 8px; font-size: 12px; }
+    .a4-grand { border-top: 2px solid #12233A; margin-top: 4px; padding-top: 6px !important; font-weight: 800; font-size: 15px; color: #12233A; }
+    .a4-foot { margin-top: 16px; border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 10px; color: #555; }
+    .a4-warn { margin-top: 6px; color: #b91c1c; font-weight: 700; font-size: 11px; }
   `
 }
 
@@ -235,7 +342,7 @@ export function printCotizacion(doc: CotizacionDoc): void {
         <div class="rep">COTIZACIÓN — no es un comprobante de pago. Precios con IGV incluido. Válida por 7 días.</div>
       </div>
     </div>`
-  const w = window.open('', '_blank', 'width=900,height=1000,left=120,top=40')
+  const w = window.open('', '_blank', `width=${screen.availWidth},height=${screen.availHeight},left=0,top=0`)
   if (!w) return
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cotización ${esc(doc.saleNumber)}</title><style>${css('a4')}</style></head><body>${body}</body></html>`)
   w.document.close()
@@ -244,8 +351,11 @@ export function printCotizacion(doc: CotizacionDoc): void {
 }
 
 export function printComprobante(doc: InvoiceDocument, format: PrintFormat): void {
-  // Ventana grande para A4 (se ve el documento completo); angosta para ticket.
-  const features = format === 'ticket' ? 'width=430,height=760,left=200,top=40' : 'width=900,height=1000,left=120,top=40'
+  // A4 a pantalla completa (se ve el documento entero); ticket en ventana angosta.
+  const features =
+    format === 'ticket'
+      ? 'width=430,height=760,left=200,top=40'
+      : `width=${screen.availWidth},height=${screen.availHeight},left=0,top=0`
   const w = window.open('', '_blank', features)
   if (!w) return
   w.document.write(
