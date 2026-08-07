@@ -138,7 +138,7 @@ const columns: TableColumn[] = [
 const rows = ref<PurchaseItemSummary[]>([])
 const meta = ref<PageMeta | null>(null)
 const loading = ref(false)
-const query = reactive({ page: 1, perPage: 10, search: '', sort: 'purchaseDate', direction: 'desc' as const })
+const query = reactive({ page: 1, perPage: 10, search: '', sort: 'createdAt', direction: 'desc' as const })
 
 const suppliers = ref<SupplierItem[]>([])
 const spareParts = ref<SparePartItem[]>([])

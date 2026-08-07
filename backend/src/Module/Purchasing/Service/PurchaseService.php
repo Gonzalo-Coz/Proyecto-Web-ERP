@@ -47,6 +47,7 @@ final class PurchaseService
         $qb = $this->purchaseRepository->createQueryBuilder('p')
             ->join('p.supplier', 's')->addSelect('s')
             ->orderBy('p.'.$sort, $direction)
+            ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
 
