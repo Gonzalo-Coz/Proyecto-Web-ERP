@@ -235,7 +235,7 @@ export function printCotizacion(doc: CotizacionDoc): void {
         <div class="rep">COTIZACIÓN — no es un comprobante de pago. Precios con IGV incluido. Válida por 7 días.</div>
       </div>
     </div>`
-  const w = window.open('', '_blank', 'width=460,height=700')
+  const w = window.open('', '_blank', 'width=900,height=1000,left=120,top=40')
   if (!w) return
   w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Cotización ${esc(doc.saleNumber)}</title><style>${css('a4')}</style></head><body>${body}</body></html>`)
   w.document.close()
@@ -244,7 +244,9 @@ export function printCotizacion(doc: CotizacionDoc): void {
 }
 
 export function printComprobante(doc: InvoiceDocument, format: PrintFormat): void {
-  const w = window.open('', '_blank', 'width=460,height=700')
+  // Ventana grande para A4 (se ve el documento completo); angosta para ticket.
+  const features = format === 'ticket' ? 'width=430,height=760,left=200,top=40' : 'width=900,height=1000,left=120,top=40'
+  const w = window.open('', '_blank', features)
   if (!w) return
   w.document.write(
     `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(doc.fullNumber)}</title><style>${css(format)}</style></head><body>${bodyHtml(doc, format)}</body></html>`,
