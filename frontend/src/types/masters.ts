@@ -3,6 +3,16 @@
 export const DOCUMENT_TYPES = ['DNI', 'RUC', 'CE', 'PASAPORTE', 'OTRO'] as const
 export type DocumentType = (typeof DOCUMENT_TYPES)[number]
 
+/** Tipo de cliente administrable con su % de descuento por defecto. */
+export interface CustomerTypeItem {
+  id: number
+  name: string
+  discountPercent: number
+  isActive: boolean
+}
+
+export type CustomerTypePayload = Omit<CustomerTypeItem, 'id'>
+
 export interface CustomerItem {
   id: number
   documentType: DocumentType
@@ -19,6 +29,10 @@ export interface CustomerItem {
   /** Lista de precios asignada (Adición A4). */
   priceListId: number | null
   priceListName: string | null
+  /** Tipo de cliente (FK) y su % de descuento por defecto. */
+  customerTypeId: number | null
+  customerTypeLabel: string | null
+  discountPercent: number
   isLegalEntity: boolean
   isActive: boolean
   createdAt: string | null
@@ -26,8 +40,9 @@ export interface CustomerItem {
 
 export type CustomerPayload = Omit<
   CustomerItem,
-  'id' | 'isLegalEntity' | 'createdAt' | 'priceListName'
+  'id' | 'isLegalEntity' | 'createdAt' | 'priceListName' | 'customerTypeLabel' | 'discountPercent'
 >
+
 
 export interface SupplierItem {
   id: number

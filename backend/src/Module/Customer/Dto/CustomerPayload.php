@@ -53,9 +53,9 @@ final class CustomerPayload
         #[Assert\Positive]
         public readonly ?int $priceListId = null,
 
-        /** Tipo de cliente (lista fija); define el % de descuento por defecto. */
-        #[Assert\Choice(choices: ['GENERAL', 'FRECUENTE', 'CORPORATIVO', 'MAYORISTA', 'VIP'], message: 'Tipo de cliente inválido.')]
-        public readonly string $customerType = 'GENERAL',
+        /** Tipo de cliente administrable; define el % de descuento por defecto. */
+        #[Assert\Positive]
+        public readonly ?int $customerTypeId = null,
     ) {
     }
 }

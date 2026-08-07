@@ -6,8 +6,9 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
+import UbigeoSelect from '@/components/ui/UbigeoSelect.vue'
 import { saleService } from '@/services/sales'
-import { customerService } from '@/services/masters'
+import { customerService, customerTypeService } from '@/services/masters'
 import { sparePartService } from '@/services/inventory'
 import { unitService } from '@/services/motorcycles'
 import { catalogService } from '@/services/catalogs'
@@ -18,7 +19,8 @@ import type { PromotionItem } from '@/types/promotions'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
-import { DOCUMENT_TYPES, type CustomerItem } from '@/types/masters'
+import { DOCUMENT_TYPES, type CustomerItem, type CustomerTypeItem } from '@/types/masters'
+import type { PriceListItem } from '@/types/pricing'
 import type { SparePartItem } from '@/types/inventory'
 import type { UnitItem } from '@/types/motorcycles'
 import type { CatalogItem } from '@/types/catalogs'
@@ -50,6 +52,8 @@ const statusFilter = ref('')
 const query = reactive({ page: 1, perPage: 10, search: '', sort: 'saleDate', direction: 'desc' as const })
 
 const customers = ref<CustomerItem[]>([])
+const customerTypes = ref<CustomerTypeItem[]>([])
+const priceLists = ref<PriceListItem[]>([])
 const spareParts = ref<SparePartItem[]>([])
 const units = ref<UnitItem[]>([])
 const paymentMethods = ref<CatalogItem[]>([])
@@ -81,17 +85,26 @@ const customerModalOpen = ref(false)
 const newCustSaving = ref(false)
 const newCustLookingUp = ref(false)
 const newCustError = ref('')
-const newCust = reactive({
+const newCustEmpty = {
   documentType: 'DNI' as (typeof DOCUMENT_TYPES)[number],
   documentNumber: '',
   name: '',
+  tradeName: null as string | null,
   address: null as string | null,
+  district: null as string | null,
+  province: null as string | null,
+  department: null as string | null,
   phone: null as string | null,
+  mobile: null as string | null,
   email: null as string | null,
-})
+  customerTypeId: null as number | null,
+  priceListId: null as number | null,
+  isActive: true,
+}
+const newCust = reactive({ ...newCustEmpty })
 
 function openNewCustomer(): void {
-  Object.assign(newCust, { documentType: 'DNI', documentNumber: '', name: '', address: null, phone: null, email: null })
+  Object.assign(newCust, newCustEmpty)
   newCustError.value = ''
   customerModalOpen.value = true
 }
@@ -109,7 +122,11 @@ async function lookupNewCustomer(): Promise<void> {
     } else {
       const c = await lookupService.ruc(doc)
       newCust.name = c.razonSocial
+      newCust.tradeName = c.nombreComercial ?? newCust.tradeName
       newCust.address = c.direccion ?? newCust.address
+      newCust.district = c.distrito ?? newCust.district
+      newCust.province = c.provincia ?? newCust.province
+      newCust.department = c.departamento ?? newCust.department
     }
     toast.success('Datos cargados.')
   } catch (e: any) {
@@ -127,17 +144,17 @@ async function saveNewCustomer(): Promise<void> {
       documentType: newCust.documentType,
       documentNumber: newCust.documentNumber.trim(),
       name: newCust.name.trim(),
-      tradeName: null,
+      tradeName: newCust.tradeName,
       address: newCust.address,
-      district: null,
-      province: null,
-      department: null,
+      district: newCust.district,
+      province: newCust.province,
+      department: newCust.department,
       phone: newCust.phone,
-      mobile: null,
+      mobile: newCust.mobile,
       email: newCust.email,
-      priceListId: null,
-      customerType: 'GENERAL',
-      isActive: true,
+      priceListId: newCust.priceListId,
+      customerTypeId: newCust.customerTypeId,
+      isActive: newCust.isActive,
     })
     customers.value.unshift(created)
     form.customerId = created.id
@@ -361,6 +378,16 @@ onMounted(async () => {
   spareParts.value = (await sparePartService.list({ page: 1, perPage: 100, search: '', sort: 'description', direction: 'asc' })).data.filter((p) => p.isActive)
   units.value = (await unitService.list({ page: 1, perPage: 100, search: '', sort: 'internalCode', direction: 'asc', status: 'DISPONIBLE' })).data
   paymentMethods.value = (await catalogService.list('payment_methods')).filter((m) => m.isActive)
+  try {
+    customerTypes.value = await customerTypeService.list()
+  } catch {
+    customerTypes.value = []
+  }
+  try {
+    priceLists.value = (await pricingService.listPriceLists({ perPage: 100 })).data.filter((l) => l.isActive)
+  } catch {
+    priceLists.value = []
+  }
   try {
     promotions.value = (await promotionService.list({ perPage: 100 })).data.filter((p) => p.isActive)
   } catch {
@@ -665,6 +692,21 @@ onMounted(async () => {
         <FormField :label="newCust.documentType === 'RUC' ? 'Razón Social' : 'Nombres y Apellidos'" required>
           <input v-model="newCust.name" class="form-input" required maxlength="200" />
         </FormField>
+
+        <FormField label="Nombre Comercial">
+          <input v-model="newCust.tradeName" class="form-input" maxlength="150" />
+        </FormField>
+
+        <FormField label="Dirección">
+          <input v-model="newCust.address" class="form-input" maxlength="200" />
+        </FormField>
+
+        <UbigeoSelect
+          v-model:department="newCust.department"
+          v-model:province="newCust.province"
+          v-model:district="newCust.district"
+        />
+
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Teléfono">
             <input v-model="newCust.phone" class="form-input" maxlength="20" />
@@ -673,9 +715,30 @@ onMounted(async () => {
             <input v-model="newCust.email" type="email" class="form-input" maxlength="150" />
           </FormField>
         </div>
-        <FormField label="Dirección">
-          <input v-model="newCust.address" class="form-input" maxlength="200" />
-        </FormField>
+
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Tipo de cliente">
+            <select v-model="newCust.customerTypeId" class="form-input">
+              <option :value="null">Sin tipo (0% dcto.)</option>
+              <option v-for="ct in customerTypes" :key="ct.id" :value="ct.id">
+                {{ ct.name }}<template v-if="Number(ct.discountPercent) > 0"> — {{ Number(ct.discountPercent).toFixed(0) }}% dcto.</template>
+              </option>
+            </select>
+          </FormField>
+          <FormField label="Lista de precios">
+            <select v-model="newCust.priceListId" class="form-input">
+              <option :value="null">Predeterminada / precio base</option>
+              <option v-for="pl in priceLists" :key="pl.id" :value="pl.id">
+                {{ pl.name }}<template v-if="pl.isDefault"> (predeterminada)</template>
+              </option>
+            </select>
+          </FormField>
+        </div>
+
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input v-model="newCust.isActive" type="checkbox" /> Cliente activo
+        </label>
+
         <p v-if="newCustError" class="text-sm text-red-600">{{ newCustError }}</p>
         <p class="text-xs text-gray-500">Se guardará en tu lista de clientes y quedará seleccionado en la venta.</p>
         <div class="flex justify-end gap-3 pt-2">

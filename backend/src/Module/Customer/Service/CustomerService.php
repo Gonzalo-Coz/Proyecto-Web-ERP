@@ -7,6 +7,7 @@ namespace App\Module\Customer\Service;
 use App\Module\Customer\Dto\CustomerPayload;
 use App\Module\Customer\Entity\Customer;
 use App\Module\Customer\Repository\CustomerRepository;
+use App\Module\Customer\Repository\CustomerTypeRepository;
 use App\Module\Pricing\Repository\PriceListRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -22,6 +23,7 @@ final class CustomerService
         private readonly EntityManagerInterface $entityManager,
         private readonly CustomerRepository $customerRepository,
         private readonly PriceListRepository $priceListRepository,
+        private readonly CustomerTypeRepository $customerTypeRepository,
     ) {
     }
 
@@ -166,7 +168,9 @@ final class CustomerService
         $customer->setMobile($payload->mobile);
         $customer->setEmail($payload->email);
         $customer->setActive($payload->isActive);
-        $customer->setCustomerType($payload->customerType);
+        $customer->setCustomerType(
+            $payload->customerTypeId !== null ? $this->customerTypeRepository->find($payload->customerTypeId) : null,
+        );
         $customer->setPriceList(
             $payload->priceListId !== null ? $this->priceListRepository->find($payload->priceListId) : null,
         );
@@ -189,7 +193,7 @@ final class CustomerService
             'email' => $customer->getEmail(),
             'priceListId' => $customer->getPriceList()?->getId(),
             'priceListName' => $customer->getPriceList()?->getName(),
-            'customerType' => $customer->getCustomerType(),
+            'customerTypeId' => $customer->getCustomerType()?->getId(),
             'customerTypeLabel' => $customer->getCustomerTypeLabel(),
             'discountPercent' => $customer->getDiscountPercent(),
             'isLegalEntity' => $customer->isLegalEntity(),

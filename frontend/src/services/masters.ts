@@ -2,7 +2,29 @@ import api from '@/services/api'
 import { downloadTemplate, runImport } from '@/services/importHelpers'
 import type { ListQuery, Paginated } from '@/types/common'
 import type { ImportResult } from '@/types/import'
-import type { CustomerItem, CustomerPayload, SupplierItem, SupplierPayload } from '@/types/masters'
+import type {
+  CustomerItem,
+  CustomerPayload,
+  CustomerTypeItem,
+  CustomerTypePayload,
+  SupplierItem,
+  SupplierPayload,
+} from '@/types/masters'
+
+export const customerTypeService = {
+  list(): Promise<CustomerTypeItem[]> {
+    return api.get('/customer-types').then((r) => r.data.data)
+  },
+  create(payload: CustomerTypePayload): Promise<CustomerTypeItem> {
+    return api.post('/customer-types', payload).then((r) => r.data)
+  },
+  update(id: number, payload: CustomerTypePayload): Promise<CustomerTypeItem> {
+    return api.put(`/customer-types/${id}`, payload).then((r) => r.data)
+  },
+  remove(id: number): Promise<void> {
+    return api.delete(`/customer-types/${id}`).then(() => undefined)
+  },
+}
 
 export const customerService = {
   list(query: ListQuery): Promise<Paginated<CustomerItem>> {

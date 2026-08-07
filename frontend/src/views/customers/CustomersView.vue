@@ -8,14 +8,14 @@ import FormField from '@/components/ui/FormField.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import UbigeoSelect from '@/components/ui/UbigeoSelect.vue'
 import ImportModal from '@/components/ui/ImportModal.vue'
-import { customerService } from '@/services/masters'
+import { customerService, customerTypeService } from '@/services/masters'
 import { pricingService } from '@/services/pricing'
 import { lookupService } from '@/services/lookup'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
 import type { PriceListItem } from '@/types/pricing'
-import { DOCUMENT_TYPES, type CustomerItem } from '@/types/masters'
+import { DOCUMENT_TYPES, type CustomerItem, type CustomerTypeItem } from '@/types/masters'
 
 const auth = useAuthStore()
 const toast = useToast()
@@ -54,6 +54,7 @@ async function autoFillFromDocument(): Promise<void> {
 const columns: TableColumn[] = [
   { key: 'documentNumber', label: 'Documento', sortable: true },
   { key: 'name', label: 'Nombre / Razón Social', sortable: true },
+  { key: 'customerType', label: 'Tipo' },
   { key: 'mobile', label: 'Celular' },
   { key: 'email', label: 'Correo' },
   { key: 'isActive', label: 'Estado' },
@@ -78,12 +79,23 @@ const emptyForm = {
   province: null as string | null,
   department: null as string | null,
   phone: null as string | null,
+  mobile: null as string | null,
   email: null as string | null,
   priceListId: null as number | null,
+  customerTypeId: null as number | null,
   isActive: true,
 }
 const form = reactive({ ...emptyForm })
 const priceLists = ref<PriceListItem[]>([])
+const customerTypes = ref<CustomerTypeItem[]>([])
+
+async function loadCustomerTypes(): Promise<void> {
+  try {
+    customerTypes.value = await customerTypeService.list()
+  } catch {
+    customerTypes.value = []
+  }
+}
 
 const confirmTarget = ref<CustomerItem | null>(null)
 
@@ -117,7 +129,8 @@ function openCreate(): void {
 
 function openEdit(customer: CustomerItem): void {
   editing.value = customer
-  const { id, isLegalEntity, createdAt, priceListName, mobile, ...payload } = customer
+  const { id, isLegalEntity, createdAt, priceListName, customerTypeLabel, discountPercent, ...payload } =
+    customer
   Object.assign(form, payload)
   formError.value = ''
   modalOpen.value = true
@@ -154,8 +167,60 @@ async function confirmDelete(): Promise<void> {
 
 const importOpen = ref(false)
 
+// ============ Gestión de tipos de cliente (catálogo administrable) ============
+const typesModalOpen = ref(false)
+const typeForm = reactive({ id: null as number | null, name: '', discountPercent: 0, isActive: true })
+const typeSaving = ref(false)
+const typeError = ref('')
+
+function openTypesManager(): void {
+  resetTypeForm()
+  typeError.value = ''
+  typesModalOpen.value = true
+}
+
+function resetTypeForm(): void {
+  Object.assign(typeForm, { id: null, name: '', discountPercent: 0, isActive: true })
+}
+
+function editType(t: CustomerTypeItem): void {
+  Object.assign(typeForm, { id: t.id, name: t.name, discountPercent: Number(t.discountPercent), isActive: t.isActive })
+}
+
+async function saveType(): Promise<void> {
+  typeSaving.value = true
+  typeError.value = ''
+  try {
+    const payload = { name: typeForm.name.trim(), discountPercent: Number(typeForm.discountPercent), isActive: typeForm.isActive }
+    if (typeForm.id) {
+      await customerTypeService.update(typeForm.id, payload)
+    } else {
+      await customerTypeService.create(payload)
+    }
+    await loadCustomerTypes()
+    resetTypeForm()
+    toast.success('Tipo de cliente guardado.')
+  } catch (e: any) {
+    typeError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo guardar el tipo.'
+  } finally {
+    typeSaving.value = false
+  }
+}
+
+async function removeType(t: CustomerTypeItem): Promise<void> {
+  try {
+    await customerTypeService.remove(t.id)
+    await loadCustomerTypes()
+    if (typeForm.id === t.id) resetTypeForm()
+    toast.success('Tipo eliminado.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.message ?? 'No se pudo eliminar el tipo.')
+  }
+}
+
 onMounted(async () => {
   await load()
+  await loadCustomerTypes()
   try {
     priceLists.value = (await pricingService.listPriceLists({ perPage: 100 })).data.filter((l) => l.isActive)
   } catch {
@@ -175,6 +240,9 @@ onMounted(async () => {
       @change="onTableChange"
     >
       <template #toolbar>
+        <button v-if="auth.can('customers.list.edit')" class="btn-secondary" @click="openTypesManager">
+          Tipos de cliente
+        </button>
         <button v-if="auth.can('customers.list.create')" class="btn-secondary" @click="importOpen = true">
           Importar Excel
         </button>
@@ -186,6 +254,13 @@ onMounted(async () => {
       <template #cell-documentNumber="{ row }">
         <span class="font-medium text-gray-900">{{ row.documentType }}</span>
         <span class="ml-1 text-gray-600">{{ row.documentNumber }}</span>
+      </template>
+
+      <template #cell-customerType="{ row }">
+        <span class="text-gray-700">{{ row.customerTypeLabel ?? '—' }}</span>
+        <span v-if="Number(row.discountPercent) > 0" class="ml-1 text-xs font-semibold text-green-600">
+          {{ Number(row.discountPercent).toFixed(0) }}%
+        </span>
       </template>
 
       <template #cell-isActive="{ row }">
@@ -276,14 +351,24 @@ onMounted(async () => {
           </FormField>
         </div>
 
-        <FormField label="Lista de precios">
-          <select v-model="form.priceListId" class="form-input">
-            <option :value="null">Predeterminada / precio base</option>
-            <option v-for="pl in priceLists" :key="pl.id" :value="pl.id">
-              {{ pl.name }}<template v-if="pl.isDefault"> (predeterminada)</template>
-            </option>
-          </select>
-        </FormField>
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Tipo de cliente">
+            <select v-model="form.customerTypeId" class="form-input">
+              <option :value="null">Sin tipo (0% dcto.)</option>
+              <option v-for="ct in customerTypes" :key="ct.id" :value="ct.id">
+                {{ ct.name }}<template v-if="Number(ct.discountPercent) > 0"> — {{ Number(ct.discountPercent).toFixed(0) }}% dcto.</template>
+              </option>
+            </select>
+          </FormField>
+          <FormField label="Lista de precios">
+            <select v-model="form.priceListId" class="form-input">
+              <option :value="null">Predeterminada / precio base</option>
+              <option v-for="pl in priceLists" :key="pl.id" :value="pl.id">
+                {{ pl.name }}<template v-if="pl.isDefault"> (predeterminada)</template>
+              </option>
+            </select>
+          </FormField>
+        </div>
 
         <label class="flex items-center gap-2 text-sm text-gray-700">
           <input v-model="form.isActive" type="checkbox" />
@@ -329,5 +414,65 @@ onMounted(async () => {
         </p>
       </template>
     </ImportModal>
+
+    <BaseModal :open="typesModalOpen" title="Tipos de cliente y descuentos" @close="typesModalOpen = false">
+      <div class="space-y-4">
+        <p class="text-sm text-gray-500">
+          Crea o edita tipos de cliente y su % de descuento. El descuento se aplica automáticamente al elegir el
+          cliente en una venta (editable por línea).
+        </p>
+
+        <div class="overflow-hidden rounded-lg border border-gray-200">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+              <tr>
+                <th class="px-3 py-2">Tipo</th>
+                <th class="px-3 py-2 text-right">Descuento</th>
+                <th class="px-3 py-2">Estado</th>
+                <th class="px-3 py-2 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in customerTypes" :key="t.id" class="border-t border-gray-100">
+                <td class="px-3 py-2 font-medium text-gray-800">{{ t.name }}</td>
+                <td class="px-3 py-2 text-right">{{ Number(t.discountPercent).toFixed(0) }}%</td>
+                <td class="px-3 py-2">
+                  <StatusBadge :active="Boolean(t.isActive)" />
+                </td>
+                <td class="px-3 py-2 text-right">
+                  <button class="btn-secondary" @click="editType(t)">Editar</button>
+                  <button class="btn-secondary ml-2 !text-red-600" @click="removeType(t)">Eliminar</button>
+                </td>
+              </tr>
+              <tr v-if="customerTypes.length === 0">
+                <td colspan="4" class="px-3 py-4 text-center text-gray-400">Aún no hay tipos de cliente.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <form class="grid grid-cols-12 items-end gap-3 rounded-lg bg-gray-50 p-3" @submit.prevent="saveType">
+          <FormField label="Nombre del tipo" class="col-span-6">
+            <input v-model="typeForm.name" class="form-input" required maxlength="60" placeholder="Ej. Mayorista" />
+          </FormField>
+          <FormField label="% Descuento" class="col-span-3">
+            <input v-model.number="typeForm.discountPercent" type="number" step="0.5" min="0" max="100" class="form-input" />
+          </FormField>
+          <label class="col-span-3 flex items-center gap-2 pb-2 text-sm text-gray-700">
+            <input v-model="typeForm.isActive" type="checkbox" /> Activo
+          </label>
+          <div class="col-span-12 flex items-center justify-between">
+            <p v-if="typeError" class="text-sm text-red-600">{{ typeError }}</p>
+            <p v-else class="text-xs text-gray-400">{{ typeForm.id ? 'Editando un tipo existente' : 'Nuevo tipo' }}</p>
+            <div class="flex gap-2">
+              <button v-if="typeForm.id" type="button" class="btn-secondary" @click="resetTypeForm">Nuevo</button>
+              <button type="submit" class="btn-primary" :disabled="typeSaving">
+                {{ typeSaving ? 'Guardando…' : typeForm.id ? 'Actualizar' : 'Agregar' }}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </BaseModal>
   </DefaultLayout>
 </template>
