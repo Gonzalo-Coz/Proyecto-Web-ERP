@@ -17,12 +17,18 @@ final class SettingsService
 {
     /** Claves reconocidas y sus valores por defecto. */
     public const DEFAULTS = [
-        'company.name' => 'Yamaha Integral Global Motors',
+        'company.name' => 'Yamaha Global Motors',
         'company.trade_name' => 'YIGM',
         'company.ruc' => '20000000001',
+        'company.legal_rep' => '',
         'company.address' => '',
+        'company.department' => '',
+        'company.province' => '',
+        'company.district' => '',
         'company.phone' => '',
+        'company.mobile' => '',
         'company.email' => '',
+        'company.website' => '',
         'tax.igv_rate' => '18',
         'sales.reservation_days' => '7',
     ];
@@ -74,6 +80,9 @@ final class SettingsService
         }
         if (isset($values['company.ruc']) && preg_match('/^(10|15|17|20)\d{9}$/', (string) $values['company.ruc']) !== 1) {
             throw new UnprocessableEntityHttpException('El RUC de la empresa no tiene un formato válido.');
+        }
+        if (!empty($values['company.email']) && filter_var($values['company.email'], FILTER_VALIDATE_EMAIL) === false) {
+            throw new UnprocessableEntityHttpException('El correo de la empresa no es válido.');
         }
 
         $existing = [];

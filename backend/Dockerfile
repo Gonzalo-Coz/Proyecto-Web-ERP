@@ -22,6 +22,8 @@ RUN composer install --no-dev --no-interaction --no-progress --no-scripts \
  && mkdir -p var public/uploads && chmod -R 777 var public/uploads
 
 COPY docker/nginx.conf.template /etc/nginx/nginx.conf.template
+# Log de accesos de php-fpm a stdout (evita que Railway marque los 200 como "error").
+COPY docker/zz-railway.conf /usr/local/etc/php-fpm.d/zz-railway.conf
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
