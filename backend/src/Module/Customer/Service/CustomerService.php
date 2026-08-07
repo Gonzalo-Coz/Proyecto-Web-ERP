@@ -166,6 +166,7 @@ final class CustomerService
         $customer->setMobile($payload->mobile);
         $customer->setEmail($payload->email);
         $customer->setActive($payload->isActive);
+        $customer->setCustomerType($payload->customerType);
         $customer->setPriceList(
             $payload->priceListId !== null ? $this->priceListRepository->find($payload->priceListId) : null,
         );
@@ -188,6 +189,9 @@ final class CustomerService
             'email' => $customer->getEmail(),
             'priceListId' => $customer->getPriceList()?->getId(),
             'priceListName' => $customer->getPriceList()?->getName(),
+            'customerType' => $customer->getCustomerType(),
+            'customerTypeLabel' => $customer->getCustomerTypeLabel(),
+            'discountPercent' => $customer->getDiscountPercent(),
             'isLegalEntity' => $customer->isLegalEntity(),
             'isActive' => $customer->isActive(),
             'createdAt' => $customer->getCreatedAt()?->format(\DateTimeInterface::ATOM),

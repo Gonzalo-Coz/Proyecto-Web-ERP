@@ -52,6 +52,10 @@ final class CustomerPayload
         /** Lista de precios asignada (Adición A4); null = predeterminada / precio base. */
         #[Assert\Positive]
         public readonly ?int $priceListId = null,
+
+        /** Tipo de cliente (lista fija); define el % de descuento por defecto. */
+        #[Assert\Choice(choices: ['GENERAL', 'FRECUENTE', 'CORPORATIVO', 'MAYORISTA', 'VIP'], message: 'Tipo de cliente inválido.')]
+        public readonly string $customerType = 'GENERAL',
     ) {
     }
 }

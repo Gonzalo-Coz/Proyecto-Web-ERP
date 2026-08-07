@@ -30,6 +30,18 @@ class Customer implements SoftDeletableInterface
 
     public const DOCUMENT_TYPES = ['DNI', 'RUC', 'CE', 'PASAPORTE', 'OTRO'];
 
+    /**
+     * Tipos de cliente con su % de descuento por defecto (lista fija).
+     * El descuento se aplica automáticamente en la venta (editable).
+     */
+    public const CUSTOMER_TYPES = [
+        'GENERAL' => ['label' => 'Público General', 'discount' => 0.0],
+        'FRECUENTE' => ['label' => 'Cliente Frecuente', 'discount' => 5.0],
+        'CORPORATIVO' => ['label' => 'Corporativo / Empresa', 'discount' => 8.0],
+        'MAYORISTA' => ['label' => 'Mayorista', 'discount' => 10.0],
+        'VIP' => ['label' => 'VIP', 'discount' => 15.0],
+    ];
+
     /** Documento del cliente genérico "Público General" (boleta simple, sin datos). */
     public const GENERIC_DOC_NUMBER = '00000000';
 
@@ -74,6 +86,10 @@ class Customer implements SoftDeletableInterface
 
     #[ORM\Column(options: ['default' => true])]
     private bool $isActive = true;
+
+    /** Tipo de cliente (clave de CUSTOMER_TYPES); determina el % de descuento. */
+    #[ORM\Column(length: 20, options: ['default' => 'GENERAL'])]
+    private string $customerType = 'GENERAL';
 
     /** Lista de precios asignada (Adición A4); null = usa la lista predeterminada / precio base. */
     #[ORM\ManyToOne(targetEntity: PriceList::class)]
@@ -220,6 +236,28 @@ class Customer implements SoftDeletableInterface
     public function setActive(bool $isActive): void
     {
         $this->isActive = $isActive;
+    }
+
+    public function getCustomerType(): string
+    {
+        return $this->customerType;
+    }
+
+    public function setCustomerType(string $customerType): void
+    {
+        $this->customerType = isset(self::CUSTOMER_TYPES[$customerType]) ? $customerType : 'GENERAL';
+    }
+
+    /** Etiqueta legible del tipo de cliente. */
+    public function getCustomerTypeLabel(): string
+    {
+        return self::CUSTOMER_TYPES[$this->customerType]['label'] ?? 'Público General';
+    }
+
+    /** % de descuento por defecto según el tipo de cliente. */
+    public function getDiscountPercent(): float
+    {
+        return (float) (self::CUSTOMER_TYPES[$this->customerType]['discount'] ?? 0.0);
     }
 
     /** Persona jurídica cuando el documento es RUC. */
