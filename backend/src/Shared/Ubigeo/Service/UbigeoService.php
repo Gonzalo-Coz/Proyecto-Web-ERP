@@ -38,13 +38,21 @@ final class UbigeoService
     /** @return list<array{id: string, name: string}> */
     public function provinces(string $departmentId): array
     {
-        return $this->childrenOf($this->load('provincias.json'), $departmentId);
+        // provincias.json está agrupado como diccionario: clave = id del departamento.
+        $byDepartment = $this->load('provincias.json');
+        $rows = $byDepartment[$departmentId] ?? [];
+
+        return $this->mapSort(is_array($rows) ? $rows : []);
     }
 
     /** @return list<array{id: string, name: string}> */
     public function districts(string $provinceId): array
     {
-        return $this->childrenOf($this->load('distritos.json'), $provinceId);
+        // distritos.json está agrupado como diccionario: clave = id de la provincia.
+        $byProvince = $this->load('distritos.json');
+        $rows = $byProvince[$provinceId] ?? [];
+
+        return $this->mapSort(is_array($rows) ? $rows : []);
     }
 
     /** True si los datos base están presentes (para diagnóstico). */
@@ -68,18 +76,6 @@ final class UbigeoService
         $data = json_decode((string) file_get_contents($path), true);
 
         return $this->cache[$file] = is_array($data) ? $data : [];
-    }
-
-    /**
-     * @param list<array<string, mixed>> $rows
-     *
-     * @return list<array{id: string, name: string}>
-     */
-    private function childrenOf(array $rows, string $parentId): array
-    {
-        $filtered = array_filter($rows, static fn ($r): bool => (string) ($r['id_padre_ubigeo'] ?? '') === $parentId);
-
-        return $this->mapSort($filtered);
     }
 
     /**
