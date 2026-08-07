@@ -92,6 +92,10 @@ final class PurchaseService
                 }
             }
 
+            // Persistir la compra ANTES de las líneas: el registro de stock (Kardex)
+            // hace flush, y sin esto Doctrine no cascadea la compra nueva de los ítems.
+            $this->entityManager->persist($purchase);
+
             $subtotal = 0.0;
             foreach (array_values($payload->items) as $index => $line) {
                 $subtotal += $this->processLine($purchase, $line, $index + 1);

@@ -118,6 +118,17 @@ final class InvoiceImportService
      */
     public function confirm(array $payload): array
     {
+        // Transaccional: si algo falla, no quedan repuestos/unidades a medias.
+        return $this->entityManager->wrapInTransaction(fn (): array => $this->doConfirm($payload));
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function doConfirm(array $payload): array
+    {
         $sup = $payload['supplier'] ?? [];
         $doc = $payload['document'] ?? [];
         $ruc = (string) ($sup['ruc'] ?? '');
