@@ -138,15 +138,32 @@ final class SparePartService
         return mb_substr(sprintf('%s · %s', $part->getInternalCode(), $part->getDescription()), 0, 200);
     }
 
+    /**
+     * Borrado FÍSICO: elimina el repuesto y su Kardex y líneas de compra, sin
+     * dejar rastro (para no ocupar espacio). Se bloquea si tiene ventas o
+     * cotizaciones asociadas, porque aparecería en comprobantes emitidos.
+     */
     public function delete(int $id): void
     {
         $part = $this->find($id);
-        if ($part->getStock() > 0) {
-            throw new ConflictHttpException('No puede eliminarse un repuesto con stock; realice primero un ajuste a cero.');
+
+        $sales = (int) $this->entityManager
+            ->createQuery('SELECT COUNT(i) FROM App\Module\Sales\Entity\SaleItem i WHERE i.sparePart = :id')
+            ->setParameter('id', $part->getId())
+            ->getSingleScalarResult();
+        if ($sales > 0) {
+            throw new ConflictHttpException('No puede eliminarse: el repuesto tiene ventas o cotizaciones asociadas.');
         }
-        $part->markDeleted();
-        $part->setActive(false);
-        $this->entityManager->flush();
+
+        $this->entityManager->wrapInTransaction(function () use ($part): void {
+            $pid = $part->getId();
+            $this->entityManager->createQuery('DELETE FROM App\Module\Inventory\Entity\KardexMovement k WHERE k.sparePart = :id')
+                ->setParameter('id', $pid)->execute();
+            $this->entityManager->createQuery('DELETE FROM App\Module\Purchasing\Entity\PurchaseItem i WHERE i.sparePart = :id')
+                ->setParameter('id', $pid)->execute();
+            $this->entityManager->remove($part);
+            $this->entityManager->flush();
+        });
     }
 
     /** Ajuste manual de stock → movimiento AJUSTE en Kardex. */

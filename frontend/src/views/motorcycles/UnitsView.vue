@@ -401,7 +401,7 @@ onMounted(async () => {
     <ConfirmDialog
       :open="confirmTarget !== null"
       title="Dar de baja unidad"
-      :message="`La unidad «${confirmTarget?.internalCode}» (VIN ${confirmTarget?.vin}) pasará a estado BAJA y se ocultará. Su expediente se conserva. ¿Continuar?`"
+      :message="`La unidad «${confirmTarget?.internalCode}» (VIN ${confirmTarget?.vin}) se eliminará por completo. No se puede si tiene ventas asociadas. ¿Continuar?`"
       confirm-label="Dar de baja"
       danger
       @confirm="confirmDelete"

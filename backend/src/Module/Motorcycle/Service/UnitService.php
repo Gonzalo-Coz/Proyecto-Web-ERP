@@ -132,6 +132,10 @@ final class UnitService
         return $this->toArray($unit);
     }
 
+    /**
+     * Borrado FÍSICO: elimina la unidad y sus líneas de compra, sin dejar
+     * rastro. Se bloquea si tiene ventas o cotizaciones asociadas.
+     */
     public function delete(int $id): void
     {
         $unit = $this->find($id);
@@ -139,9 +143,20 @@ final class UnitService
             throw new ConflictHttpException('Una motocicleta vendida no puede eliminarse.');
         }
 
-        $unit->markDeleted();
-        $unit->setStatus('BAJA');
-        $this->entityManager->flush();
+        $sales = (int) $this->entityManager
+            ->createQuery('SELECT COUNT(i) FROM App\Module\Sales\Entity\SaleItem i WHERE i.motorcycleUnit = :id')
+            ->setParameter('id', $unit->getId())
+            ->getSingleScalarResult();
+        if ($sales > 0) {
+            throw new ConflictHttpException('No puede eliminarse: la unidad tiene ventas o cotizaciones asociadas.');
+        }
+
+        $this->entityManager->wrapInTransaction(function () use ($unit): void {
+            $this->entityManager->createQuery('DELETE FROM App\Module\Purchasing\Entity\PurchaseItem i WHERE i.motorcycleUnit = :id')
+                ->setParameter('id', $unit->getId())->execute();
+            $this->entityManager->remove($unit);
+            $this->entityManager->flush();
+        });
     }
 
     private function find(int $id): MotorcycleUnit

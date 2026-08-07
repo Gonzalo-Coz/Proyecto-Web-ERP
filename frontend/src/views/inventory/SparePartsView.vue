@@ -577,7 +577,7 @@ onMounted(async () => {
     <ConfirmDialog
       :open="confirmTarget !== null"
       title="Eliminar repuesto"
-      :message="`«${confirmTarget?.description}» se desactivará (eliminación lógica). Su Kardex se conserva. ¿Continuar?`"
+      :message="`«${confirmTarget?.description}» se eliminará por completo (registro y Kardex). No se puede si tiene ventas asociadas. ¿Continuar?`"
       confirm-label="Eliminar"
       danger
       @confirm="confirmDelete"
