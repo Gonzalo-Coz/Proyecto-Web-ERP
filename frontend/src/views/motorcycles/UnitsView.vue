@@ -6,6 +6,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
 import ImportModal from '@/components/ui/ImportModal.vue'
+import api from '@/services/api'
 import { modelService, unitService } from '@/services/motorcycles'
 import { useAuthStore } from '@/stores/auth'
 import type { PageMeta, TableColumn } from '@/types/common'
@@ -128,14 +129,21 @@ function openEdit(unit: UnitItem): void {
   modalOpen.value = true
 }
 
+/** Moneda de los precios; US$ se convierte a soles con el T.C. del día. */
+const priceCurrency = ref<'PEN' | 'USD'>('PEN')
+const dayRate = ref<number | null>(null)
+const toSoles = (v: number | null): number | null =>
+  v !== null && priceCurrency.value === 'USD' && dayRate.value ? Math.round(v * dayRate.value * 100) / 100 : v
+
 async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
+    const payload = { ...form, purchasePrice: toSoles(form.purchasePrice), salePrice: toSoles(form.salePrice) }
     if (editing.value) {
-      await unitService.update(editing.value.id, { ...form })
+      await unitService.update(editing.value.id, payload)
     } else {
-      await unitService.create({ ...form })
+      await unitService.create(payload)
     }
     modalOpen.value = false
     await load()
@@ -172,6 +180,11 @@ const importOpen = ref(false)
 
 onMounted(async () => {
   await load()
+  try {
+    dayRate.value = (await api.get('/exchange-rate')).data.sell
+  } catch {
+    dayRate.value = null
+  }
   const modelsResult = await modelService.list({ page: 1, perPage: 100, search: '', sort: 'model', direction: 'asc' })
   models.value = modelsResult.data.filter((m) => m.isActive)
 })
@@ -292,11 +305,21 @@ onMounted(async () => {
           <FormField label="Fecha de Ingreso">
             <input v-model="form.entryDate" type="date" class="form-input" />
           </FormField>
-          <FormField label="Precio Compra (S/)">
+          <FormField :label="`Precio Compra (${priceCurrency === 'USD' ? 'US$' : 'S/'})`">
             <input v-model.number="form.purchasePrice" type="number" step="0.01" class="form-input" min="0" />
+            <p v-if="priceCurrency === 'USD' && dayRate" class="text-[10px] text-gray-400">= S/ {{ (toSoles(form.purchasePrice) ?? 0).toFixed(2) }}</p>
           </FormField>
-          <FormField label="Precio Venta (S/)">
+          <FormField :label="`Precio Venta (${priceCurrency === 'USD' ? 'US$' : 'S/'})`">
             <input v-model.number="form.salePrice" type="number" step="0.01" class="form-input" min="0" />
+            <p v-if="priceCurrency === 'USD' && dayRate" class="text-[10px] text-gray-400">= S/ {{ (toSoles(form.salePrice) ?? 0).toFixed(2) }}</p>
+          </FormField>
+        </div>
+        <div class="grid grid-cols-3 gap-4">
+          <FormField label="Moneda de precios">
+            <select v-model="priceCurrency" class="form-input">
+              <option value="PEN">Soles (S/)</option>
+              <option value="USD">Dólares (US$){{ dayRate ? ` — T.C. ${dayRate}` : '' }}</option>
+            </select>
           </FormField>
         </div>
         <div class="grid grid-cols-3 gap-4">

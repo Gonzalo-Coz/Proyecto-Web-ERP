@@ -7,6 +7,7 @@ import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
 import FormField from '@/components/ui/FormField.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import UbigeoSelect from '@/components/ui/UbigeoSelect.vue'
+import api from '@/services/api'
 import { saleService } from '@/services/sales'
 import { customerService, customerTypeService } from '@/services/masters'
 import { sparePartService } from '@/services/inventory'
@@ -175,8 +176,16 @@ const cancelTarget = ref<SaleSummary | null>(null)
 const actionError = ref('')
 
 /** Neto de la línea: bruto − descuento porcentual (recalcula en vivo). */
+/** Tipo de cambio del día (venta) para convertir precios en US$ a soles. */
+const saleRate = ref<number | null>(null)
+
+/** Precio unitario en soles: si la línea está en US$, se multiplica por el T.C. */
+function linePriceSoles(l: SaleLine): number {
+  return l._usd && saleRate.value ? Math.round(l.unitPrice * saleRate.value * 100) / 100 : l.unitPrice
+}
+
 function lineNet(l: SaleLine): number {
-  const gross = l.quantity * l.unitPrice
+  const gross = l.quantity * linePriceSoles(l)
   return Math.max(0, gross - (gross * (l.discountPercent || 0)) / 100)
 }
 
@@ -306,7 +315,17 @@ async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
-    await saleService.create({ ...form, items: lines.value })
+    // Convierte a soles los precios en US$ antes de enviar (el backend trabaja en soles).
+    const items = lines.value.map((l) => ({
+      itemType: l.itemType,
+      sparePartId: l.sparePartId,
+      motorcycleUnitId: l.motorcycleUnitId,
+      description: l.description,
+      quantity: l.quantity,
+      unitPrice: linePriceSoles(l),
+      discountPercent: l.discountPercent,
+    }))
+    await saleService.create({ ...form, items })
     modalOpen.value = false
     await load()
   } catch (e: any) {
@@ -392,6 +411,11 @@ onMounted(async () => {
     promotions.value = (await promotionService.list({ perPage: 100 })).data.filter((p) => p.isActive)
   } catch {
     promotions.value = []
+  }
+  try {
+    saleRate.value = (await api.get('/exchange-rate')).data.sell
+  } catch {
+    saleRate.value = null
   }
 })
 </script>
@@ -492,7 +516,11 @@ onMounted(async () => {
 
         <div class="rounded-lg border border-gray-200 p-3">
           <div class="mb-2 flex items-center justify-between">
-            <p class="text-sm font-medium text-gray-700">Detalle</p>
+            <div class="flex items-center gap-2">
+              <p class="text-sm font-medium text-gray-700">Detalle</p>
+              <span class="text-xs text-gray-500">· T.C. (S/ por US$):</span>
+              <input v-model.number="saleRate" type="number" step="0.001" min="0" placeholder="—" class="form-input !w-20 !py-0.5 !text-xs" />
+            </div>
             <div class="flex gap-2">
               <button type="button" class="btn-secondary" @click="addLine('MOTORCYCLE_UNIT')">+ Moto</button>
               <button type="button" class="btn-secondary" @click="addLine('SPARE_PART')">+ Repuesto</button>
@@ -528,8 +556,15 @@ onMounted(async () => {
               <input v-model.number="line.quantity" type="number" min="1" class="form-input" :disabled="line.itemType === 'MOTORCYCLE_UNIT'" />
             </div>
             <div class="col-span-2">
-              <label class="form-label text-xs">P. Unit.</label>
+              <label class="form-label flex items-center justify-between text-xs">
+                <span>P. Unit.</span>
+                <select v-model="line._usd" class="rounded border border-gray-200 px-0.5 text-[10px]">
+                  <option :value="false">S/</option>
+                  <option :value="true">US$</option>
+                </select>
+              </label>
               <input v-model.number="line.unitPrice" type="number" step="0.01" min="0" class="form-input" />
+              <p v-if="line._usd" class="text-[10px] text-gray-400">= S/ {{ linePriceSoles(line).toFixed(2) }}</p>
             </div>
             <div class="col-span-2">
               <label class="form-label text-xs">Dscto. (%)</label>

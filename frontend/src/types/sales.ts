@@ -10,6 +10,8 @@ export interface SaleLine {
   unitPrice: number
   /** Único descuento del sistema: porcentaje por línea (admite decimales). */
   discountPercent: number
+  /** UI: si el precio unitario está en US$ (se convierte a soles con el T.C.). */
+  _usd?: boolean
 }
 
 export interface SaleItemDetail extends SaleLine {
