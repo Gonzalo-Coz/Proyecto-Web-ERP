@@ -96,10 +96,11 @@ function applyPvpAll(): void {
   p.motorcycles.forEach(applyPvp)
 }
 
-/** Margen de ganancia: % y monto entre costo y precio de venta. */
-function margin(cost: number, sale: number | null): { pct: number; amount: number } | null {
-  if (!sale || !cost || cost <= 0) return null
-  return { pct: ((sale - cost) / cost) * 100, amount: sale - cost }
+/** Margen: % y monto entre el PVP y el precio de venta. */
+function margin(base: number | null | undefined, sale: number | null): { pct: number; amount: number } | null {
+  const b = Number(base ?? 0)
+  if (!sale || !b || b <= 0) return null
+  return { pct: ((sale - b) / b) * 100, amount: sale - b }
 }
 
 const importTotal = computed(() => {
@@ -480,9 +481,9 @@ onMounted(async () => {
                     <td class="px-2 py-1 text-right"><input v-model.number="m.pvp" type="number" step="0.01" min="0" placeholder="PVP" class="form-input !w-24 !py-1 !text-right !text-xs" @input="applyPvp(m)" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="m.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
                     <td class="px-2 py-1 text-right text-xs">
-                      <template v-if="margin(m.costPen, m.salePrice)">
-                        <span :class="margin(m.costPen, m.salePrice)!.pct >= 0 ? 'text-green-600' : 'text-red-600'">
-                          {{ margin(m.costPen, m.salePrice)!.pct.toFixed(0) }}% · S/ {{ margin(m.costPen, m.salePrice)!.amount.toFixed(2) }}
+                      <template v-if="margin(m.pvp, m.salePrice)">
+                        <span :class="margin(m.pvp, m.salePrice)!.pct >= 0 ? 'text-green-600' : 'text-red-600'">
+                          {{ margin(m.pvp, m.salePrice)!.pct.toFixed(0) }}% · S/ {{ margin(m.pvp, m.salePrice)!.amount.toFixed(2) }}
                         </span>
                       </template>
                       <span v-else class="text-gray-300">—</span>
@@ -510,9 +511,9 @@ onMounted(async () => {
                     <td class="px-2 py-1 text-right"><input v-model.number="s.pvp" type="number" step="0.01" min="0" placeholder="PVP" class="form-input !w-24 !py-1 !text-right !text-xs" @input="applyPvp(s)" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="s.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
                     <td class="px-2 py-1 text-right text-xs">
-                      <template v-if="margin(s.costPen, s.salePrice)">
-                        <span :class="margin(s.costPen, s.salePrice)!.pct >= 0 ? 'text-green-600' : 'text-red-600'">
-                          {{ margin(s.costPen, s.salePrice)!.pct.toFixed(0) }}% · S/ {{ margin(s.costPen, s.salePrice)!.amount.toFixed(2) }}
+                      <template v-if="margin(s.pvp, s.salePrice)">
+                        <span :class="margin(s.pvp, s.salePrice)!.pct >= 0 ? 'text-green-600' : 'text-red-600'">
+                          {{ margin(s.pvp, s.salePrice)!.pct.toFixed(0) }}% · S/ {{ margin(s.pvp, s.salePrice)!.amount.toFixed(2) }}
                         </span>
                       </template>
                       <span v-else class="text-gray-300">—</span>
