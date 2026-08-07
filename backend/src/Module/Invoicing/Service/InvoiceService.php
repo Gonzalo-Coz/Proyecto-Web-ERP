@@ -42,7 +42,8 @@ final class InvoiceService
             'address' => $this->settings->get('company.address') ?? '',
             'phone' => $this->settings->get('company.phone') ?? '',
             'email' => $this->settings->get('company.email') ?? '',
-            'logo' => $this->settings->get('company.logo_full_path') ?: null,
+            // Logo subido en el Perfil; si no hay, usa el logo estático de la tienda.
+            'logo' => $this->settings->get('company.logo_full_path') ?: '/brand/logo-full.png',
         ];
     }
 

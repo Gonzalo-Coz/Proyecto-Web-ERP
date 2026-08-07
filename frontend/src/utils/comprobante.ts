@@ -225,8 +225,22 @@ function css(format: PrintFormat): string {
   const page = format === 'ticket' ? '@page { size: 80mm auto; margin: 3mm; }' : '@page { size: A4; margin: 12mm; }'
   const base = format === 'ticket' ? 11 : 12
   const width = format === 'ticket' ? 'width: 74mm;' : 'width: 100%;'
+  const a4Sheet =
+    format === 'a4'
+      ? `
+    @media screen {
+      body { background: #525659; padding: 24px 0; }
+      .doc.a4 { background: #fff; width: 210mm; min-height: 296mm; padding: 14mm; box-shadow: 0 2px 14px rgba(0,0,0,.5); margin: 0 auto; }
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .doc.a4 { box-shadow: none; width: auto; min-height: 0; padding: 0; }
+    }`
+      : ''
+
   return `
     ${page}
+    ${a4Sheet}
     * { box-sizing: border-box; }
     body { font-family: ${format === 'ticket' ? 'monospace' : 'Arial, Helvetica, sans-serif'}; font-size: ${base}px; color: #111; margin: 0; }
     .doc { ${width} margin: 0 auto; }
