@@ -22,7 +22,7 @@ use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
 final class PurchaseService
 {
-    private const SORTABLE = ['purchaseNumber', 'purchaseDate', 'total', 'createdAt'];
+    private const SORTABLE = ['purchaseNumber', 'purchaseDate', 'total'];
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
@@ -41,7 +41,7 @@ final class PurchaseService
     {
         $page = max(1, $page);
         $perPage = min(100, max(1, $perPage));
-        $sort = in_array($sort, self::SORTABLE, true) ? $sort : 'purchaseDate';
+        $sort = in_array($sort, self::SORTABLE, true) ? $sort : 'purchaseNumber';
         $direction = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
 
         $qb = $this->purchaseRepository->createQueryBuilder('p')
