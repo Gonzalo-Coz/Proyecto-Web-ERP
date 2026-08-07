@@ -44,3 +44,40 @@ export interface PurchasePayload {
   paymentMethodId: number | null
   notes: string | null
 }
+
+/* ===== Importación de factura XML de Yamaha ===== */
+export interface ImportSparePart {
+  code: string
+  description: string
+  quantity: number
+  netUnit: number
+  costPen: number
+  existingId: number | null
+  existingStock: number | null
+}
+
+export interface ImportMotorcycle {
+  code: string
+  description: string
+  brand: string
+  model: string
+  color: string
+  engine: string
+  vin: string
+  chassis: string
+  year: string
+  netUnit: number
+  costPen: number
+  duaNumber: string | null
+  duaItem: string | null
+  alreadyExists: boolean
+}
+
+export interface ImportPreview {
+  document: { fullNumber: string; series: string; number: string; issueDate: string; typeCode: string; currency: string }
+  supplier: { ruc: string; name: string; existingId: number | null }
+  exchangeRate: number | null
+  exchangeRateAuto: boolean
+  spareParts: ImportSparePart[]
+  motorcycles: ImportMotorcycle[]
+}

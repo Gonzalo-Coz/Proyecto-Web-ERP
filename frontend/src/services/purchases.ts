@@ -1,8 +1,18 @@
 import api from '@/services/api'
 import type { ListQuery, Paginated } from '@/types/common'
-import type { PurchaseItemSummary, PurchasePayload } from '@/types/purchases'
+import type { ImportPreview, PurchaseItemSummary, PurchasePayload } from '@/types/purchases'
 
 export const purchaseService = {
+  importPreview(file: File): Promise<ImportPreview> {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api
+      .post('/purchases/import/preview', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      .then((r) => r.data)
+  },
+  importConfirm(payload: ImportPreview): Promise<PurchaseItemSummary> {
+    return api.post('/purchases/import/confirm', payload).then((r) => r.data)
+  },
   list(query: ListQuery): Promise<Paginated<PurchaseItemSummary>> {
     return api.get('/purchases', { params: query }).then((r) => r.data)
   },

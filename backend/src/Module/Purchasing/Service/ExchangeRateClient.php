@@ -1,0 +1,70 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Module\Purchasing\Service;
+
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+
+/**
+ * Obtiene el tipo de cambio SUNAT (venta) para una fecha, para costear en
+ * soles las facturas de Yamaha emitidas en dólares.
+ *
+ * Fuente configurable por variables de entorno (opcionales):
+ *   EXCHANGE_RATE_URL   base del API (por defecto apis.net.pe)
+ *   EXCHANGE_RATE_TOKEN token Bearer del API
+ *
+ * Si no hay token o el servicio falla, devuelve null y el usuario ingresa el
+ * T.C. manualmente en la vista previa (el flujo nunca se bloquea).
+ */
+final class ExchangeRateClient
+{
+    public function __construct(
+        private readonly LoggerInterface $logger,
+        #[Autowire(env: 'default::EXCHANGE_RATE_URL')]
+        private readonly ?string $baseUrl = null,
+        #[Autowire(env: 'default::EXCHANGE_RATE_TOKEN')]
+        private readonly ?string $token = null,
+    ) {
+    }
+
+    /** Devuelve el tipo de cambio VENTA para la fecha (YYYY-MM-DD) o null. */
+    public function saleRate(string $date): ?float
+    {
+        if ($this->token === null || $this->token === '' || !\function_exists('curl_init')) {
+            return null;
+        }
+
+        $base = $this->baseUrl !== null && $this->baseUrl !== '' ? rtrim($this->baseUrl, '/') : 'https://api.apis.net.pe';
+        $url = sprintf('%s/v2/sunat/tipo-cambio?date=%s', $base, rawurlencode($date));
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            \CURLOPT_RETURNTRANSFER => true,
+            \CURLOPT_TIMEOUT => 8,
+            \CURLOPT_CONNECTTIMEOUT => 5,
+            \CURLOPT_HTTPHEADER => ['Accept: application/json', 'Authorization: Bearer '.$this->token],
+            \CURLOPT_USERAGENT => 'YIGM-ERP/1.0',
+        ]);
+        $body = curl_exec($ch);
+        $errno = curl_errno($ch);
+        $status = (int) curl_getinfo($ch, \CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($errno !== 0 || $status !== 200 || !is_string($body)) {
+            $this->logger->warning('Tipo de cambio: no disponible', ['status' => $status, 'errno' => $errno]);
+
+            return null;
+        }
+
+        $data = json_decode($body, true);
+        if (!is_array($data)) {
+            return null;
+        }
+        // Distintas fuentes usan "venta" o "sale".
+        $rate = $data['venta'] ?? $data['sale'] ?? $data['precio_venta'] ?? null;
+
+        return $rate !== null && (float) $rate > 0 ? round((float) $rate, 3) : null;
+    }
+}

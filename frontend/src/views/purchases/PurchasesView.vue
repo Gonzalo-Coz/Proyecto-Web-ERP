@@ -16,9 +16,76 @@ import type { SupplierItem } from '@/types/masters'
 import type { SparePartItem } from '@/types/inventory'
 import type { UnitItem } from '@/types/motorcycles'
 import type { CatalogItem } from '@/types/catalogs'
-import { PURCHASE_DOCUMENT_TYPES, type PurchaseItemSummary, type PurchaseLine } from '@/types/purchases'
+import { PURCHASE_DOCUMENT_TYPES, type ImportPreview, type PurchaseItemSummary, type PurchaseLine } from '@/types/purchases'
+import { useToast } from '@/composables/useToast'
 
 const auth = useAuthStore()
+const toast = useToast()
+
+/* ===== Importación de factura XML de Yamaha ===== */
+const importOpen = ref(false)
+const importLoading = ref(false)
+const importing = ref(false)
+const importError = ref('')
+const preview = ref<ImportPreview | null>(null)
+
+function openImport(): void {
+  preview.value = null
+  importError.value = ''
+  importOpen.value = true
+}
+
+async function onXmlSelected(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  importLoading.value = true
+  importError.value = ''
+  try {
+    preview.value = await purchaseService.importPreview(file)
+    if (preview.value.document.currency === 'USD' && !preview.value.exchangeRate) {
+      importError.value = 'No se pudo obtener el tipo de cambio automáticamente. Ingrésalo manualmente.'
+    }
+  } catch (e: any) {
+    importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo leer el XML.'
+  } finally {
+    importLoading.value = false
+    input.value = ''
+  }
+}
+
+/** Recalcula los costos en soles al cambiar el tipo de cambio (facturas en USD). */
+function applyRate(): void {
+  const p = preview.value
+  if (!p || p.document.currency !== 'USD' || !p.exchangeRate) return
+  const r = Number(p.exchangeRate)
+  p.spareParts.forEach((s) => (s.costPen = Math.round(s.netUnit * r * 100) / 100))
+  p.motorcycles.forEach((m) => (m.costPen = Math.round(m.netUnit * r * 100) / 100))
+}
+
+const importTotal = computed(() => {
+  const p = preview.value
+  if (!p) return 0
+  const sp = p.spareParts.reduce((a, s) => a + s.costPen * s.quantity, 0)
+  const mt = p.motorcycles.reduce((a, m) => a + m.costPen, 0)
+  return Math.round((sp + mt) * 100) / 100
+})
+
+async function confirmImport(): Promise<void> {
+  if (!preview.value) return
+  importing.value = true
+  importError.value = ''
+  try {
+    await purchaseService.importConfirm(preview.value)
+    importOpen.value = false
+    toast.success('Factura importada: stock y unidades registrados.')
+    await load()
+  } catch (e: any) {
+    importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo confirmar la importación.'
+  } finally {
+    importing.value = false
+  }
+}
 
 const columns: TableColumn[] = [
   { key: 'purchaseNumber', label: 'Número', sortable: true },
@@ -158,6 +225,9 @@ onMounted(async () => {
       @change="onTableChange"
     >
       <template #toolbar>
+        <button v-if="auth.can('purchases.list.create')" class="btn-secondary" @click="openImport">
+          Importar factura XML
+        </button>
         <button v-if="auth.can('purchases.list.create')" class="btn-primary" @click="openCreate">
           Nueva compra
         </button>
@@ -311,5 +381,105 @@ onMounted(async () => {
       @confirm="confirmCancel"
       @cancel="cancelTarget = null"
     />
+
+    <!-- Importar factura XML de Yamaha -->
+    <BaseModal :open="importOpen" title="Importar factura XML (Yamaha)" size="xl" @close="importOpen = false">
+      <div class="space-y-4">
+        <div v-if="!preview" class="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-6 text-center">
+          <p class="mb-3 text-sm text-gray-600">Sube el archivo <strong>.xml</strong> de la factura electrónica de Yamaha.</p>
+          <label class="btn-primary cursor-pointer">
+            {{ importLoading ? 'Leyendo…' : 'Seleccionar XML' }}
+            <input type="file" accept=".xml,text/xml,application/xml" class="hidden" @change="onXmlSelected" />
+          </label>
+        </div>
+
+        <template v-if="preview">
+          <!-- Cabecera -->
+          <div class="grid grid-cols-2 gap-3 rounded-lg bg-gray-50 p-3 text-sm sm:grid-cols-4">
+            <div><span class="text-gray-500">Proveedor</span><br /><strong>{{ preview.supplier.name }}</strong></div>
+            <div><span class="text-gray-500">Documento</span><br /><strong>{{ preview.document.fullNumber }}</strong></div>
+            <div><span class="text-gray-500">Fecha</span><br /><strong>{{ preview.document.issueDate }}</strong></div>
+            <div>
+              <span class="text-gray-500">Moneda</span><br />
+              <strong>{{ preview.document.currency }}</strong>
+              <span v-if="preview.supplier.existingId === null" class="ml-1 text-xs text-amber-600">(proveedor nuevo)</span>
+            </div>
+          </div>
+
+          <!-- Tipo de cambio (solo USD) -->
+          <div v-if="preview.document.currency === 'USD'" class="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <label class="text-sm font-medium text-amber-800">Tipo de cambio (S/ por US$):</label>
+            <input v-model.number="preview.exchangeRate" type="number" step="0.001" min="0" class="form-input w-32" @input="applyRate" />
+            <span class="text-xs text-amber-700">{{ preview.exchangeRateAuto ? 'Obtenido automáticamente (editable)' : 'Ingrésalo manualmente' }}</span>
+          </div>
+
+          <!-- Motos -->
+          <div v-if="preview.motorcycles.length">
+            <h3 class="mb-2 text-sm font-bold text-gray-700">Motocicletas ({{ preview.motorcycles.length }})</h3>
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+              <table class="min-w-full text-xs">
+                <thead class="bg-gray-50 text-left text-gray-500">
+                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo S/</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(m, i) in preview.motorcycles" :key="i" class="border-t border-gray-100" :class="m.alreadyExists ? 'bg-red-50' : ''">
+                    <td class="px-2 py-1"><input v-model="m.model" class="form-input !py-1 !text-xs" /></td>
+                    <td class="px-2 py-1"><input v-model="m.color" class="form-input !w-20 !py-1 !text-xs" /></td>
+                    <td class="px-2 py-1 font-mono">{{ m.vin }}<br v-if="m.alreadyExists" /><span v-if="m.alreadyExists" class="text-red-600">ya existe</span></td>
+                    <td class="px-2 py-1 font-mono">{{ m.engine }}</td>
+                    <td class="px-2 py-1"><div class="flex gap-1"><input v-model="m.duaNumber" placeholder="DUA" class="form-input !w-20 !py-1 !text-xs" /><input v-model="m.duaItem" placeholder="Ítem" class="form-input !w-14 !py-1 !text-xs" /></div></td>
+                    <td class="px-2 py-1 text-right"><input v-model.number="m.costPen" type="number" step="0.01" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Repuestos -->
+          <div v-if="preview.spareParts.length">
+            <h3 class="mb-2 text-sm font-bold text-gray-700">Repuestos ({{ preview.spareParts.length }})</h3>
+            <div class="overflow-x-auto rounded-lg border border-gray-200">
+              <table class="min-w-full text-xs">
+                <thead class="bg-gray-50 text-left text-gray-500">
+                  <tr><th class="px-2 py-1">Código</th><th class="px-2 py-1">Descripción</th><th class="px-2 py-1 text-right">Cant.</th><th class="px-2 py-1 text-right">Costo S/</th><th class="px-2 py-1">Estado</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(s, i) in preview.spareParts" :key="i" class="border-t border-gray-100">
+                    <td class="px-2 py-1 font-mono">{{ s.code }}</td>
+                    <td class="px-2 py-1"><input v-model="s.description" class="form-input !py-1 !text-xs" /></td>
+                    <td class="px-2 py-1 text-right"><input v-model.number="s.quantity" type="number" min="1" class="form-input !w-16 !py-1 !text-right !text-xs" /></td>
+                    <td class="px-2 py-1 text-right"><input v-model.number="s.costPen" type="number" step="0.01" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
+                    <td class="px-2 py-1">
+                      <span v-if="s.existingId" class="text-green-600">existe (stock {{ s.existingStock }}) +{{ s.quantity }}</span>
+                      <span v-else class="text-blue-600">nuevo</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between border-t border-gray-200 pt-3">
+            <p class="text-sm text-gray-600">Total estimado (sin IGV): <strong>S/ {{ importTotal.toFixed(2) }}</strong></p>
+            <p class="text-xs text-gray-400">Se registrará como Compra; el stock y las unidades entran al sistema.</p>
+          </div>
+        </template>
+
+        <p v-if="importError" class="text-sm text-red-600">{{ importError }}</p>
+
+        <div class="flex justify-end gap-3 border-t border-gray-100 pt-3">
+          <button type="button" class="btn-secondary" @click="importOpen = false">Cancelar</button>
+          <button
+            v-if="preview"
+            type="button"
+            class="btn-primary"
+            :disabled="importing || (preview.document.currency === 'USD' && !preview.exchangeRate)"
+            @click="confirmImport"
+          >
+            {{ importing ? 'Importando…' : 'Confirmar e importar' }}
+          </button>
+        </div>
+      </div>
+    </BaseModal>
   </DefaultLayout>
 </template>
