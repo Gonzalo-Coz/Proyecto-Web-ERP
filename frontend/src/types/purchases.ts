@@ -52,6 +52,8 @@ export interface ImportSparePart {
   quantity: number
   netUnit: number
   costPen: number
+  /** PVP Yamaha (Kizuna) para calcular el precio de venta. Solo UI. */
+  pvp?: number | null
   salePrice: number | null
   existingId: number | null
   existingStock: number | null
@@ -69,6 +71,7 @@ export interface ImportMotorcycle {
   year: string
   netUnit: number
   costPen: number
+  pvp?: number | null
   salePrice: number | null
   duaNumber: string | null
   duaItem: string | null

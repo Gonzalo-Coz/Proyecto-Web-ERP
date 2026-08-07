@@ -82,6 +82,20 @@ async function onPdfSelected(event: Event): Promise<void> {
 /** Símbolo de moneda de la factura para las columnas de costo. */
 const curSym = computed(() => (preview.value?.document.currency === 'USD' ? 'US$' : 'S/'))
 
+/** PVP Yamaha → precio de venta con +X% (editable, por defecto 10%). */
+const pvpPct = ref(10)
+function applyPvp(line: { pvp?: number | null; salePrice: number | null }): void {
+  if (line.pvp && line.pvp > 0) {
+    line.salePrice = Math.round(line.pvp * (1 + (Number(pvpPct.value) || 0) / 100) * 100) / 100
+  }
+}
+function applyPvpAll(): void {
+  const p = preview.value
+  if (!p) return
+  p.spareParts.forEach(applyPvp)
+  p.motorcycles.forEach(applyPvp)
+}
+
 /** Margen de ganancia: % y monto entre costo y precio de venta. */
 function margin(cost: number, sale: number | null): { pct: number; amount: number } | null {
   if (!sale || !cost || cost <= 0) return null
@@ -435,6 +449,12 @@ onMounted(async () => {
             Factura en dólares: el costo se guarda tal cual en US$ (sin convertir). La conversión a soles solo se hace al vender.
           </p>
 
+          <div class="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2 text-sm">
+            <span class="font-medium text-emerald-800">% sobre PVP Yamaha:</span>
+            <input v-model.number="pvpPct" type="number" step="0.5" class="form-input !w-20 !py-1 !text-xs" @input="applyPvpAll" />
+            <span class="text-xs text-emerald-700">Al escribir el PVP de cada ítem, el precio de venta se calcula con este %.</span>
+          </div>
+
           <!-- Motos -->
           <div v-if="preview.motorcycles.length">
             <div class="mb-2 flex items-center justify-between">
@@ -447,7 +467,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta {{ curSym }}</th><th class="px-2 py-1 text-right">Margen</th></tr>
+                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">PVP</th><th class="px-2 py-1 text-right">P. Venta {{ curSym }}</th><th class="px-2 py-1 text-right">Margen</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(m, i) in preview.motorcycles" :key="i" class="border-t border-gray-100" :class="m.alreadyExists ? 'bg-red-50' : ''">
@@ -457,6 +477,7 @@ onMounted(async () => {
                     <td class="px-2 py-1 font-mono">{{ m.engine }}</td>
                     <td class="px-2 py-1"><div class="flex gap-1"><input v-model="m.duaNumber" placeholder="DUA" class="form-input !w-20 !py-1 !text-xs" /><input v-model="m.duaItem" placeholder="Ítem" class="form-input !w-14 !py-1 !text-xs" /></div></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="m.costPen" type="number" step="0.01" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
+                    <td class="px-2 py-1 text-right"><input v-model.number="m.pvp" type="number" step="0.01" min="0" placeholder="PVP" class="form-input !w-24 !py-1 !text-right !text-xs" @input="applyPvp(m)" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="m.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
                     <td class="px-2 py-1 text-right text-xs">
                       <template v-if="margin(m.costPen, m.salePrice)">
@@ -478,7 +499,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Código</th><th class="px-2 py-1">Descripción</th><th class="px-2 py-1 text-right">Cant.</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta {{ curSym }}</th><th class="px-2 py-1 text-right">Margen</th><th class="px-2 py-1">Estado</th></tr>
+                  <tr><th class="px-2 py-1">Código</th><th class="px-2 py-1">Descripción</th><th class="px-2 py-1 text-right">Cant.</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">PVP {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta {{ curSym }}</th><th class="px-2 py-1 text-right">Margen</th><th class="px-2 py-1">Estado</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(s, i) in preview.spareParts" :key="i" class="border-t border-gray-100">
@@ -486,6 +507,7 @@ onMounted(async () => {
                     <td class="px-2 py-1"><input v-model="s.description" class="form-input !py-1 !text-xs" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="s.quantity" type="number" min="1" class="form-input !w-16 !py-1 !text-right !text-xs" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="s.costPen" type="number" step="0.01" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
+                    <td class="px-2 py-1 text-right"><input v-model.number="s.pvp" type="number" step="0.01" min="0" placeholder="PVP" class="form-input !w-24 !py-1 !text-right !text-xs" @input="applyPvp(s)" /></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="s.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
                     <td class="px-2 py-1 text-right text-xs">
                       <template v-if="margin(s.costPen, s.salePrice)">
