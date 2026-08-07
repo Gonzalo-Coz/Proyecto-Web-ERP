@@ -115,7 +115,7 @@ const router = createRouter({
       path: '/settings/general',
       name: 'settings-general',
       component: () => import('@/views/settings/GeneralSettingsView.vue'),
-      meta: { title: 'Configuración General', permission: 'settings.general.view' },
+      meta: { title: 'Perfil de la Empresa', permission: 'settings.general.view' },
     },
     {
       path: '/settings/catalogs',

@@ -68,7 +68,7 @@ const MENU: { section: string; items: MenuItem[] }[] = [
   {
     section: 'Administración',
     items: [
-      { name: 'settings-general', label: 'Empresa y Parámetros', permission: 'settings.general.view', icon: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75' },
+      { name: 'settings-general', label: 'Perfil de la Empresa', permission: 'settings.general.view', icon: 'M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75' },
       { name: 'settings-catalogs', label: 'Catálogos', permission: 'settings.catalogs.view', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
       { name: 'security-users', label: 'Usuarios', permission: 'security.users.view', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
       { name: 'security-roles', label: 'Roles y Permisos', permission: 'security.roles.view', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
@@ -90,9 +90,19 @@ const initials = (): string =>
 
 const today = new Intl.DateTimeFormat('es-PE', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
 
-/** Emblema oficial (frontend/public/brand/logo-igm.png) con respaldo. */
-import { ref } from 'vue'
+/** Emblema oficial (subido desde Perfil de la Empresa o el estático de respaldo). */
+import { onMounted, ref } from 'vue'
+import { companyService, mediaUrl } from '@/services/company'
 const brandLogoOk = ref(true)
+const brandIcon = ref('/brand/logo-igm.png')
+onMounted(async () => {
+  try {
+    const info = await companyService.publicInfo()
+    if (info.logoIconPath) brandIcon.value = mediaUrl(info.logoIconPath)
+  } catch {
+    /* usa el ícono por defecto */
+  }
+})
 </script>
 
 <template>
@@ -105,8 +115,8 @@ const brandLogoOk = ref(true)
           class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow"
         >
           <img
-            src="/brand/logo-igm.png"
-            alt="Integra Global Motors"
+            :src="brandIcon"
+            alt="Logo de la empresa"
             class="h-full w-full object-contain"
             @error="brandLogoOk = false"
           />

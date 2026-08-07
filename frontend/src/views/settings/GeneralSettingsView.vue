@@ -1,28 +1,51 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import FormField from '@/components/ui/FormField.vue'
+import UbigeoSelect from '@/components/ui/UbigeoSelect.vue'
 import api from '@/services/api'
+import { companyService, mediaUrl } from '@/services/company'
+import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const toast = useToast()
+const canEdit = computed(() => auth.can('settings.general.edit'))
+
+const uploadingKind = ref<'full' | 'icon' | ''>('')
+
+async function onLogoSelected(kind: 'full' | 'icon', event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingKind.value = kind
+  try {
+    const { path } = await companyService.uploadLogo(kind, file)
+    form[kind === 'icon' ? 'company.logo_icon_path' : 'company.logo_full_path'] = path
+    toast.success('Logo actualizado.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail ?? 'No se pudo subir el logo.')
+  } finally {
+    uploadingKind.value = ''
+    input.value = ''
+  }
+}
+
+async function removeLogo(kind: 'full' | 'icon'): Promise<void> {
+  try {
+    await companyService.removeLogo(kind)
+    form[kind === 'icon' ? 'company.logo_icon_path' : 'company.logo_full_path'] = ''
+    toast.success('Logo eliminado.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail ?? 'No se pudo eliminar el logo.')
+  }
+}
 
 const form = reactive<Record<string, string>>({})
 const loading = ref(true)
 const saving = ref(false)
 const message = ref('')
 const errorMsg = ref('')
-
-const FIELDS = [
-  { key: 'company.name', label: 'Razón Social' },
-  { key: 'company.trade_name', label: 'Nombre Comercial' },
-  { key: 'company.ruc', label: 'RUC' },
-  { key: 'company.address', label: 'Dirección' },
-  { key: 'company.phone', label: 'Teléfono' },
-  { key: 'company.email', label: 'Correo' },
-  { key: 'tax.igv_rate', label: 'IGV (%)' },
-  { key: 'sales.reservation_days', label: 'Vigencia de reservas (días)' },
-]
 
 async function load(): Promise<void> {
   loading.value = true
@@ -37,9 +60,9 @@ async function save(): Promise<void> {
   errorMsg.value = ''
   try {
     await api.put('/settings', { ...form })
-    message.value = 'Configuración guardada correctamente.'
+    message.value = 'Perfil de la empresa guardado correctamente.'
   } catch (e: any) {
-    errorMsg.value = e.response?.data?.detail ?? 'No se pudo guardar la configuración.'
+    errorMsg.value = e.response?.data?.detail ?? 'No se pudo guardar el perfil.'
   } finally {
     saving.value = false
   }
@@ -50,23 +73,138 @@ onMounted(load)
 
 <template>
   <DefaultLayout>
-    <div class="card max-w-2xl">
-      <h2 class="mb-4 text-lg font-semibold text-gray-900">Datos de la Empresa y Parámetros</h2>
-      <p v-if="loading" class="text-sm text-gray-400">Cargando…</p>
-      <form v-else class="space-y-4" @submit.prevent="save">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField v-for="f in FIELDS" :key="f.key" :label="f.label">
-            <input v-model="form[f.key]" class="form-input" :disabled="!auth.can('settings.general.edit')" />
-          </FormField>
-        </div>
-        <p class="text-xs text-gray-500">
-          El IGV se aplica a las nuevas ventas y compras. Los comprobantes ya emitidos no cambian (§19).
+    <div class="mx-auto max-w-3xl space-y-6">
+      <div>
+        <h1 class="text-xl font-bold text-gray-900">Perfil de la Empresa</h1>
+        <p class="text-sm text-gray-500">
+          Datos oficiales de la empresa usados en comprobantes, reportes y en todo el sistema.
+          <span v-if="!canEdit" class="font-medium text-amber-600">Solo lectura — se requiere permiso de administrador para editar.</span>
         </p>
+      </div>
+
+      <p v-if="loading" class="text-sm text-gray-400">Cargando…</p>
+
+      <form v-else class="space-y-6" @submit.prevent="save">
+        <!-- Datos fiscales -->
+        <section class="card">
+          <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Identidad y datos fiscales</h2>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="Razón Social">
+              <input v-model="form['company.name']" class="form-input" :disabled="!canEdit" maxlength="200" />
+            </FormField>
+            <FormField label="Nombre Comercial">
+              <input v-model="form['company.trade_name']" class="form-input" :disabled="!canEdit" maxlength="150" />
+            </FormField>
+            <FormField label="RUC">
+              <input v-model="form['company.ruc']" class="form-input" :disabled="!canEdit" maxlength="11" />
+            </FormField>
+            <FormField label="Representante legal">
+              <input v-model="form['company.legal_rep']" class="form-input" :disabled="!canEdit" maxlength="200" />
+            </FormField>
+          </div>
+        </section>
+
+        <!-- Ubicación -->
+        <section class="card">
+          <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Ubicación</h2>
+          <FormField label="Dirección">
+            <input v-model="form['company.address']" class="form-input" :disabled="!canEdit" maxlength="200" />
+          </FormField>
+          <div class="mt-4">
+            <UbigeoSelect
+              v-if="canEdit"
+              v-model:department="form['company.department']"
+              v-model:province="form['company.province']"
+              v-model:district="form['company.district']"
+            />
+            <p v-else class="text-sm text-gray-600">
+              {{ [form['company.district'], form['company.province'], form['company.department']].filter(Boolean).join(' · ') || '—' }}
+            </p>
+          </div>
+        </section>
+
+        <!-- Contacto -->
+        <section class="card">
+          <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Contacto</h2>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="Teléfono fijo">
+              <input v-model="form['company.phone']" class="form-input" :disabled="!canEdit" maxlength="20" />
+            </FormField>
+            <FormField label="Celular">
+              <input v-model="form['company.mobile']" class="form-input" :disabled="!canEdit" maxlength="20" />
+            </FormField>
+            <FormField label="Correo electrónico">
+              <input v-model="form['company.email']" type="email" class="form-input" :disabled="!canEdit" maxlength="150" />
+            </FormField>
+            <FormField label="Sitio web">
+              <input v-model="form['company.website']" class="form-input" :disabled="!canEdit" maxlength="150" placeholder="https://…" />
+            </FormField>
+          </div>
+        </section>
+
+        <!-- Logotipos -->
+        <section class="card">
+          <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Logotipos de la empresa</h2>
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <!-- Logo principal (login) -->
+            <div>
+              <p class="mb-2 text-sm font-medium text-gray-700">Logo principal (horizontal)</p>
+              <p class="mb-3 text-xs text-gray-400">Se muestra en la pantalla de inicio de sesión.</p>
+              <div class="flex h-24 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-2">
+                <img v-if="form['company.logo_full_path']" :src="mediaUrl(form['company.logo_full_path'])" class="max-h-20 max-w-full object-contain" alt="Logo principal" />
+                <img v-else src="/brand/logo-full.png" class="max-h-20 max-w-full object-contain opacity-70" alt="Logo por defecto" />
+              </div>
+              <div v-if="canEdit" class="mt-2 flex items-center gap-2">
+                <label class="btn-secondary cursor-pointer">
+                  {{ uploadingKind === 'full' ? 'Subiendo…' : 'Cambiar' }}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onLogoSelected('full', $event)" />
+                </label>
+                <button v-if="form['company.logo_full_path']" type="button" class="btn-secondary !text-red-600" @click="removeLogo('full')">Quitar</button>
+              </div>
+            </div>
+
+            <!-- Ícono / emblema (cabecera y pestaña) -->
+            <div>
+              <p class="mb-2 text-sm font-medium text-gray-700">Ícono / emblema (cuadrado)</p>
+              <p class="mb-3 text-xs text-gray-400">Se muestra en la cabecera del sistema.</p>
+              <div class="flex h-24 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-2">
+                <img v-if="form['company.logo_icon_path']" :src="mediaUrl(form['company.logo_icon_path'])" class="max-h-20 object-contain" alt="Ícono" />
+                <img v-else src="/brand/logo-igm.png" class="max-h-20 object-contain opacity-70" alt="Ícono por defecto" />
+              </div>
+              <div v-if="canEdit" class="mt-2 flex items-center gap-2">
+                <label class="btn-secondary cursor-pointer">
+                  {{ uploadingKind === 'icon' ? 'Subiendo…' : 'Cambiar' }}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onLogoSelected('icon', $event)" />
+                </label>
+                <button v-if="form['company.logo_icon_path']" type="button" class="btn-secondary !text-red-600" @click="removeLogo('icon')">Quitar</button>
+              </div>
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-gray-400">Formatos: PNG, JPG o WEBP (máx. 5 MB). El cambio se refleja al recargar (Ctrl+F5).</p>
+        </section>
+
+        <!-- Parámetros -->
+        <section class="card">
+          <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Parámetros del sistema</h2>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="IGV (%)">
+              <input v-model="form['tax.igv_rate']" type="number" step="0.1" min="0" max="30" class="form-input" :disabled="!canEdit" />
+            </FormField>
+            <FormField label="Vigencia de reservas (días)">
+              <input v-model="form['sales.reservation_days']" type="number" min="0" class="form-input" :disabled="!canEdit" />
+            </FormField>
+          </div>
+          <p class="mt-2 text-xs text-gray-500">
+            El IGV se aplica a las nuevas ventas y compras. Los comprobantes ya emitidos no cambian (§19).
+          </p>
+        </section>
+
         <p v-if="message" class="text-sm text-green-700">{{ message }}</p>
         <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
-        <div v-if="auth.can('settings.general.edit')" class="flex justify-end">
+
+        <div v-if="canEdit" class="flex justify-end">
           <button type="submit" class="btn-primary" :disabled="saving">
-            {{ saving ? 'Guardando…' : 'Guardar configuración' }}
+            {{ saving ? 'Guardando…' : 'Guardar perfil' }}
           </button>
         </div>
       </form>

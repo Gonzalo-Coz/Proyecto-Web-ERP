@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { companyService, mediaUrl } from '@/services/company'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -15,6 +16,17 @@ const errorMessage = ref('')
 /** Activos de marca (frontend/public/brand/). Respaldo elegante si faltan. */
 const igmLogoOk = ref(true)
 const yamahaLogoOk = ref(true)
+
+/** Logo subido desde el Perfil de la Empresa (si existe); si no, el estático. */
+const companyLogo = ref('/brand/logo-full.png')
+onMounted(async () => {
+  try {
+    const info = await companyService.publicInfo()
+    if (info.logoFullPath) companyLogo.value = mediaUrl(info.logoFullPath)
+  } catch {
+    /* usa el logo por defecto */
+  }
+})
 
 async function handleSubmit(): Promise<void> {
   errorMessage.value = ''
@@ -100,9 +112,9 @@ async function handleSubmit(): Promise<void> {
         <div class="mb-8 flex justify-center">
           <img
             v-if="igmLogoOk"
-            src="/brand/logo-igm.png"
-            alt="Integra Global Motors — Distribuidor oficial de Yamaha"
-            class="h-36 w-auto object-contain drop-shadow-sm"
+            :src="companyLogo"
+            alt="Yamaha Global Motors — Distribuidor de Yamaha Motor Perú"
+            class="h-auto w-full max-w-[300px] object-contain drop-shadow-sm"
             @error="igmLogoOk = false"
           />
           <div v-else class="flex flex-col items-center gap-2">

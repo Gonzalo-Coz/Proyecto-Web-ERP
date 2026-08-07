@@ -29,6 +29,9 @@ final class SettingsService
         'company.mobile' => '',
         'company.email' => '',
         'company.website' => '',
+        // Rutas de logos subidos (relativas a public/, ej. uploads/brand/..).
+        'company.logo_full_path' => '',
+        'company.logo_icon_path' => '',
         'tax.igv_rate' => '18',
         'sales.reservation_days' => '7',
     ];
