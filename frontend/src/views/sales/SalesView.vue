@@ -136,6 +136,7 @@ async function saveNewCustomer(): Promise<void> {
       mobile: null,
       email: newCust.email,
       priceListId: null,
+      customerType: 'GENERAL',
       isActive: true,
     })
     customers.value.unshift(created)
@@ -197,7 +198,7 @@ function addLine(itemType: SaleLine['itemType']): void {
     description: itemType === 'SERVICE' ? '' : null,
     quantity: 1,
     unitPrice: 0,
-    discountPercent: 0,
+    discountPercent: currentCustomerDiscount(),
   }
   lines.value.push(line)
   void resolveLinePrice(line)
@@ -245,9 +246,23 @@ function onLineProductChange(line: SaleLine): void {
   void resolveLinePrice(line, true)
 }
 
-/** Al cambiar el cliente, re-resuelve las líneas de producto (forzado). */
+/** % de descuento por defecto del cliente seleccionado (según su tipo). */
+function currentCustomerDiscount(): number {
+  const c = customers.value.find((x) => x.id === form.customerId)
+  return c ? Number(c.discountPercent ?? 0) : 0
+}
+
+/**
+ * Al cambiar el cliente: re-resuelve precios y aplica el descuento por tipo
+ * de cliente a todas las líneas (queda editable por línea).
+ */
 function onCustomerChange(): void {
-  lines.value.forEach((l) => void resolveLinePrice(l, true))
+  const pct = currentCustomerDiscount()
+  lines.value.forEach((l) => {
+    void resolveLinePrice(l, true)
+    l.discountPercent = pct
+  })
+  selectedPromoId.value = null
 }
 
 function openCreate(complete: boolean): void {
@@ -422,6 +437,9 @@ onMounted(async () => {
                 + Cliente
               </button>
             </div>
+            <p v-if="currentCustomerDiscount() > 0" class="mt-1 text-xs font-medium text-green-600">
+              Descuento por tipo de cliente: {{ currentCustomerDiscount() }}% aplicado a las líneas (editable).
+            </p>
           </FormField>
           <FormField label="Fecha" required class="col-span-1">
             <input v-model="form.saleDate" type="date" class="form-input" required />
