@@ -57,6 +57,19 @@ const money = (v: string | number | null | undefined): string =>
 const esc = (s: string | null | undefined): string =>
   String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] ?? c)
 
+/** URL absoluta del origen para que el logo cargue en la ventana de impresión. */
+const logoUrl = (path: string | null | undefined): string => {
+  if (!path) return ''
+  const p = path.startsWith('http') ? path : `${window.location.origin}${path.startsWith('/') ? '' : '/'}${path}`
+  return p
+}
+
+/** Bloque del logo de la empresa para el encabezado del comprobante. */
+const logoTag = (path: string | null | undefined): string => {
+  const url = logoUrl(path)
+  return url ? `<img class="logo" src="${esc(url)}" alt="logo" />` : ''
+}
+
 function itemsRows(doc: InvoiceDocument): string {
   return (doc.items ?? [])
     .map(
@@ -83,6 +96,7 @@ function bodyHtml(doc: InvoiceDocument, format: PrintFormat): string {
     <div class="doc ${format}">
       <div class="head">
         <div class="emp">
+          ${logoTag(co?.logo)}
           <div class="emp-name">${esc(co?.name)}</div>
           ${co?.address ? `<div>${esc(co.address)}</div>` : ''}
           ${co?.phone || co?.email ? `<div>${esc(co?.phone)}${co?.phone && co?.email ? ' · ' : ''}${esc(co?.email)}</div>` : ''}
@@ -136,6 +150,7 @@ function css(format: PrintFormat): string {
     body { font-family: ${format === 'ticket' ? 'monospace' : 'Arial, Helvetica, sans-serif'}; font-size: ${base}px; color: #111; margin: 0; }
     .doc { ${width} margin: 0 auto; }
     .head { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; ${format === 'ticket' ? 'flex-direction: column; text-align: center;' : ''} }
+    .logo { max-height: ${format === 'ticket' ? 40 : 60}px; max-width: ${format === 'ticket' ? '70mm' : '240px'}; object-fit: contain; margin-bottom: 4px; ${format === 'ticket' ? 'margin-left: auto; margin-right: auto; display: block;' : ''} }
     .emp-name { font-weight: 700; font-size: ${base + 2}px; }
     .box { border: 1.5px solid #111; border-radius: 6px; padding: 6px 10px; text-align: center; ${format === 'ticket' ? 'width: 100%; margin-top: 6px;' : 'min-width: 170px;'} }
     .box-type { font-weight: 700; margin-top: 2px; }
@@ -171,7 +186,7 @@ export interface CotizacionDoc {
   total: string
   totalDiscount?: string
   igvRate?: number
-  company?: { name: string; ruc: string; address: string; phone: string; email: string }
+  company?: { name: string; ruc: string; address: string; phone: string; email: string; logo?: string | null }
   items?: { description: string; quantity: number; unitPrice: string; lineTotal: string }[]
 }
 
@@ -188,6 +203,7 @@ export function printCotizacion(doc: CotizacionDoc): void {
     <div class="doc a4">
       <div class="head">
         <div class="emp">
+          ${logoTag(co?.logo)}
           <div class="emp-name">${esc(co?.name)}</div>
           ${co?.address ? `<div>${esc(co.address)}</div>` : ''}
           ${co?.phone || co?.email ? `<div>${esc(co?.phone)}${co?.phone && co?.email ? ' · ' : ''}${esc(co?.email)}</div>` : ''}

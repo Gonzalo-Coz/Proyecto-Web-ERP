@@ -36,6 +36,7 @@ export interface InvoiceCompany {
   address: string
   phone: string
   email: string
+  logo?: string | null
 }
 
 export interface InvoiceLine {

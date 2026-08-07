@@ -94,13 +94,13 @@ const today = new Intl.DateTimeFormat('es-PE', { weekday: 'long', day: 'numeric'
 import { onMounted, ref } from 'vue'
 import { companyService, mediaUrl } from '@/services/company'
 const brandLogoOk = ref(true)
-const brandIcon = ref('/brand/logo-igm.png')
+const brandIcon = ref('/brand/logo-full.png')
 onMounted(async () => {
   try {
     const info = await companyService.publicInfo()
-    if (info.logoIconPath) brandIcon.value = mediaUrl(info.logoIconPath)
+    if (info.logoFullPath) brandIcon.value = mediaUrl(info.logoFullPath)
   } catch {
-    /* usa el ícono por defecto */
+    /* usa el logo por defecto */
   }
 })
 </script>
@@ -109,24 +109,21 @@ onMounted(async () => {
   <div class="flex h-screen overflow-hidden bg-slate-100">
     <!-- Barra lateral -->
     <aside class="hidden w-64 shrink-0 flex-col bg-sidebar text-white md:flex">
-      <div class="flex h-16 items-center gap-3 border-b border-white/[0.08] px-5">
+      <div class="flex h-16 items-center border-b border-white/[0.08] px-4">
         <div
           v-if="brandLogoOk"
-          class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white p-0.5 shadow"
+          class="flex h-11 w-full items-center justify-center overflow-hidden rounded-lg bg-white px-2 shadow"
         >
           <img
             :src="brandIcon"
             alt="Logo de la empresa"
-            class="h-full w-full object-contain"
+            class="max-h-9 w-auto max-w-full object-contain"
             @error="brandLogoOk = false"
           />
         </div>
-        <div v-else class="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-white shadow">
-          Y
-        </div>
-        <div>
+        <div v-else class="flex items-center gap-2">
+          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-white shadow">Y</div>
           <p class="text-sm font-bold leading-tight tracking-wide">YIGM ERP</p>
-          <p class="text-[10px] uppercase tracking-[0.2em] text-white/35">Integra Global Motors</p>
         </div>
       </div>
 

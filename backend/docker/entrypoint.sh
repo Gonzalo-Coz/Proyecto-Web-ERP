@@ -10,6 +10,12 @@ fi
 php bin/console doctrine:migrations:migrate --no-interaction || true
 php bin/console cache:clear || true
 
+# 2b) Asegura que la carpeta de subidas sea escribible. Necesario cuando Railway
+# monta un Volume en /app/public/uploads (el montaje reinicia los permisos y
+# php-fpm corre como www-data, que si no, no puede guardar imágenes → 500).
+mkdir -p public/uploads var
+chmod -R 777 public/uploads var || true
+
 # 3) Puerto que asigna Railway en la config de nginx.
 export PORT="${PORT:-8080}"
 envsubst '${PORT}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf

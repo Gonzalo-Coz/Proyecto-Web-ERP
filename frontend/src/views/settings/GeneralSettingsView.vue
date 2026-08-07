@@ -142,42 +142,23 @@ onMounted(load)
           </div>
         </section>
 
-        <!-- Logotipos -->
+        <!-- Logo de la empresa -->
         <section class="card">
-          <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Logotipos de la empresa</h2>
-          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            <!-- Logo principal (login) -->
-            <div>
-              <p class="mb-2 text-sm font-medium text-gray-700">Logo principal (horizontal)</p>
-              <p class="mb-3 text-xs text-gray-400">Se muestra en la pantalla de inicio de sesión.</p>
-              <div class="flex h-24 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-2">
-                <img v-if="form['company.logo_full_path']" :src="mediaUrl(form['company.logo_full_path'])" class="max-h-20 max-w-full object-contain" alt="Logo principal" />
-                <img v-else src="/brand/logo-full.png" class="max-h-20 max-w-full object-contain opacity-70" alt="Logo por defecto" />
-              </div>
-              <div v-if="canEdit" class="mt-2 flex items-center gap-2">
-                <label class="btn-secondary cursor-pointer">
-                  {{ uploadingKind === 'full' ? 'Subiendo…' : 'Cambiar' }}
-                  <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onLogoSelected('full', $event)" />
-                </label>
-                <button v-if="form['company.logo_full_path']" type="button" class="btn-secondary !text-red-600" @click="removeLogo('full')">Quitar</button>
-              </div>
+          <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Logo de la empresa</h2>
+          <p class="mb-3 text-xs text-gray-400">
+            Se usa en todo el sistema: inicio de sesión, cabecera y en los comprobantes (facturas, boletas y cotizaciones).
+          </p>
+          <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+            <div class="flex h-28 w-72 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
+              <img v-if="form['company.logo_full_path']" :src="mediaUrl(form['company.logo_full_path'])" class="max-h-24 max-w-full object-contain" alt="Logo de la empresa" />
+              <img v-else src="/brand/logo-full.png" class="max-h-24 max-w-full object-contain opacity-70" alt="Logo por defecto" />
             </div>
-
-            <!-- Ícono / emblema (cabecera y pestaña) -->
-            <div>
-              <p class="mb-2 text-sm font-medium text-gray-700">Ícono / emblema (cuadrado)</p>
-              <p class="mb-3 text-xs text-gray-400">Se muestra en la cabecera del sistema.</p>
-              <div class="flex h-24 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 p-2">
-                <img v-if="form['company.logo_icon_path']" :src="mediaUrl(form['company.logo_icon_path'])" class="max-h-20 object-contain" alt="Ícono" />
-                <img v-else src="/brand/logo-igm.png" class="max-h-20 object-contain opacity-70" alt="Ícono por defecto" />
-              </div>
-              <div v-if="canEdit" class="mt-2 flex items-center gap-2">
-                <label class="btn-secondary cursor-pointer">
-                  {{ uploadingKind === 'icon' ? 'Subiendo…' : 'Cambiar' }}
-                  <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onLogoSelected('icon', $event)" />
-                </label>
-                <button v-if="form['company.logo_icon_path']" type="button" class="btn-secondary !text-red-600" @click="removeLogo('icon')">Quitar</button>
-              </div>
+            <div v-if="canEdit" class="flex items-center gap-2">
+              <label class="btn-secondary cursor-pointer">
+                {{ uploadingKind === 'full' ? 'Subiendo…' : 'Cambiar logo' }}
+                <input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onLogoSelected('full', $event)" />
+              </label>
+              <button v-if="form['company.logo_full_path']" type="button" class="btn-secondary !text-red-600" @click="removeLogo('full')">Quitar</button>
             </div>
           </div>
           <p class="mt-3 text-xs text-gray-400">Formatos: PNG, JPG o WEBP (máx. 5 MB). El cambio se refleja al recargar (Ctrl+F5).</p>

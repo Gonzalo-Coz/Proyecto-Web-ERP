@@ -42,6 +42,7 @@ final class InvoiceService
             'address' => $this->settings->get('company.address') ?? '',
             'phone' => $this->settings->get('company.phone') ?? '',
             'email' => $this->settings->get('company.email') ?? '',
+            'logo' => $this->settings->get('company.logo_full_path') ?: null,
         ];
     }
 
