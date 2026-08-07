@@ -77,6 +77,21 @@ const suppliers = ref<SupplierItem[]>([])
 const regPurchase = ref(true)
 const regSupplierId = ref<number | null>(null)
 const regQty = ref(1)
+
+/** Precio sugerido Yamaha (PVP) + % sobre el PVP → calcula el precio de venta. */
+const pvp = ref<number | null>(null)
+const pvpMarginPct = ref(10)
+function recalcFromPvp(): void {
+  if (pvp.value && pvp.value > 0) {
+    form.salePrice = Math.round(pvp.value * (1 + (Number(pvpMarginPct.value) || 0) / 100) * 100) / 100
+  }
+}
+const pvpMargin = computed(() => {
+  const p = Number(pvp.value ?? 0)
+  const s = Number(form.salePrice ?? 0)
+  if (!p || !s) return null
+  return { amount: s - p, pct: ((s - p) / p) * 100 }
+})
 const confirmTarget = ref<SparePartItem | null>(null)
 
 // Kardex y ajuste
@@ -396,6 +411,28 @@ onMounted(async () => {
             </select>
           </FormField>
         </div>
+        <!-- Precio sugerido Yamaha (PVP) → calcula el precio de venta -->
+        <div class="rounded-lg border border-emerald-100 bg-emerald-50/40 p-3">
+          <div class="grid grid-cols-3 gap-4">
+            <FormField label="PVP Yamaha (S/)">
+              <input v-model.number="pvp" type="number" step="0.01" min="0" class="form-input" placeholder="Precio venta público" @input="recalcFromPvp" />
+            </FormField>
+            <FormField label="% sobre PVP">
+              <input v-model.number="pvpMarginPct" type="number" step="0.5" class="form-input" @input="recalcFromPvp" />
+            </FormField>
+            <FormField label="Precio de Venta sugerido (S/)">
+              <input v-model.number="form.salePrice" type="number" step="0.01" min="0" class="form-input font-semibold" />
+            </FormField>
+          </div>
+          <p v-if="pvpMargin" class="mt-2 text-xs" :class="pvpMargin.amount >= 0 ? 'text-emerald-700' : 'text-red-600'">
+            Margen sobre PVP: <strong>{{ pvpMargin.pct.toFixed(1) }}%</strong> · S/ {{ pvpMargin.amount.toFixed(2) }}
+            <span v-if="Number(form.purchasePrice)" class="ml-2 text-gray-500">
+              · Margen sobre costo: {{ (((Number(form.salePrice) - Number(form.purchasePrice)) / Number(form.purchasePrice)) * 100).toFixed(1) }}%
+            </span>
+          </p>
+          <p class="mt-1 text-[11px] text-gray-400">Al poner el PVP se calcula el precio con +{{ pvpMarginPct }}% (editable). El PVP no se guarda; es solo para calcular.</p>
+        </div>
+
         <!-- Registrar como compra (solo al crear): ingresa stock + costo -->
         <div v-if="!editing" class="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
           <label class="flex items-center gap-2 text-sm font-medium text-gray-700">
