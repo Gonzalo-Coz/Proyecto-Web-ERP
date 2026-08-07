@@ -37,8 +37,12 @@ final class ExchangeRateClient
         }
 
         $base = $this->baseUrl !== null && $this->baseUrl !== '' ? rtrim($this->baseUrl, '/') : 'https://api.apis.net.pe';
-        // Decolecta: /v1/tipo-cambio/sunat?date=YYYY-MM-DD (Bearer token).
-        $url = sprintf('%s/v1/tipo-cambio/sunat?date=%s', $base, rawurlencode($date));
+        // Decolecta: /v1/tipo-cambio/sunat (Bearer token) → devuelve el T.C. del día.
+        // El plan gratuito entrega el del día; para una fecha específica se agrega ?date=.
+        $url = sprintf('%s/v1/tipo-cambio/sunat', $base);
+        if ($date !== '' && $date !== date('Y-m-d')) {
+            $url .= '?date='.rawurlencode($date);
+        }
 
         $ch = curl_init($url);
         curl_setopt_array($ch, [
