@@ -38,7 +38,16 @@ final class InvoiceImportController
     #[IsGranted('purchases.list.create')]
     public function confirm(Request $request): JsonResponse
     {
-        return new JsonResponse($this->importService->confirm($request->toArray()), Response::HTTP_CREATED);
+        try {
+            return new JsonResponse($this->importService->confirm($request->toArray()), Response::HTTP_CREATED);
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e; // errores "de negocio" ya traen su mensaje
+        } catch (\Throwable $e) {
+            // Diagnóstico temporal: muestra la causa real en pantalla.
+            return new JsonResponse([
+                'detail' => sprintf('%s: %s (%s:%d)', (new \ReflectionClass($e))->getShortName(), $e->getMessage(), basename($e->getFile()), $e->getLine()),
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
     }
 
     private function readXml(Request $request): string
