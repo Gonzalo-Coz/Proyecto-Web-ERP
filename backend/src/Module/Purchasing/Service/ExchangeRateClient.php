@@ -61,11 +61,23 @@ final class ExchangeRateClient
 
         $data = json_decode($body, true);
         if (!is_array($data)) {
+            $this->logger->warning('Tipo de cambio: respuesta no JSON', ['body' => substr($body, 0, 200)]);
+
             return null;
         }
+        // Si viene como lista de objetos, toma el primero.
+        if (array_is_list($data) && isset($data[0]) && is_array($data[0])) {
+            $data = $data[0];
+        }
         // Decolecta usa "sell_price"; se admiten otras variantes por compatibilidad.
-        $rate = $data['sell_price'] ?? $data['venta'] ?? $data['sale'] ?? $data['precio_venta'] ?? null;
+        $rate = $data['sell_price'] ?? $data['precio_venta'] ?? $data['venta'] ?? $data['sale'] ?? $data['selling'] ?? null;
 
-        return $rate !== null && (float) $rate > 0 ? round((float) $rate, 3) : null;
+        if ($rate === null || (float) $rate <= 0) {
+            $this->logger->warning('Tipo de cambio: campo de venta no encontrado', ['keys' => implode(',', array_keys($data))]);
+
+            return null;
+        }
+
+        return round((float) $rate, 3);
     }
 }
