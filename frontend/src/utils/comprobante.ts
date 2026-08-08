@@ -139,7 +139,7 @@ function a4Body(doc: InvoiceDocument): string {
   const igvRate = doc.igvRate ?? 18
   const aviso =
     doc.status !== 'ACEPTADO'
-      ? `<div class="a4-warn">COMPROBANTE ${esc(doc.status)} — aún no validado por SUNAT (sin validez tributaria)</div>`
+      ? ''
       : ''
   const rows = (doc.items ?? [])
     .map(
@@ -203,6 +203,7 @@ function a4Body(doc: InvoiceDocument): string {
       <div class="a4-bottom">
         <div class="a4-left">
           <div class="a4-letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
+          ${doc.qrData ? '<div id="qrbox" class="a4-qr"></div>' : ''}
           ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
         </div>
         <div class="a4-tot">
@@ -214,7 +215,7 @@ function a4Body(doc: InvoiceDocument): string {
       </div>
 
       <div class="a4-foot">
-        <div class="rep">Vista rápida (${esc(doc.docTypeName)}). El comprobante oficial con QR y validez SUNAT se obtiene con el botón <b>PDF</b>.</div>
+        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>
         ${aviso}
       </div>
     </div>`
@@ -289,6 +290,8 @@ function css(format: PrintFormat): string {
     .a4-tot { width: 44%; }
     .a4-tot > div { display: flex; justify-content: space-between; padding: 4px 8px; font-size: 12px; }
     .a4-grand { border-top: 2px solid #12233A; margin-top: 4px; padding-top: 6px !important; font-weight: 800; font-size: 15px; color: #12233A; }
+    .a4-qr { margin-top: 8px; width: 120px; height: 120px; }
+    .a4-qr img, .a4-qr canvas { width: 120px !important; height: 120px !important; }
     .a4-foot { margin-top: 16px; border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 10px; color: #555; }
     .a4-warn { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
     .a4-note { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
@@ -372,12 +375,18 @@ export function printComprobante(doc: InvoiceDocument, format: PrintFormat): voi
       : `width=${screen.availWidth},height=${screen.availHeight},left=0,top=0`
   const w = window.open('', '_blank', features)
   if (!w) return
+  // QR real: se genera en la ventana con qrcodejs (CDN). Solo en A4.
+  const hasQr = format === 'a4' && !!doc.qrData
+  const qrScript = hasQr
+    ? `<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>try{new QRCode(document.getElementById('qrbox'),{text:${JSON.stringify(doc.qrData)},width:120,height:120,correctLevel:QRCode.CorrectLevel.M});}catch(e){}</script>`
+    : ''
   w.document.write(
-    `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(doc.fullNumber)}</title><style>${css(format)}</style></head><body>${bodyHtml(doc, format)}</body></html>`,
+    `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(doc.fullNumber)}</title><style>${css(format)}</style></head><body>${bodyHtml(doc, format)}${qrScript}</body></html>`,
   )
   w.document.close()
   w.focus()
   setTimeout(() => {
     w.print()
-  }, 350)
+  }, hasQr ? 900 : 350)
 }
