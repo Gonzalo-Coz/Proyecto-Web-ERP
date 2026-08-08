@@ -176,6 +176,18 @@ const cancelTarget = ref<SaleSummary | null>(null)
 const actionError = ref('')
 
 /** Neto de la línea: bruto − descuento porcentual (recalcula en vivo). */
+/** Etiqueta completa de la unidad para el selector: modelo, serie, motor, año, color y DUA. */
+function unitLabel(u: UnitItem): string {
+  const parts = [`Serie: ${u.vin}`]
+  if (u.engineNumber) parts.push(`Motor: ${u.engineNumber}`)
+  const year = u.manufactureYear ?? u.modelYear
+  if (year) parts.push(`Año Modelo: ${year}`)
+  if (u.color) parts.push(`Color: ${u.color}`)
+  if (u.duaNumber) parts.push(`DUA: ${u.duaNumber}`)
+  if (u.duaItem) parts.push(`Item DUA: ${u.duaItem}`)
+  return `${u.internalCode} — ${u.modelName} · ${parts.join(' | ')}`
+}
+
 /** Tipo de cambio del día (venta) para convertir precios en US$ a soles. */
 const saleRate = ref<number | null>(null)
 
@@ -545,8 +557,8 @@ onMounted(async () => {
                 v-else-if="line.itemType === 'MOTORCYCLE_UNIT'"
                 v-model="line.motorcycleUnitId"
                 :options="units"
-                :option-label="(u) => `${u.internalCode} — ${u.modelName} (${u.color}) · Serie ${u.vin}`"
-                placeholder="Escribe código, modelo, color o N° de serie…"
+                :option-label="unitLabel"
+                placeholder="Escribe código, modelo, color, motor, serie o DUA…"
                 @change="onLineProductChange(line)"
               />
               <input v-else v-model="line.description" class="form-input" placeholder="Descripción del servicio" />
