@@ -202,6 +202,23 @@ onMounted(() => {
           <p class="mt-3 text-xs text-gray-400">Formatos: PNG, JPG o WEBP (máx. 5 MB). El cambio se refleja al recargar (Ctrl+F5).</p>
         </section>
 
+        <!-- Cuentas bancarias (salen en el pie del comprobante) -->
+        <section class="card">
+          <h2 class="mb-1 text-sm font-bold uppercase tracking-wide text-gray-500">Cuentas bancarias</h2>
+          <p class="mb-3 text-xs text-gray-400">Aparecen en el pie de los comprobantes (boleta/factura). Deja el nombre vacío para no mostrar esa cuenta.</p>
+          <div v-for="n in [1, 2]" :key="n" class="mb-3 grid grid-cols-1 gap-3 rounded-lg bg-gray-50 p-3 sm:grid-cols-3">
+            <FormField :label="`Banco ${n}`">
+              <input v-model="form[`company.bank${n}_name`]" class="form-input" :disabled="!canEdit" placeholder="BCP, BBVA…" maxlength="40" />
+            </FormField>
+            <FormField label="N° de cuenta">
+              <input v-model="form[`company.bank${n}_account`]" class="form-input" :disabled="!canEdit" maxlength="40" />
+            </FormField>
+            <FormField label="CCI (interbancario)">
+              <input v-model="form[`company.bank${n}_cci`]" class="form-input" :disabled="!canEdit" maxlength="40" />
+            </FormField>
+          </div>
+        </section>
+
         <!-- Parámetros -->
         <section class="card">
           <h2 class="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">Parámetros del sistema</h2>

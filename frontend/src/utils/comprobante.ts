@@ -203,8 +203,6 @@ function a4Body(doc: InvoiceDocument): string {
       <div class="a4-bottom">
         <div class="a4-left">
           <div class="a4-letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
-          ${doc.qrData ? '<div id="qrbox" class="a4-qr"></div>' : ''}
-          ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
         </div>
         <div class="a4-tot">
           ${Number(doc.discountTotal ?? 0) > 0 ? `<div><span>Descuento total</span><span>${money(doc.discountTotal)}</span></div>` : ''}
@@ -214,11 +212,35 @@ function a4Body(doc: InvoiceDocument): string {
         </div>
       </div>
 
-      <div class="a4-foot">
-        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>
-        ${aviso}
+      ${banksHtml(co)}
+
+      <!-- Pie fijo al fondo de la hoja: QR + hash + representación -->
+      <div class="a4-footer">
+        <div class="a4-qrcol">
+          ${doc.qrData ? '<div id="qrbox" class="a4-qr"></div>' : ''}
+        </div>
+        <div class="a4-footinfo">
+          ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
+          <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>
+          <div class="rep">Consulte su comprobante en el portal web de SUNAT.</div>
+          ${aviso}
+        </div>
       </div>
     </div>`
+}
+
+/** Tabla de cuentas bancarias para el pie del comprobante. */
+function banksHtml(co: InvoiceDocument['company']): string {
+  const banks = co?.banks ?? []
+  if (banks.length === 0) return ''
+  const rows = banks
+    .map((b) => `<tr><td>${esc(b.name)}</td><td>${esc(b.account)}</td><td>${esc(b.cci)}</td></tr>`)
+    .join('')
+  return `
+    <table class="a4-bank">
+      <thead><tr><th>Entidad Financiera</th><th>Código de Cuenta</th><th>Código Interbancario (CCI)</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`
 }
 
 function css(format: PrintFormat): string {
@@ -230,11 +252,11 @@ function css(format: PrintFormat): string {
       ? `
     @media screen {
       body { background: #525659; padding: 24px 0; }
-      .doc.a4 { background: #fff; width: 210mm; min-height: 296mm; padding: 14mm; box-shadow: 0 2px 14px rgba(0,0,0,.5); margin: 0 auto; }
+      .doc.a4 { background: #fff; width: 210mm; min-height: 296mm; padding: 14mm; box-shadow: 0 2px 14px rgba(0,0,0,.5); margin: 0 auto; display: flex; flex-direction: column; }
     }
     @media print {
-      body { background: #fff; padding: 0; }
-      .doc.a4 { box-shadow: none; width: auto; min-height: 0; padding: 0; }
+      html, body { height: 100%; background: #fff; padding: 0; }
+      .doc.a4 { box-shadow: none; width: auto; min-height: 262mm; padding: 0; display: flex; flex-direction: column; }
     }`
       : ''
 
@@ -290,9 +312,16 @@ function css(format: PrintFormat): string {
     .a4-tot { width: 44%; }
     .a4-tot > div { display: flex; justify-content: space-between; padding: 4px 8px; font-size: 12px; }
     .a4-grand { border-top: 2px solid #12233A; margin-top: 4px; padding-top: 6px !important; font-weight: 800; font-size: 15px; color: #12233A; }
-    .a4-qr { margin-top: 8px; width: 120px; height: 120px; }
+    .a4-qr { width: 120px; height: 120px; }
     .a4-qr img, .a4-qr canvas { width: 120px !important; height: 120px !important; }
-    .a4-foot { margin-top: 16px; border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 10px; color: #555; }
+    .a4-bank { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    .a4-bank th { background: #12233A; color: #fff; font-size: 9px; padding: 6px 8px; text-transform: uppercase; letter-spacing: .4px; text-align: left; }
+    .a4-bank td { border: 1px solid #cbd5e1; padding: 6px 8px; font-size: 11px; }
+    .a4-footer { display: flex; align-items: flex-end; gap: 16px; margin-top: auto; padding-top: 12px; border-top: 2px solid #12233A; }
+    .a4-qrcol { flex-shrink: 0; }
+    .a4-footinfo { flex: 1; font-size: 10px; color: #555; align-self: center; }
+    .a4-footinfo .hash { word-break: break-all; margin-bottom: 4px; color: #333; }
+    .a4-footinfo .rep { margin-top: 3px; font-style: italic; }
     .a4-warn { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
     .a4-note { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
   `

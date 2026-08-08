@@ -29,6 +29,12 @@ export interface InvoiceDocument {
   items?: InvoiceLine[]
 }
 
+export interface BankAccount {
+  name: string
+  account: string
+  cci: string
+}
+
 export interface InvoiceCompany {
   name: string
   tradeName: string
@@ -37,6 +43,7 @@ export interface InvoiceCompany {
   phone: string
   email: string
   logo?: string | null
+  banks?: BankAccount[]
 }
 
 export interface InvoiceLine {

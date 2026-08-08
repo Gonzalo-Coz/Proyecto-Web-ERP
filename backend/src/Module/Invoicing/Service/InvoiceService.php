@@ -44,7 +44,27 @@ final class InvoiceService
             'email' => $this->settings->get('company.email') ?? '',
             // Logo subido en el Perfil; si no hay, usa el logo estático de la tienda.
             'logo' => $this->settings->get('company.logo_full_path') ?: '/brand/logo-full.png',
+            'banks' => $this->bankAccounts(),
         ];
+    }
+
+    /** @return list<array{name: string, account: string, cci: string}> */
+    private function bankAccounts(): array
+    {
+        $banks = [];
+        foreach (['bank1', 'bank2'] as $b) {
+            $name = trim((string) $this->settings->get("company.{$b}_name"));
+            if ($name === '') {
+                continue;
+            }
+            $banks[] = [
+                'name' => $name,
+                'account' => trim((string) $this->settings->get("company.{$b}_account")),
+                'cci' => trim((string) $this->settings->get("company.{$b}_cci")),
+            ];
+        }
+
+        return $banks;
     }
 
     /** XML del comprobante para descarga (nombre estándar SUNAT: RUC-TIPO-SERIE-CORRELATIVO.xml). */

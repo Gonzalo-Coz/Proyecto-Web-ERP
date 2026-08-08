@@ -32,6 +32,13 @@ final class SettingsService
         // Rutas de logos subidos (relativas a public/, ej. uploads/brand/..).
         'company.logo_full_path' => '',
         'company.logo_icon_path' => '',
+        // Cuentas bancarias (hasta 2) para el pie del comprobante.
+        'company.bank1_name' => '',
+        'company.bank1_account' => '',
+        'company.bank1_cci' => '',
+        'company.bank2_name' => '',
+        'company.bank2_account' => '',
+        'company.bank2_cci' => '',
         'tax.igv_rate' => '18',
         // Tipo de cambio del día (SUNAT) y su fecha; se autocompleta o se edita manual.
         'tax.exchange_rate' => '',
