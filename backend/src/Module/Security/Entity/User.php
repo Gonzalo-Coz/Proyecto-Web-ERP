@@ -34,8 +34,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, SoftDel
     #[ORM\Column(length: 50)]
     private string $username;
 
-    #[ORM\Column(length: 150)]
-    private string $email;
+    #[ORM\Column(length: 150, nullable: true)]
+    private ?string $email = null;
 
     #[ORM\Column(length: 150)]
     private string $fullName;
@@ -63,10 +63,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, SoftDel
     #[ORM\JoinTable(name: 'user_roles')]
     private Collection $assignedRoles;
 
-    public function __construct(string $username, string $email, string $fullName)
+    public function __construct(string $username, ?string $email, string $fullName)
     {
         $this->username = $username;
-        $this->email = $email;
+        $this->setEmail($email);
         $this->fullName = $fullName;
         $this->assignedRoles = new ArrayCollection();
     }
@@ -86,14 +86,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, SoftDel
         return $this->username;
     }
 
-    public function getEmail(): string
+    public function getEmail(): ?string
     {
         return $this->email;
     }
 
-    public function setEmail(string $email): void
+    public function setEmail(?string $email): void
     {
-        $this->email = $email;
+        $this->email = ($email === null || trim($email) === '') ? null : trim($email);
     }
 
     public function getFullName(): string

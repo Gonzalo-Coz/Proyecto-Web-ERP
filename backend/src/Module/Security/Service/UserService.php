@@ -77,6 +77,7 @@ final class UserService
         $this->assertUnique($payload->username, $payload->email, null);
 
         $user = new User($payload->username, $payload->email, $payload->fullName);
+        $user->setPhone($payload->phone);
         $user->setPassword($this->passwordHasher->hashPassword($user, $payload->password));
         $user->setActive($payload->isActive);
         $this->syncRoles($user, $payload->roleIds);
@@ -94,6 +95,7 @@ final class UserService
 
         // username no se modifica: es el identificador de acceso y de auditoría
         $user->setEmail($payload->email);
+        $user->setPhone($payload->phone);
         $user->setFullName($payload->fullName);
         $user->setActive($payload->isActive);
         if ($payload->password !== null && $payload->password !== '') {
@@ -125,15 +127,18 @@ final class UserService
             ?? throw new NotFoundHttpException('Usuario no encontrado.');
     }
 
-    private function assertUnique(string $username, string $email, ?int $exceptId): void
+    private function assertUnique(string $username, ?string $email, ?int $exceptId): void
     {
         $existing = $this->userRepository->findOneByUsername($username);
         if ($existing !== null && $existing->getId() !== $exceptId) {
             throw new ConflictHttpException(sprintf('El usuario "%s" ya existe.', $username));
         }
-        $existingEmail = $this->userRepository->findOneBy(['email' => $email]);
-        if ($existingEmail !== null && $existingEmail->getId() !== $exceptId) {
-            throw new ConflictHttpException(sprintf('El correo "%s" ya está registrado.', $email));
+        // El correo es opcional: solo se valida unicidad si viene con valor.
+        if ($email !== null && trim($email) !== '') {
+            $existingEmail = $this->userRepository->findOneBy(['email' => trim($email)]);
+            if ($existingEmail !== null && $existingEmail->getId() !== $exceptId) {
+                throw new ConflictHttpException(sprintf('El correo "%s" ya está registrado.', $email));
+            }
         }
     }
 

@@ -7,7 +7,8 @@ export interface RoleSummary {
 export interface UserItem {
   id: number
   username: string
-  email: string
+  email: string | null
+  phone: string | null
   fullName: string
   isActive: boolean
   roles: RoleSummary[]
@@ -16,7 +17,8 @@ export interface UserItem {
 
 export interface UserPayload {
   username: string
-  email: string
+  email: string | null
+  phone?: string | null
   fullName: string
   password?: string | null
   roleIds: number[]

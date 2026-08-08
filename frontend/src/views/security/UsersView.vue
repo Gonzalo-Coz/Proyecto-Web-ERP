@@ -35,6 +35,7 @@ const formError = ref('')
 const form = reactive({
   username: '',
   email: '',
+  phone: '',
   fullName: '',
   password: '',
   roleIds: [] as number[],
@@ -66,7 +67,7 @@ function onTableChange(p: { page: number; search: string; sort: string; directio
 
 function openCreate(): void {
   editing.value = null
-  Object.assign(form, { username: '', email: '', fullName: '', password: '', roleIds: [], isActive: true })
+  Object.assign(form, { username: '', email: '', phone: '', fullName: '', password: '', roleIds: [], isActive: true })
   formError.value = ''
   modalOpen.value = true
 }
@@ -75,7 +76,8 @@ function openEdit(user: UserItem): void {
   editing.value = user
   Object.assign(form, {
     username: user.username,
-    email: user.email,
+    email: user.email ?? '',
+    phone: user.phone ?? '',
     fullName: user.fullName,
     password: '',
     roleIds: user.roles.map((r) => r.id),
@@ -89,7 +91,7 @@ async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
-    const payload = { ...form, password: form.password || null }
+    const payload = { ...form, email: form.email || null, phone: form.phone || null, password: form.password || null }
     if (editing.value) {
       await securityService.updateUser(editing.value.id, payload)
     } else {
@@ -178,9 +180,14 @@ onMounted(async () => {
         <FormField label="Nombre completo" required>
           <input v-model="form.fullName" class="form-input" required />
         </FormField>
-        <FormField label="Correo electrónico" required>
-          <input v-model="form.email" type="email" class="form-input" required />
-        </FormField>
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Correo electrónico (opcional)">
+            <input v-model="form.email" type="email" class="form-input" placeholder="opcional" />
+          </FormField>
+          <FormField label="Teléfono (opcional)">
+            <input v-model="form.phone" class="form-input" maxlength="30" placeholder="opcional" />
+          </FormField>
+        </div>
         <FormField
           :label="editing ? 'Contraseña (dejar en blanco para no cambiar)' : 'Contraseña'"
           :required="!editing"
