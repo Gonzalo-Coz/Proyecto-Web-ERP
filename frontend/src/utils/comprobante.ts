@@ -139,6 +139,7 @@ function ticketBody(doc: InvoiceDocument): string {
         <div class="grand"><span>TOTAL:</span><span>${money(doc.total)}</span></div>
       </div>
       <div class="letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
+      ${banksTicket(co)}
       <div class="foot">
         ${doc.qrData ? '<div id="qrbox" class="ticket-qr"></div>' : ''}
         ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
@@ -241,6 +242,22 @@ function a4Body(doc: InvoiceDocument): string {
     </div>`
 }
 
+/** Cuentas bancarias apiladas para el ticket 80mm. */
+function banksTicket(co: InvoiceDocument['company']): string {
+  const banks = co?.banks ?? []
+  if (banks.length === 0) return ''
+  const rows = banks
+    .map(
+      (b) => `<div class="bk-item">
+        <div class="bk-name">${esc(b.name)}</div>
+        ${b.account ? `<div>Cuenta: ${esc(b.account)}</div>` : ''}
+        ${b.cci ? `<div>CCI: ${esc(b.cci)}</div>` : ''}
+      </div>`,
+    )
+    .join('')
+  return `<div class="ticket-banks"><div class="bk-h">Cuentas bancarias</div>${rows}</div>`
+}
+
 /** Tabla de cuentas bancarias para el pie del comprobante. */
 function banksHtml(co: InvoiceDocument['company']): string {
   const banks = co?.banks ?? []
@@ -299,6 +316,10 @@ function css(format: PrintFormat): string {
     .qr-data { font-size: 8px; word-break: break-all; color: #444; }
     .ticket-qr { width: 96px; height: 96px; margin: 8px auto 0; }
     .ticket-qr img, .ticket-qr canvas { width: 96px !important; height: 96px !important; }
+    .ticket-banks { margin-top: 10px; border-top: 1px dashed #999; padding-top: 6px; font-size: ${base - 1}px; }
+    .ticket-banks .bk-h { font-weight: 700; text-transform: uppercase; text-align: center; margin-bottom: 4px; }
+    .ticket-banks .bk-item { margin-bottom: 4px; }
+    .ticket-banks .bk-name { font-weight: 700; }
     .hash { margin-top: 6px; word-break: break-all; }
     .rep { margin-top: 6px; color: #555; font-style: italic; }
     .warn { margin-top: 6px; color: #6b7280; font-style: italic; }
