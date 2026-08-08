@@ -17,8 +17,8 @@ final class SettingsService
 {
     /** Claves reconocidas y sus valores por defecto. */
     public const DEFAULTS = [
-        'company.name' => 'Yamaha Global Motors',
-        'company.trade_name' => 'YIGM',
+        'company.name' => 'Integra Global Motors S.A.C.',
+        'company.trade_name' => 'Yamaha Global Motors',
         'company.ruc' => '20000000001',
         'company.legal_rep' => '',
         'company.address' => '',

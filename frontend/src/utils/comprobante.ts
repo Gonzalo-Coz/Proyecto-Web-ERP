@@ -111,6 +111,7 @@ function ticketBody(doc: InvoiceDocument): string {
         <div class="emp">
           ${logoTag(co?.logo)}
           <div class="emp-name">${esc(co?.name)}</div>
+          ${co?.tradeName ? `<div>${esc(co.tradeName)}</div>` : ''}
           <div>RUC: ${esc(co?.ruc)}</div>
           ${co?.address ? `<div><b>Dirección:</b> ${esc(co.address)}${ubigeoStr(co)}</div>` : ''}
           ${co?.phone ? `<div><b>Teléfono:</b> ${esc(co.phone)}</div>` : ''}
@@ -176,6 +177,7 @@ function a4Body(doc: InvoiceDocument): string {
           ${logoTag(co?.logo)}
           <div class="a4-empinfo">
             <div class="a4-name">${esc(co?.name)}</div>
+            ${co?.tradeName ? `<div><b>Nombre comercial:</b> ${esc(co.tradeName)}</div>` : ''}
             ${co?.address ? `<div><b>Dirección:</b> ${esc(co.address)}${ubigeoStr(co)}</div>` : ''}
             ${co?.phone ? `<div><b>Teléfono:</b> ${esc(co.phone)}</div>` : ''}
             ${co?.email ? `<div>${esc(co.email)}</div>` : ''}
@@ -327,8 +329,8 @@ function css(format: PrintFormat): string {
     .warn { margin-top: 6px; color: #6b7280; font-style: italic; }
 
     /* ===== Diseño A4 formal ===== */
-    .a4-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #12233A; padding-bottom: 10px; }
-    .a4-emp { display: flex; gap: 14px; align-items: center; }
+    .a4-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 3px solid #12233A; padding-bottom: 10px; }
+    .a4-emp { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
     .a4-name { font-weight: 800; font-size: 16px; color: #12233A; }
     .a4-empinfo div { font-size: 11px; color: #333; line-height: 1.35; }
     .a4-box { border: 2px solid #12233A; border-radius: 10px; padding: 10px 18px; text-align: center; min-width: 210px; }
