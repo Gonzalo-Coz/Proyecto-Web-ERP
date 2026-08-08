@@ -70,9 +70,9 @@ const logoTag = (path: string | null | undefined): string => {
   return url ? `<img class="logo" src="${esc(url)}" alt="logo" />` : ''
 }
 
-/** Distrito - Provincia - Departamento, junto a la dirección (si están cargados). */
+/** Departamento - Provincia - Distrito, junto a la dirección (si están cargados). */
 function ubigeoStr(co: InvoiceDocument['company']): string {
-  const parts = [co?.district, co?.province, co?.department].map((p) => (p ?? '').trim()).filter(Boolean)
+  const parts = [co?.department, co?.province, co?.district].map((p) => (p ?? '').trim()).filter(Boolean)
   return parts.length ? ` - ${esc(parts.join(' - '))}` : ''
 }
 
@@ -111,19 +111,23 @@ function ticketBody(doc: InvoiceDocument): string {
         <div class="emp">
           ${logoTag(co?.logo)}
           <div class="emp-name">${esc(co?.name)}</div>
-          ${co?.address ? `<div>${esc(co.address)}</div>` : ''}
-          ${co?.phone ? `<div>${esc(co?.phone)}</div>` : ''}
+          <div>RUC: ${esc(co?.ruc)}</div>
+          ${co?.address ? `<div><b>Dirección:</b> ${esc(co.address)}${ubigeoStr(co)}</div>` : ''}
+          ${co?.phone ? `<div><b>Teléfono:</b> ${esc(co.phone)}</div>` : ''}
+          ${co?.email ? `<div>${esc(co.email)}</div>` : ''}
         </div>
         <div class="box">
-          <div>RUC ${esc(co?.ruc)}</div>
           <div class="box-type">${esc(doc.docTypeName)}</div>
           <div class="box-num">${esc(doc.fullNumber)}</div>
         </div>
       </div>
       <div class="cli">
         <div><b>Cliente:</b> ${esc(doc.customerName)}</div>
-        <div><b>Doc:</b> ${esc(doc.customerDocument)}</div>
-        <div><b>Fecha:</b> ${esc(doc.issueDate)}</div>
+        <div><b>Documento:</b> ${esc(doc.customerDocument)}</div>
+        ${doc.customerAddress ? `<div><b>Dirección:</b> ${esc(doc.customerAddress)}</div>` : ''}
+        <div><b>Fecha de emisión:</b> ${esc(doc.issueDate)}</div>
+        <div><b>Moneda:</b> Soles</div>
+        <div><b>Forma de pago:</b> Contado</div>
       </div>
       <table>
         <thead><tr><th class="c">Cant.</th><th>Descripción</th><th class="r">P.U. S/</th><th class="r">Importe S/</th></tr></thead>
