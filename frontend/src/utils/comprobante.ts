@@ -57,6 +57,15 @@ const money = (v: string | number | null | undefined): string =>
 const esc = (s: string | null | undefined): string =>
   String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] ?? c)
 
+/** Nombre oficial completo del comprobante para el recuadro y la leyenda. */
+const DOC_FULL: Record<string, string> = {
+  '01': 'FACTURA ELECTRÓNICA',
+  '03': 'BOLETA DE VENTA ELECTRÓNICA',
+  '07': 'NOTA DE CRÉDITO ELECTRÓNICA',
+  '08': 'NOTA DE DÉBITO ELECTRÓNICA',
+}
+const docFull = (doc: InvoiceDocument): string => DOC_FULL[doc.docType] ?? doc.docTypeName
+
 /** URL absoluta del origen para que el logo cargue en la ventana de impresión. */
 const logoUrl = (path: string | null | undefined): string => {
   if (!path) return ''
@@ -118,7 +127,7 @@ function ticketBody(doc: InvoiceDocument): string {
           ${co?.email ? `<div>${esc(co.email)}</div>` : ''}
         </div>
         <div class="box">
-          <div class="box-type">${esc(doc.docTypeName)}</div>
+          <div class="box-type">${esc(docFull(doc))}</div>
           <div class="box-num">${esc(doc.fullNumber)}</div>
         </div>
       </div>
@@ -144,7 +153,7 @@ function ticketBody(doc: InvoiceDocument): string {
       <div class="foot">
         ${doc.qrData ? '<div id="qrbox" class="ticket-qr"></div>' : ''}
         ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
-        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>        ${aviso}
+        <div class="rep">Representación impresa de la ${esc(docFull(doc))}.</div>        ${aviso}
       </div>
       <div class="ticket-feed"></div>
     </div>`
@@ -186,7 +195,7 @@ function a4Body(doc: InvoiceDocument): string {
         </div>
         <div class="a4-box">
           <div><b>RUC:</b> ${esc(co?.ruc)}</div>
-          <div class="a4-boxtype">${esc(doc.docTypeName)}</div>
+          <div class="a4-boxtype">${esc(docFull(doc))}</div>
           <div class="a4-boxnum">${esc(doc.fullNumber)}</div>
         </div>
       </div>
@@ -239,7 +248,7 @@ function a4Body(doc: InvoiceDocument): string {
         </div>
         <div class="a4-footinfo">
           ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
-          <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>
+          <div class="rep">Representación impresa de la ${esc(docFull(doc))}.</div>
           ${aviso}
         </div>
       </div>
@@ -336,11 +345,12 @@ function css(format: PrintFormat): string {
     /* ===== Diseño A4 formal ===== */
     .a4-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; border-bottom: 3px solid #12233A; padding-bottom: 10px; }
     .a4-emp { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-    .a4-name { font-weight: 800; font-size: 16px; color: #12233A; }
-    .a4-empinfo div { font-size: 11px; color: #333; line-height: 1.35; }
-    .a4-box { border: 2px solid #12233A; border-radius: 10px; padding: 10px 18px; text-align: center; min-width: 210px; }
-    .a4-boxtype { font-weight: 800; color: #12233A; margin-top: 3px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
-    .a4-boxnum { font-weight: 800; font-size: 15px; margin-top: 2px; }
+    .a4-name { font-weight: 800; font-size: 17px; color: #12233A; line-height: 1.2; }
+    .a4-empinfo div { font-size: 11px; color: #333; line-height: 1.45; }
+    .a4-box { border: 2px solid #12233A; border-radius: 10px; padding: 10px 16px; text-align: center; width: 210px; flex-shrink: 0; }
+    .a4-box > div:first-child { font-size: 11px; }
+    .a4-boxtype { font-weight: 800; color: #12233A; margin-top: 5px; font-size: 12px; line-height: 1.25; text-transform: uppercase; letter-spacing: .4px; }
+    .a4-boxnum { font-weight: 800; font-size: 16px; margin-top: 5px; letter-spacing: .5px; }
     .a4-grid2 { display: flex; gap: 10px; margin-top: 12px; }
     .a4-panel { flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
     .a4-panel-h { background: #12233A; color: #fff; font-weight: 700; font-size: 10px; padding: 5px 10px; text-transform: uppercase; letter-spacing: .6px; }
