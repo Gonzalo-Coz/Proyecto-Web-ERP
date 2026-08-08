@@ -276,9 +276,10 @@ function banksHtml(co: InvoiceDocument['company']): string {
 }
 
 function css(format: PrintFormat): string {
-  const page = format === 'ticket' ? '@page { size: 80mm auto; margin: 3mm; }' : '@page { size: A4; margin: 12mm; }'
+  // 3nStar RPT004: papel 80mm, ancho de impresión máx. 72mm → contenido a 72mm.
+  const page = format === 'ticket' ? '@page { size: 80mm auto; margin: 2mm; }' : '@page { size: A4; margin: 12mm; }'
   const base = format === 'ticket' ? 11 : 12
-  const width = format === 'ticket' ? 'width: 74mm;' : 'width: 100%;'
+  const width = format === 'ticket' ? 'width: 72mm;' : 'width: 100%;'
   const a4Sheet =
     format === 'a4'
       ? `
