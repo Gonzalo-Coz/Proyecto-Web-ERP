@@ -229,19 +229,26 @@ onMounted(() => load())
           <p v-if="detail.errorMessage" class="text-red-600"><span class="font-semibold">Error:</span> {{ detail.errorMessage }}</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
-          <button class="btn-secondary" @click="printComprobante(detail, 'ticket')" title="Ticket para impresora de tira">Ticket</button>
-          <button class="btn-secondary" @click="printComprobante(detail, 'a4')" title="Documento A4">PDF</button>
-          <!-- El oficial de NubeFact (válido, con QR real): solo cuando SUNAT lo acepta. -->
+          <!-- Ticket: formato oficial de NubeFact (configurado como Ticket en su panel). -->
           <a
             v-if="detail.status === 'ACEPTADO' && detail.pdfUrl"
             class="btn-primary"
             :href="detail.pdfUrl"
             target="_blank"
             rel="noopener"
-            title="PDF oficial validado por SUNAT (con QR real)"
+            title="Ticket oficial de NubeFact (validado por SUNAT, con QR real)"
           >
-            PDF oficial
+            Ticket
           </a>
+          <button
+            v-else
+            class="btn-secondary cursor-not-allowed opacity-50"
+            disabled
+            title="El ticket oficial de NubeFact está disponible cuando SUNAT acepta el comprobante"
+          >
+            Ticket
+          </button>
+          <button class="btn-secondary" @click="printComprobante(detail, 'a4')" title="Documento A4">PDF</button>
           <!-- XML oficial: solo descargable si SUNAT lo aceptó (válido). -->
           <a
             v-if="detail.status === 'ACEPTADO' && detail.xmlUrl"
