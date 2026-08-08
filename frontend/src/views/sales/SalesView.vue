@@ -545,8 +545,8 @@ onMounted(async () => {
                 v-else-if="line.itemType === 'MOTORCYCLE_UNIT'"
                 v-model="line.motorcycleUnitId"
                 :options="units"
-                :option-label="(u) => `${u.internalCode} — ${u.modelName} (${u.color})`"
-                placeholder="Escribe código, modelo o color…"
+                :option-label="(u) => `${u.internalCode} — ${u.modelName} (${u.color}) · Serie ${u.vin}`"
+                placeholder="Escribe código, modelo, color o N° de serie…"
                 @change="onLineProductChange(line)"
               />
               <input v-else v-model="line.description" class="form-input" placeholder="Descripción del servicio" />
