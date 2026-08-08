@@ -563,8 +563,10 @@ onMounted(async () => {
                   <option :value="true">US$</option>
                 </select>
               </label>
-              <input v-model.number="line.unitPrice" type="number" step="0.01" min="0" class="form-input" />
-              <p v-if="line._usd" class="text-[10px] text-gray-400">= S/ {{ linePriceSoles(line).toFixed(2) }}</p>
+              <div class="relative">
+                <input v-model.number="line.unitPrice" type="number" step="0.01" min="0" class="form-input" />
+                <p v-if="line._usd" class="absolute left-0 top-full mt-0.5 text-[10px] text-gray-400">= S/ {{ linePriceSoles(line).toFixed(2) }}</p>
+              </div>
             </div>
             <div class="col-span-2">
               <label class="form-label text-xs">Dscto. (%)</label>
