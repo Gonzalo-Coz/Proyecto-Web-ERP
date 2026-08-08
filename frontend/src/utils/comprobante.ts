@@ -126,8 +126,10 @@ function ticketBody(doc: InvoiceDocument): string {
       </div>
       <div class="letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
       <div class="foot">
+        ${doc.qrData ? '<div id="qrbox" class="ticket-qr"></div>' : ''}
         ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
-        <div class="rep">Representación impresa del comprobante electrónico.</div>
+        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>
+        <div class="rep">Consulte su comprobante en el portal web de SUNAT.</div>
         ${aviso}
       </div>
     </div>`
@@ -285,6 +287,8 @@ function css(format: PrintFormat): string {
     .qr { display: flex; align-items: center; gap: 8px; ${format === 'ticket' ? 'flex-direction: column; text-align: center;' : ''} }
     .qr-ph { width: 70px; height: 70px; border: 1.5px solid #111; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #888; }
     .qr-data { font-size: 8px; word-break: break-all; color: #444; }
+    .ticket-qr { width: 96px; height: 96px; margin: 8px auto 0; }
+    .ticket-qr img, .ticket-qr canvas { width: 96px !important; height: 96px !important; }
     .hash { margin-top: 6px; word-break: break-all; }
     .rep { margin-top: 6px; color: #555; font-style: italic; }
     .warn { margin-top: 6px; color: #6b7280; font-style: italic; }
@@ -404,11 +408,12 @@ export function printComprobante(doc: InvoiceDocument, format: PrintFormat): voi
       : `width=${screen.availWidth},height=${screen.availHeight},left=0,top=0`
   const w = window.open('', '_blank', features)
   if (!w) return
-  // QR real: se genera en la ventana con qrcodejs (CDN). Solo en A4.
-  const hasQr = format === 'a4' && !!doc.qrData
+  // QR real: se genera en la ventana con qrcodejs (CDN), tanto en A4 como en ticket.
+  const hasQr = !!doc.qrData
+  const qrSize = format === 'ticket' ? 96 : 120
   const qrScript = hasQr
     ? `<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script>try{new QRCode(document.getElementById('qrbox'),{text:${JSON.stringify(doc.qrData)},width:120,height:120,correctLevel:QRCode.CorrectLevel.M});}catch(e){}</script>`
+<script>try{new QRCode(document.getElementById('qrbox'),{text:${JSON.stringify(doc.qrData)},width:${qrSize},height:${qrSize},correctLevel:QRCode.CorrectLevel.M});}catch(e){}</script>`
     : ''
   w.document.write(
     `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(doc.fullNumber)}</title><style>${css(format)}</style></head><body>${bodyHtml(doc, format)}${qrScript}</body></html>`,
