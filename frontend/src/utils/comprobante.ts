@@ -474,3 +474,84 @@ export function printComprobante(doc: InvoiceDocument, format: PrintFormat): voi
     w.print()
   }, hasQr ? 900 : 350)
 }
+
+/** Carga un script externo una sola vez. */
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve()
+    const s = document.createElement('script')
+    s.src = src
+    s.onload = () => resolve()
+    s.onerror = () => reject(new Error('No se pudo cargar ' + src))
+    document.head.appendChild(s)
+  })
+}
+
+/**
+ * Genera el comprobante como PDF y lo abre en el visor del navegador (nueva pestaña),
+ * desde donde el usuario puede imprimir o descargar con los controles del visor.
+ * Renderiza el mismo HTML/CSS en un contenedor oculto y lo convierte con html2pdf.
+ */
+export async function openComprobantePdf(doc: InvoiceDocument, format: PrintFormat): Promise<void> {
+  // Abrimos la pestaña YA, dentro del clic, para que el navegador no la bloquee.
+  const win = window.open('', '_blank')
+  if (win) {
+    win.document.write(
+      `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(doc.fullNumber)}</title></head><body style="font-family:Arial,Helvetica,sans-serif;padding:28px;color:#334155">Generando el PDF…</body></html>`,
+    )
+    win.document.close()
+  }
+
+  const wrap = document.createElement('div')
+  wrap.style.cssText = 'position:fixed;left:-99999px;top:0;'
+  const styleEl = document.createElement('style')
+  styleEl.textContent = css(format)
+  const content = document.createElement('div')
+  content.innerHTML = bodyHtml(doc, format)
+  wrap.appendChild(styleEl)
+  wrap.appendChild(content)
+  document.body.appendChild(wrap)
+
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js')
+
+    // QR real dentro del contenedor.
+    if (doc.qrData) {
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js')
+      const box = content.querySelector('#qrbox')
+      const size = format === 'ticket' ? 96 : 120
+      const QR = (window as any).QRCode
+      if (box && QR) {
+        try {
+          new QR(box, { text: doc.qrData, width: size, height: size, correctLevel: QR.CorrectLevel.M })
+        } catch {
+          /* si falla el QR, igual se genera el PDF */
+        }
+      }
+    }
+
+    // Espera a que carguen el logo y el QR antes de convertir.
+    await new Promise((r) => setTimeout(r, 600))
+
+    const el = content.firstElementChild as HTMLElement
+    const px2mm = (px: number) => (px * 25.4) / 96
+    const jsPDF =
+      format === 'ticket'
+        ? { unit: 'mm', format: [80, Math.max(120, px2mm(el.getBoundingClientRect().height) + 6)], orientation: 'portrait' }
+        : { unit: 'mm', format: 'a4', orientation: 'portrait' }
+
+    const opt = {
+      margin: 0,
+      filename: `${doc.fullNumber}${format === 'ticket' ? '-ticket' : ''}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF,
+    }
+
+    const url: string = await (window as any).html2pdf().set(opt).from(el).output('bloburl')
+    if (win) win.location.href = url
+    else window.open(url, '_blank')
+  } finally {
+    document.body.removeChild(wrap)
+  }
+}

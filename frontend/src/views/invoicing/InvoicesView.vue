@@ -7,7 +7,7 @@ import { invoicingService } from '@/services/invoicing'
 import { saleService } from '@/services/sales'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
-import { printComprobante } from '@/utils/comprobante'
+import { openComprobantePdf } from '@/utils/comprobante'
 import type { PageMeta } from '@/types/common'
 import type { InvoiceDocument } from '@/types/invoicing'
 import type { SaleSummary } from '@/types/sales'
@@ -229,8 +229,8 @@ onMounted(() => load())
           <p v-if="detail.errorMessage" class="text-red-600"><span class="font-semibold">Error:</span> {{ detail.errorMessage }}</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
-          <button class="btn-primary" @click="printComprobante(detail, 'ticket')" title="Ticket 80mm limpio con QR (para impresora de tira)">Ticket</button>
-          <button class="btn-secondary" @click="printComprobante(detail, 'a4')" title="Documento A4">PDF</button>
+          <button class="btn-primary" @click="openComprobantePdf(detail, 'ticket')" title="Abre el ticket en PDF; desde el visor imprimes o descargas">Ticket</button>
+          <button class="btn-secondary" @click="openComprobantePdf(detail, 'a4')" title="Abre el comprobante A4 en PDF; desde el visor imprimes o descargas">PDF</button>
           <!-- PDF original de NubeFact (formato de su panel): disponible apenas lo registra. -->
           <a
             v-if="detail.pdfUrl"
