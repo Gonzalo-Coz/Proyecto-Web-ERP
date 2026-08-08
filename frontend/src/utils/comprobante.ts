@@ -70,6 +70,12 @@ const logoTag = (path: string | null | undefined): string => {
   return url ? `<img class="logo" src="${esc(url)}" alt="logo" />` : ''
 }
 
+/** Distrito - Provincia - Departamento, junto a la dirección (si están cargados). */
+function ubigeoStr(co: InvoiceDocument['company']): string {
+  const parts = [co?.district, co?.province, co?.department].map((p) => (p ?? '').trim()).filter(Boolean)
+  return parts.length ? ` - ${esc(parts.join(' - '))}` : ''
+}
+
 function itemsRows(doc: InvoiceDocument): string {
   return (doc.items ?? [])
     .map(
@@ -128,9 +134,7 @@ function ticketBody(doc: InvoiceDocument): string {
       <div class="foot">
         ${doc.qrData ? '<div id="qrbox" class="ticket-qr"></div>' : ''}
         ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
-        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>
-        <div class="rep">Consulte su comprobante en el portal web de SUNAT.</div>
-        ${aviso}
+        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>        ${aviso}
       </div>
     </div>`
 }
@@ -162,9 +166,8 @@ function a4Body(doc: InvoiceDocument): string {
           ${logoTag(co?.logo)}
           <div class="a4-empinfo">
             <div class="a4-name">${esc(co?.name)}</div>
-            ${co?.tradeName ? `<div>${esc(co.tradeName)}</div>` : ''}
-            ${co?.address ? `<div>${esc(co.address)}</div>` : ''}
-            ${co?.phone ? `<div>Tel: ${esc(co.phone)}</div>` : ''}
+            ${co?.address ? `<div><b>Dirección:</b> ${esc(co.address)}${ubigeoStr(co)}</div>` : ''}
+            ${co?.phone ? `<div><b>Teléfono:</b> ${esc(co.phone)}</div>` : ''}
             ${co?.email ? `<div>${esc(co.email)}</div>` : ''}
           </div>
         </div>
@@ -224,7 +227,6 @@ function a4Body(doc: InvoiceDocument): string {
         <div class="a4-footinfo">
           ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
           <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>
-          <div class="rep">Consulte su comprobante en el portal web de SUNAT.</div>
           ${aviso}
         </div>
       </div>

@@ -40,6 +40,9 @@ final class InvoiceService
             'tradeName' => $this->settings->get('company.trade_name') ?? '',
             'ruc' => $this->settings->get('company.ruc') ?? '',
             'address' => $this->settings->get('company.address') ?? '',
+            'department' => $this->settings->get('company.department') ?? '',
+            'province' => $this->settings->get('company.province') ?? '',
+            'district' => $this->settings->get('company.district') ?? '',
             'phone' => $this->settings->get('company.phone') ?? '',
             'email' => $this->settings->get('company.email') ?? '',
             // Logo subido en el Perfil; si no hay, usa el logo estático de la tienda.

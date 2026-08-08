@@ -40,6 +40,9 @@ export interface InvoiceCompany {
   tradeName: string
   ruc: string
   address: string
+  department?: string
+  province?: string
+  district?: string
   phone: string
   email: string
   logo?: string | null
