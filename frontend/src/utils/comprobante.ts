@@ -76,14 +76,18 @@ function ubigeoStr(co: InvoiceDocument['company']): string {
   return parts.length ? ` - ${esc(parts.join(' - '))}` : ''
 }
 
+/** Número plano 2 decimales (sin "S/") para las celdas del ticket. */
+const num2 = (v: string | number | null | undefined): string =>
+  Number(v ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 function itemsRows(doc: InvoiceDocument): string {
   return (doc.items ?? [])
     .map(
       (i) => `<tr>
         <td class="c">${i.quantity}</td>
         <td>${esc(i.description).replace(/\n/g, '<br>')}</td>
-        <td class="r">${money(i.unitPrice)}</td>
-        <td class="r">${money(i.lineTotal)}</td>
+        <td class="r">${num2(i.unitPrice)}</td>
+        <td class="r">${num2(i.lineTotal)}</td>
       </tr>`,
     )
     .join('')
@@ -122,7 +126,7 @@ function ticketBody(doc: InvoiceDocument): string {
         <div><b>Fecha:</b> ${esc(doc.issueDate)}</div>
       </div>
       <table>
-        <thead><tr><th class="c">Cant.</th><th>Descripción</th><th class="r">P.Unit</th><th class="r">Importe</th></tr></thead>
+        <thead><tr><th class="c">Cant.</th><th>Descripción</th><th class="r">P.U. S/</th><th class="r">Importe S/</th></tr></thead>
         <tbody>${itemsRows(doc)}</tbody>
       </table>
       <div class="tot">
