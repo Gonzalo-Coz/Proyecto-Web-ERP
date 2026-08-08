@@ -216,7 +216,8 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             );
         }
 
-        $accepted = ($r['aceptada_por_sunat'] ?? null) === true;
+        // NubeFact puede devolver el flag como booleano, entero o texto ("true"/"1").
+        $accepted = self::truthy($r['aceptada_por_sunat'] ?? null);
         $status = $accepted ? ProviderResult::ACCEPTED : ProviderResult::PENDING;
 
         return new ProviderResult(
@@ -225,12 +226,28 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             qrData: $this->str($r['cadena_para_codigo_qr'] ?? null),
             xml: null, // NubeFact entrega el XML por enlace, no como contenido
             cdr: null,
-            errorMessage: $accepted ? null : $this->str($r['sunat_description'] ?? $r['sunat_note'] ?? null),
+            errorMessage: $accepted ? null : $this->str($r['sunat_description'] ?? $r['sunat_note'] ?? $r['sunat_soap_error'] ?? null),
             rawResponse: $r,
             pdfUrl: $this->str($r['enlace_del_pdf'] ?? ($this->str($r['enlace'] ?? null) !== null ? $r['enlace'].'.pdf' : null)),
             xmlUrl: $this->str($r['enlace_del_xml'] ?? null),
             cdrUrl: $this->str($r['enlace_del_cdr'] ?? null),
         );
+    }
+
+    /** Interpreta el flag de aceptación venga como booleano, entero o texto. */
+    private static function truthy(mixed $v): bool
+    {
+        if (is_bool($v)) {
+            return $v;
+        }
+        if (is_int($v)) {
+            return $v === 1;
+        }
+        if (is_string($v)) {
+            return in_array(strtolower(trim($v)), ['true', '1', 'si', 'sí', 'aceptado'], true);
+        }
+
+        return false;
     }
 
     private function str(mixed $v): ?string
