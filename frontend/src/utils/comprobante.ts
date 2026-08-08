@@ -277,8 +277,10 @@ function banksHtml(co: InvoiceDocument['company']): string {
 }
 
 function css(format: PrintFormat): string {
+  // margin: 0 en @page evita que el navegador imprima su encabezado/pie (fecha, título, URL).
+  // El margen real del A4 se aplica como padding interno del documento.
   // 3nStar RPT004: papel 80mm, ancho de impresión máx. 72mm → contenido a 72mm.
-  const page = format === 'ticket' ? '@page { size: 80mm auto; margin: 2mm; }' : '@page { size: A4; margin: 12mm; }'
+  const page = format === 'ticket' ? '@page { size: 80mm auto; margin: 0; }' : '@page { size: A4; margin: 0; }'
   const base = format === 'ticket' ? 11 : 12
   const width = format === 'ticket' ? 'width: 72mm;' : 'width: 100%;'
   const a4Sheet =
@@ -290,7 +292,7 @@ function css(format: PrintFormat): string {
     }
     @media print {
       html, body { height: 100%; background: #fff; padding: 0; }
-      .doc.a4 { box-shadow: none; width: auto; min-height: 262mm; padding: 0; display: flex; flex-direction: column; }
+      .doc.a4 { box-shadow: none; width: auto; min-height: 290mm; padding: 12mm; display: flex; flex-direction: column; }
     }`
       : ''
 
