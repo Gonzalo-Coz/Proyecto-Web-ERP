@@ -85,7 +85,7 @@ function itemsRows(doc: InvoiceDocument): string {
     .map(
       (i) => `<tr>
         <td class="c">${i.quantity}</td>
-        <td>${esc(i.description).replace(/\n/g, '<br>')}</td>
+        <td>${i.code ? `<span class="it-code">${esc(i.code)}</span> ` : ''}${esc(i.description).replace(/\n/g, '<br>')}</td>
         <td class="r">${num2(i.unitPrice)}</td>
         <td class="r">${num2(i.lineTotal)}</td>
       </tr>`,
@@ -161,6 +161,7 @@ function a4Body(doc: InvoiceDocument): string {
       (i, n) => `<tr>
         <td class="c">${n + 1}</td>
         <td class="c">${i.quantity}</td>
+        <td class="c">${esc(i.code ?? '')}</td>
         <td>${esc(i.description).replace(/\n/g, '<br>')}</td>
         <td class="r">${money(i.unitPrice)}</td>
         <td class="r">${money(i.lineTotal)}</td>
@@ -208,7 +209,7 @@ function a4Body(doc: InvoiceDocument): string {
       </div>
 
       <table class="a4-items">
-        <thead><tr><th class="c">Ítem</th><th class="c">Cant.</th><th>Descripción</th><th class="r">P. Unitario</th><th class="r">Importe</th></tr></thead>
+        <thead><tr><th class="c">Ítem</th><th class="c">Cant.</th><th class="c">Código</th><th>Descripción</th><th class="r">P. Unitario</th><th class="r">Importe</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
 
@@ -314,6 +315,7 @@ function css(format: PrintFormat): string {
     .qr { display: flex; align-items: center; gap: 8px; ${format === 'ticket' ? 'flex-direction: column; text-align: center;' : ''} }
     .qr-ph { width: 70px; height: 70px; border: 1.5px solid #111; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #888; }
     .qr-data { font-size: 8px; word-break: break-all; color: #444; }
+    .it-code { font-weight: 700; color: #333; white-space: nowrap; }
     .ticket-qr { width: 96px; height: 96px; margin: 8px auto 0; }
     .ticket-qr img, .ticket-qr canvas { width: 96px !important; height: 96px !important; }
     .ticket-banks { margin-top: 10px; border-top: 1px dashed #999; padding-top: 6px; font-size: ${base - 1}px; }

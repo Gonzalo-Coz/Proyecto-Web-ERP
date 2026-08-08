@@ -50,6 +50,7 @@ export interface InvoiceCompany {
 }
 
 export interface InvoiceLine {
+  code?: string
   description: string
   quantity: number
   unitPrice: string

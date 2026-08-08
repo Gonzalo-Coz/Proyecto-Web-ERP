@@ -290,6 +290,7 @@ final class InvoiceService
             $data['igvRate'] = $this->settings->igvRate() * 100;
             $data['company'] = $this->companyData();
             $data['items'] = array_map(static fn (SaleItem $i): array => [
+                'code' => $i->getSparePart()?->getInternalCode() ?? $i->getMotorcycleUnit()?->getInternalCode() ?? '',
                 'description' => $i->getDescription(),
                 'quantity' => $i->getQuantity(),
                 'unitPrice' => $i->getUnitPrice(),

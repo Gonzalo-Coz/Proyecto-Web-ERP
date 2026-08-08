@@ -105,7 +105,7 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
 
             $items[] = [
                 'unidad_de_medida' => 'NIU',
-                'codigo' => '',
+                'codigo' => $this->itemCode($item),
                 'descripcion' => $item->getDescription(),
                 'cantidad' => $qty,
                 'valor_unitario' => $valorUnitario,
@@ -232,6 +232,14 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             xmlUrl: $this->str($r['enlace_del_xml'] ?? null),
             cdrUrl: $this->str($r['enlace_del_cdr'] ?? null),
         );
+    }
+
+    /** Código del producto (interno) para el campo "codigo" del ítem en NubeFact. */
+    private function itemCode(SaleItem $item): string
+    {
+        return $item->getSparePart()?->getInternalCode()
+            ?? $item->getMotorcycleUnit()?->getInternalCode()
+            ?? '';
     }
 
     /** Interpreta el flag de aceptación venga como booleano, entero o texto. */
