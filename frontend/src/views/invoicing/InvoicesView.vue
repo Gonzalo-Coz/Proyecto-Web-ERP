@@ -229,10 +229,19 @@ onMounted(() => load())
           <p v-if="detail.errorMessage" class="text-red-600"><span class="font-semibold">Error:</span> {{ detail.errorMessage }}</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
-          <button class="btn-secondary" @click="printComprobante(detail, 'ticket')">Ticket</button>
-          <!-- PDF: el oficial de NubeFact (real, con QR y logo) si existe; si no, vista rápida local. -->
-          <a v-if="detail.pdfUrl" class="btn-secondary" :href="detail.pdfUrl" target="_blank" rel="noopener" title="PDF oficial de NubeFact">PDF</a>
-          <button v-else class="btn-secondary" @click="printComprobante(detail, 'a4')" title="Vista rápida (aún sin PDF oficial)">PDF</button>
+          <button class="btn-secondary" @click="printComprobante(detail, 'ticket')" title="Ticket para impresora de tira">Ticket</button>
+          <button class="btn-secondary" @click="printComprobante(detail, 'a4')" title="Documento A4">PDF</button>
+          <!-- El oficial de NubeFact (válido, con QR real): solo cuando SUNAT lo acepta. -->
+          <a
+            v-if="detail.status === 'ACEPTADO' && detail.pdfUrl"
+            class="btn-primary"
+            :href="detail.pdfUrl"
+            target="_blank"
+            rel="noopener"
+            title="PDF oficial validado por SUNAT (con QR real)"
+          >
+            PDF oficial
+          </a>
           <!-- XML oficial: solo descargable si SUNAT lo aceptó (válido). -->
           <a
             v-if="detail.status === 'ACEPTADO' && detail.xmlUrl"
