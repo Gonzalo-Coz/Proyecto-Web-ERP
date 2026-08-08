@@ -160,8 +160,8 @@ function a4Body(doc: InvoiceDocument): string {
     .map(
       (i, n) => `<tr>
         <td class="c">${n + 1}</td>
-        <td class="c">${i.quantity}</td>
         <td class="c">${esc(i.code ?? '')}</td>
+        <td class="c">${i.quantity}</td>
         <td>${esc(i.description).replace(/\n/g, '<br>')}</td>
         <td class="r">${money(i.unitPrice)}</td>
         <td class="r">${money(i.lineTotal)}</td>
@@ -209,7 +209,7 @@ function a4Body(doc: InvoiceDocument): string {
       </div>
 
       <table class="a4-items">
-        <thead><tr><th class="c">Ítem</th><th class="c">Cant.</th><th class="c">Código</th><th>Descripción</th><th class="r">P. Unitario</th><th class="r">Importe</th></tr></thead>
+        <thead><tr><th class="c">Ítem</th><th class="c">Código</th><th class="c">Cant.</th><th>Descripción</th><th class="r">P. Unitario</th><th class="r">Importe</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
 
