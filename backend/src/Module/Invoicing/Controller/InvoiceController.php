@@ -56,10 +56,22 @@ final class InvoiceController
     {
         $data = $request->toArray();
 
-        return new JsonResponse(
-            $this->invoiceService->issueForSale((int) ($data['saleId'] ?? 0), (string) ($data['docType'] ?? '')),
-            Response::HTTP_CREATED,
-        );
+        try {
+            return new JsonResponse(
+                $this->invoiceService->issueForSale((int) ($data['saleId'] ?? 0), (string) ($data['docType'] ?? '')),
+                Response::HTTP_CREATED,
+            );
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            // Errores de validación (422/409): se propagan con su código normal.
+            throw $e;
+        } catch (\Throwable $e) {
+            // DEBUG temporal: muestra el error real en vez de "Internal Server Error".
+            return new JsonResponse([
+                'detail' => $e->getMessage(),
+                'exception' => $e::class,
+                'at' => basename($e->getFile()).':'.$e->getLine(),
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     #[Route('/{id<\d+>}/resend', name: 'invoicing_resend', methods: ['POST'])]
