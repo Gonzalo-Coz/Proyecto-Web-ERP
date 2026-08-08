@@ -52,6 +52,7 @@ async function onXmlSelected(event: Event): Promise<void> {
   importError.value = ''
   try {
     preview.value = await purchaseService.importPreview(file)
+    initMotoDefaults()
   } catch (e: any) {
     importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo leer el XML.'
   } finally {
@@ -69,6 +70,7 @@ async function onPdfSelected(event: Event): Promise<void> {
   importError.value = ''
   try {
     preview.value = await purchaseService.importPreview(xmlFile.value, file)
+    initMotoDefaults()
     const filled = preview.value.motorcycles.filter((m) => m.duaNumber).length
     if (filled === 0) importError.value = 'No se encontraron DUAs en el PDF (¿es el PDF de esta misma factura?).'
   } catch (e: any) {
@@ -93,7 +95,6 @@ function applyPvpAll(): void {
   const p = preview.value
   if (!p) return
   p.spareParts.forEach(applyPvp)
-  p.motorcycles.forEach(applyPvp)
 }
 
 /** Margen: % y monto entre el PVP y el precio de venta. */
@@ -101,6 +102,31 @@ function margin(base: number | null | undefined, sale: number | null): { pct: nu
   const b = Number(base ?? 0)
   if (!sale || !b || b <= 0) return null
   return { pct: ((sale - b) / b) * 100, amount: sale - b }
+}
+
+/** Motos: el precio de venta se escribe en US$ o S/; por defecto la moneda de la factura. */
+function initMotoDefaults(): void {
+  const p = preview.value
+  if (!p) return
+  const cur = p.document.currency === 'USD' ? 'USD' : 'PEN'
+  p.motorcycles.forEach((m) => {
+    m.saleCurrency = m.saleCurrency ?? cur
+  })
+}
+const rate = computed(() => Number(preview.value?.exchangeRate ?? 0))
+/** Costo de la moto en soles (la factura suele venir en US$). */
+function motoCostSoles(m: { costPen: number }): number {
+  const usd = preview.value?.document.currency === 'USD'
+  return usd ? Math.round(m.costPen * rate.value * 100) / 100 : m.costPen
+}
+/** Precio de venta de la moto convertido a soles según la moneda elegida. */
+function motoSaleSoles(m: { salePrice: number | null; saleCurrency?: 'PEN' | 'USD' }): number | null {
+  if (m.salePrice === null || m.salePrice === undefined) return null
+  return m.saleCurrency === 'USD' ? Math.round(m.salePrice * rate.value * 100) / 100 : m.salePrice
+}
+/** Margen real de la moto: costo vs. precio de venta, ambos en soles. */
+function motoMargin(m: { costPen: number; salePrice: number | null; saleCurrency?: 'PEN' | 'USD' }) {
+  return margin(motoCostSoles(m), motoSaleSoles(m))
 }
 
 const importTotal = computed(() => {
@@ -116,7 +142,13 @@ async function confirmImport(): Promise<void> {
   importing.value = true
   importError.value = ''
   try {
-    await purchaseService.importConfirm(preview.value)
+    // El precio de venta de motos se guarda SIEMPRE en soles (convertido si se escribió en US$).
+    const p = preview.value
+    const payload = {
+      ...p,
+      motorcycles: p.motorcycles.map((m) => ({ ...m, salePrice: motoSaleSoles(m) })),
+    }
+    await purchaseService.importConfirm(payload)
     importOpen.value = false
     toast.success('Factura importada: stock y unidades registrados.')
     await load()
@@ -450,10 +482,10 @@ onMounted(async () => {
             Factura en dólares: el costo se guarda tal cual en US$ (sin convertir). La conversión a soles solo se hace al vender.
           </p>
 
-          <div class="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2 text-sm">
-            <span class="font-medium text-emerald-800">% sobre PVP Yamaha:</span>
+          <div v-if="preview.spareParts.length" class="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2 text-sm">
+            <span class="font-medium text-emerald-800">% sobre PVP Yamaha (repuestos):</span>
             <input v-model.number="pvpPct" type="number" step="0.5" class="form-input !w-20 !py-1 !text-xs" @input="applyPvpAll" />
-            <span class="text-xs text-emerald-700">Al escribir el PVP de cada ítem, el precio de venta se calcula con este %.</span>
+            <span class="text-xs text-emerald-700">Al escribir el PVP de cada repuesto, su precio de venta se calcula con este %.</span>
           </div>
 
           <!-- Motos -->
@@ -468,7 +500,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">PVP</th><th class="px-2 py-1 text-right">P. Venta {{ curSym }}</th><th class="px-2 py-1 text-right">Margen</th></tr>
+                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta</th><th class="px-2 py-1 text-right">Margen S/</th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(m, i) in preview.motorcycles" :key="i" class="border-t border-gray-100" :class="m.alreadyExists ? 'bg-red-50' : ''">
@@ -478,12 +510,20 @@ onMounted(async () => {
                     <td class="px-2 py-1 font-mono">{{ m.engine }}</td>
                     <td class="px-2 py-1"><div class="flex gap-1"><input v-model="m.duaNumber" placeholder="DUA" class="form-input !w-20 !py-1 !text-xs" /><input v-model="m.duaItem" placeholder="Ítem" class="form-input !w-14 !py-1 !text-xs" /></div></td>
                     <td class="px-2 py-1 text-right"><input v-model.number="m.costPen" type="number" step="0.01" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
-                    <td class="px-2 py-1 text-right"><input v-model.number="m.pvp" type="number" step="0.01" min="0" placeholder="PVP" class="form-input !w-24 !py-1 !text-right !text-xs" @input="applyPvp(m)" /></td>
-                    <td class="px-2 py-1 text-right"><input v-model.number="m.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" /></td>
+                    <td class="px-2 py-1 text-right">
+                      <div class="flex items-center justify-end gap-1">
+                        <input v-model.number="m.salePrice" type="number" step="0.01" min="0" placeholder="—" class="form-input !w-24 !py-1 !text-right !text-xs" />
+                        <select v-model="m.saleCurrency" class="form-input !w-16 !py-1 !text-xs">
+                          <option value="PEN">S/</option>
+                          <option value="USD">US$</option>
+                        </select>
+                      </div>
+                      <div v-if="m.saleCurrency === 'USD' && motoSaleSoles(m)" class="mt-0.5 text-[10px] text-gray-400">= S/ {{ motoSaleSoles(m)!.toFixed(2) }}</div>
+                    </td>
                     <td class="px-2 py-1 text-right text-xs">
-                      <template v-if="margin(m.pvp, m.salePrice)">
-                        <span :class="margin(m.pvp, m.salePrice)!.pct >= 0 ? 'text-green-600' : 'text-red-600'">
-                          {{ margin(m.pvp, m.salePrice)!.pct.toFixed(0) }}% · S/ {{ margin(m.pvp, m.salePrice)!.amount.toFixed(2) }}
+                      <template v-if="motoMargin(m)">
+                        <span :class="motoMargin(m)!.pct >= 0 ? 'text-green-600' : 'text-red-600'">
+                          {{ motoMargin(m)!.pct.toFixed(0) }}% · S/ {{ motoMargin(m)!.amount.toFixed(2) }}
                         </span>
                       </template>
                       <span v-else class="text-gray-300">—</span>

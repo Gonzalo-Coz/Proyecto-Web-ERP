@@ -189,6 +189,8 @@ final class InvoiceImportService
                 engineNumber: $this->nullify((string) ($mt['engine'] ?? '')),
                 chassisNumber: $this->nullify((string) ($mt['chassis'] ?? '')),
                 manufactureYear: ctype_digit((string) ($mt['year'] ?? '')) ? (int) $mt['year'] : null,
+                purchaseDate: $this->nullify((string) ($doc['issueDate'] ?? '')),
+                supplierId: (int) $supplier->getId(),
                 purchasePrice: $cost,
                 salePrice: $sale,
                 duaNumber: $this->nullify((string) ($mt['duaNumber'] ?? '')),

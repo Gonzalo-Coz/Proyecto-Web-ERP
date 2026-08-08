@@ -71,8 +71,9 @@ export interface ImportMotorcycle {
   year: string
   netUnit: number
   costPen: number
-  pvp?: number | null
   salePrice: number | null
+  /** Moneda en que se escribe el precio de venta de la moto (solo UI). */
+  saleCurrency?: 'PEN' | 'USD'
   duaNumber: string | null
   duaItem: string | null
   alreadyExists: boolean
