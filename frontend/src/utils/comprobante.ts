@@ -203,7 +203,6 @@ function a4Body(doc: InvoiceDocument): string {
       <div class="a4-bottom">
         <div class="a4-left">
           <div class="a4-letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
-          ${doc.qrData ? `<div class="qr"><div class="qr-ph">QR</div><div class="qr-data">${esc(doc.qrData)}</div></div>` : ''}
           ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
         </div>
         <div class="a4-tot">
@@ -215,7 +214,7 @@ function a4Body(doc: InvoiceDocument): string {
       </div>
 
       <div class="a4-foot">
-        <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}. Consulte su comprobante en el portal de SUNAT.</div>
+        <div class="rep">Vista rápida (${esc(doc.docTypeName)}). El comprobante oficial con QR y validez SUNAT se obtiene con el botón <b>PDF</b>.</div>
         ${aviso}
       </div>
     </div>`
@@ -265,7 +264,7 @@ function css(format: PrintFormat): string {
     .qr-data { font-size: 8px; word-break: break-all; color: #444; }
     .hash { margin-top: 6px; word-break: break-all; }
     .rep { margin-top: 6px; color: #555; font-style: italic; }
-    .warn { margin-top: 6px; color: #b91c1c; font-weight: 700; }
+    .warn { margin-top: 6px; color: #6b7280; font-style: italic; }
 
     /* ===== Diseño A4 formal ===== */
     .a4-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 3px solid #12233A; padding-bottom: 10px; }
@@ -291,7 +290,8 @@ function css(format: PrintFormat): string {
     .a4-tot > div { display: flex; justify-content: space-between; padding: 4px 8px; font-size: 12px; }
     .a4-grand { border-top: 2px solid #12233A; margin-top: 4px; padding-top: 6px !important; font-weight: 800; font-size: 15px; color: #12233A; }
     .a4-foot { margin-top: 16px; border-top: 1px dashed #94a3b8; padding-top: 8px; font-size: 10px; color: #555; }
-    .a4-warn { margin-top: 6px; color: #b91c1c; font-weight: 700; font-size: 11px; }
+    .a4-warn { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
+    .a4-note { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
   `
 }
 
