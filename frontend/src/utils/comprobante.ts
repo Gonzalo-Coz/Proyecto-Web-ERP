@@ -146,6 +146,7 @@ function ticketBody(doc: InvoiceDocument): string {
         ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
         <div class="rep">Representación impresa de la ${esc(doc.docTypeName)}.</div>        ${aviso}
       </div>
+      <div class="ticket-feed"></div>
     </div>`
 }
 
@@ -325,6 +326,7 @@ function css(format: PrintFormat): string {
     .ticket-banks .bk-h { font-weight: 700; text-transform: uppercase; text-align: center; margin-bottom: 4px; }
     .ticket-banks .bk-item { margin-bottom: 4px; }
     .ticket-banks .bk-name { font-weight: 700; }
+    .ticket-feed { height: 16mm; }
     .hash { margin-top: 6px; word-break: break-all; }
     .rep { margin-top: 6px; color: #555; font-style: italic; }
     .warn { margin-top: 6px; color: #6b7280; font-style: italic; }
