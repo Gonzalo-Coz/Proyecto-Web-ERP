@@ -183,11 +183,12 @@ final class DashboardService
             $alerts[] = ['level' => 'warning', 'message' => sprintf('%d repuesto(s) con stock bajo.', $low)];
         }
 
+        // Caja mensual: solo avisa si la caja abierta es de un MES anterior (nuevo mes → cerrar y abrir otra).
         $oldSession = $this->db->fetchAssociative(
-            "SELECT session_number FROM cash_sessions WHERE status = 'ABIERTA' AND opened_at::date < CURRENT_DATE LIMIT 1",
+            "SELECT session_number FROM cash_sessions WHERE status = 'ABIERTA' AND date_trunc('month', opened_at) < date_trunc('month', CURRENT_DATE) LIMIT 1",
         );
         if ($oldSession !== false) {
-            $alerts[] = ['level' => 'warning', 'message' => sprintf('La caja %s quedó abierta de un día anterior: pendiente de cierre.', $oldSession['session_number'])];
+            $alerts[] = ['level' => 'warning', 'message' => sprintf('La caja %s es del mes anterior. Ciérrala y abre una nueva para el mes en curso.', $oldSession['session_number'])];
         }
 
         $rejected = (int) $this->scalar("SELECT COUNT(*) FROM electronic_documents WHERE status = 'RECHAZADO'");

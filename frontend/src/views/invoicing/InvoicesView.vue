@@ -228,20 +228,41 @@ onMounted(() => load())
           <p v-if="detail.cdr" class="break-all"><span class="font-semibold">CDR:</span> {{ detail.cdr }}</p>
           <p v-if="detail.errorMessage" class="text-red-600"><span class="font-semibold">Error:</span> {{ detail.errorMessage }}</p>
         </div>
-        <div v-if="detail.pdfUrl || detail.xmlUrl || detail.cdrUrl" class="flex flex-wrap justify-end gap-2 border-t border-gray-200 pt-3">
-          <span class="mr-auto self-center text-xs text-gray-500">Documentos oficiales SUNAT:</span>
-          <a v-if="detail.pdfUrl" class="btn-secondary" :href="detail.pdfUrl" target="_blank" rel="noopener">PDF</a>
-          <a v-if="detail.xmlUrl" class="btn-secondary" :href="detail.xmlUrl" target="_blank" rel="noopener">XML</a>
-          <a v-if="detail.cdrUrl" class="btn-secondary" :href="detail.cdrUrl" target="_blank" rel="noopener">CDR</a>
-        </div>
-        <div class="flex flex-wrap justify-end gap-2 border-t border-gray-200 pt-3">
-          <button class="btn-secondary" @click="printComprobante(detail, 'a4')">Imprimir A4</button>
-          <button class="btn-secondary" @click="printComprobante(detail, 'ticket')">Imprimir ticket</button>
-          <button class="btn-secondary" :disabled="!detail.xml" @click="downloadXml(detail.id)">Descargar XML</button>
+        <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
+          <button class="btn-secondary" @click="printComprobante(detail, 'ticket')">Ticket</button>
+          <button class="btn-secondary" @click="printComprobante(detail, 'a4')">PDF</button>
+          <!-- XML oficial: solo descargable si SUNAT lo aceptó (válido). -->
+          <a
+            v-if="detail.status === 'ACEPTADO' && detail.xmlUrl"
+            class="btn-secondary"
+            :href="detail.xmlUrl"
+            target="_blank"
+            rel="noopener"
+          >
+            XML
+          </a>
+          <button
+            v-else
+            class="btn-secondary cursor-not-allowed opacity-50"
+            disabled
+            title="El XML solo se puede descargar cuando SUNAT acepta el comprobante"
+          >
+            XML
+          </button>
+          <a
+            v-if="detail.status === 'ACEPTADO' && detail.cdrUrl"
+            class="btn-secondary"
+            :href="detail.cdrUrl"
+            target="_blank"
+            rel="noopener"
+            title="Constancia de recepción de SUNAT"
+          >
+            CDR
+          </a>
           <button
             v-if="auth.can('invoicing.documents.create') && detail.status !== 'ACEPTADO'"
             class="btn-secondary"
-            title="Trae el estado real y los enlaces desde NubeFact (para comprobantes ya registrados allí)"
+            title="Trae el estado real y los enlaces desde NubeFact"
             @click="doConsult"
           >
             Consultar en NubeFact
