@@ -242,13 +242,14 @@ onMounted(() => load())
           >
             PDF NubeFact
           </a>
-          <!-- XML oficial: solo descargable si SUNAT lo aceptó (válido). -->
+          <!-- XML: disponible apenas NubeFact registra el comprobante (no espera la aceptación de SUNAT). -->
           <a
-            v-if="detail.status === 'ACEPTADO' && detail.xmlUrl"
+            v-if="detail.xmlUrl"
             class="btn-secondary"
             :href="detail.xmlUrl"
             target="_blank"
             rel="noopener"
+            title="XML del comprobante (disponible apenas NubeFact lo registra)"
           >
             XML
           </a>
@@ -256,7 +257,7 @@ onMounted(() => load())
             v-else
             class="btn-secondary cursor-not-allowed opacity-50"
             disabled
-            title="El XML solo se puede descargar cuando SUNAT acepta el comprobante"
+            title="El XML aparece cuando NubeFact registra el comprobante. Usa Consultar/Reenviar si sigue vacío."
           >
             XML
           </button>
