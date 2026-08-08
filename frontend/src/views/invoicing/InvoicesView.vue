@@ -229,14 +229,14 @@ onMounted(() => load())
           <p v-if="detail.errorMessage" class="text-red-600"><span class="font-semibold">Error:</span> {{ detail.errorMessage }}</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2 border-t border-gray-200 pt-3">
-          <!-- Ticket: PDF original que genera NubeFact (formato configurado en su panel). -->
+          <!-- Ticket: PDF original que genera NubeFact (disponible apenas lo registra). -->
           <a
-            v-if="detail.status === 'ACEPTADO' && detail.pdfUrl"
+            v-if="detail.pdfUrl"
             class="btn-primary"
             :href="detail.pdfUrl"
             target="_blank"
             rel="noopener"
-            title="PDF original de NubeFact (validado por SUNAT)"
+            title="PDF original de NubeFact"
           >
             Ticket
           </a>
@@ -244,7 +244,7 @@ onMounted(() => load())
             v-else
             class="btn-secondary cursor-not-allowed opacity-50"
             disabled
-            title="El PDF de NubeFact está disponible cuando SUNAT acepta el comprobante"
+            title="El PDF aparece cuando NubeFact registra el comprobante. Usa Reenviar/Consultar si sigue vacío."
           >
             Ticket
           </button>
