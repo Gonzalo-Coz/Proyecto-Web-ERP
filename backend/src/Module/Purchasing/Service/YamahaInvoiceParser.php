@@ -98,11 +98,13 @@ final class YamahaInvoiceParser
         $vin = $this->prop($props, ['vin']);
         $isMoto = $vin !== '' || $this->prop($props, ['motor']) !== '';
 
-        // Valor neto (base sin IGV, con descuento) → para que la COMPRA cuadre con la factura.
+        // Valor neto (base sin IGV, con descuento) → informativo.
         $netUnit = $qty > 0 ? round($lineExt / $qty, 2) : $lineExt;
-        // Precio de venta unitario tal cual la factura (con IGV) → COSTO que se guarda.
+        // PRECIO VTA. UNITARIO tal cual la factura: AlternativeConditionPrice (catálogo 16,
+        // código 01) YA es el precio POR UNIDAD con IGV. Se usa sin modificar (NO se divide
+        // entre la cantidad ni se le recalcula el IGV) → es el COSTO al que se compra.
         $pricingRef = (float) ($this->str($xp, 'cac:PricingReference/cac:AlternativeConditionPrice/cbc:PriceAmount', $line) ?: '0');
-        $facturaUnit = $pricingRef > 0 ? round($pricingRef / max(1, $qty), 2) : $netUnit;
+        $facturaUnit = $pricingRef > 0 ? round($pricingRef, 2) : $netUnit;
 
         $out = [
             'kind' => $isMoto ? 'MOTORCYCLE' : 'SPARE_PART',

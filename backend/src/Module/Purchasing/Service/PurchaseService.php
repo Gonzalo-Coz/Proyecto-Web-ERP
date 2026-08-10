@@ -98,13 +98,23 @@ final class PurchaseService
             // hace flush, y sin esto Doctrine no cascadea la compra nueva de los ítems.
             $this->entityManager->persist($purchase);
 
-            $subtotal = 0.0;
+            $sum = 0.0;
             foreach (array_values($payload->items) as $index => $line) {
-                $subtotal += $this->processLine($purchase, $line, $index + 1);
+                $sum += $this->processLine($purchase, $line, $index + 1);
             }
 
-            $igv = round($subtotal * $this->settings->igvRate(), 2);
-            $purchase->setTotals($subtotal, $igv, $subtotal + $igv);
+            $rate = $this->settings->igvRate();
+            if ($payload->igvIncluded) {
+                // Los precios ya vienen con IGV (tal cual la factura): se extrae la base y el IGV del total.
+                $total = round($sum, 2);
+                $subtotal = round($total / (1 + $rate), 2);
+                $igv = round($total - $subtotal, 2);
+            } else {
+                $subtotal = round($sum, 2);
+                $igv = round($subtotal * $rate, 2);
+                $total = round($subtotal + $igv, 2);
+            }
+            $purchase->setTotals($subtotal, $igv, $total);
 
             $this->entityManager->persist($purchase);
             $this->entityManager->flush();

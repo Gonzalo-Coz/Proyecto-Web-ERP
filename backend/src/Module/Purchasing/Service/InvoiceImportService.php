@@ -168,7 +168,7 @@ final class InvoiceImportService
             } else {
                 $partId = (int) $part->getId();
             }
-            $items[] = ['itemType' => 'SPARE_PART', 'sparePartId' => $partId, 'quantity' => $qty, 'unitPrice' => $net, 'discount' => 0];
+            $items[] = ['itemType' => 'SPARE_PART', 'sparePartId' => $partId, 'quantity' => $qty, 'unitPrice' => $cost, 'discount' => 0];
         }
 
         foreach (($payload['motorcycles'] ?? []) as $mt) {
@@ -196,7 +196,7 @@ final class InvoiceImportService
                 duaNumber: $this->nullify((string) ($mt['duaNumber'] ?? '')),
                 duaItem: $this->nullify((string) ($mt['duaItem'] ?? '')),
             ));
-            $items[] = ['itemType' => 'MOTORCYCLE_UNIT', 'motorcycleUnitId' => (int) $created['id'], 'quantity' => 1, 'unitPrice' => $net, 'discount' => 0];
+            $items[] = ['itemType' => 'MOTORCYCLE_UNIT', 'motorcycleUnitId' => (int) $created['id'], 'quantity' => 1, 'unitPrice' => $cost, 'discount' => 0];
         }
 
         if ($items === []) {
@@ -209,6 +209,7 @@ final class InvoiceImportService
             purchaseDate: (string) ($doc['issueDate'] ?? date('Y-m-d')),
             documentType: 'FACTURA',
             items: $items,
+            igvIncluded: true,
             series: $this->nullify((string) ($doc['series'] ?? '')),
             documentNumber: $this->nullify((string) ($doc['number'] ?? '')),
             notes: 'Importado del XML '.((string) ($doc['fullNumber'] ?? '')),
@@ -231,7 +232,10 @@ final class InvoiceImportService
         if ($existing !== null) {
             return $existing;
         }
-        $brandItem = $this->catalogService->findOrCreateByName('brands', trim($brand) !== '' ? trim($brand) : 'YAMAHA');
+        // Marca normalizada a Tipo Título (ej. "yamaha"/"YAMAHA" → "Yamaha").
+        $brandName = trim($brand) !== '' ? trim($brand) : 'YAMAHA';
+        $brandName = mb_convert_case(mb_strtolower($brandName), MB_CASE_TITLE);
+        $brandItem = $this->catalogService->findOrCreateByName('brands', $brandName);
         $m = new MotorcycleModel($brandItem, $model, ctype_digit($year) ? (int) $year : (int) date('Y'));
         $this->entityManager->persist($m);
         $this->entityManager->flush();

@@ -46,6 +46,9 @@ final class PurchasePayload
         public readonly ?int $paymentMethodId = null,
 
         public readonly ?string $notes = null,
+
+        /** Si true, los precios de las líneas ya incluyen IGV (se extrae la base). */
+        public readonly bool $igvIncluded = false,
     ) {
     }
 }
