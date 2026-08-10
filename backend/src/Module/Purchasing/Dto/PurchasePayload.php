@@ -47,8 +47,13 @@ final class PurchasePayload
 
         public readonly ?string $notes = null,
 
-        /** Si true, los precios de las líneas ya incluyen IGV (se extrae la base). */
-        public readonly bool $igvIncluded = false,
+        /**
+         * Totales leídos TAL CUAL del comprobante (sin recalcular). Si se envían
+         * los tres, la compra los usa directamente en vez de calcularlos.
+         */
+        public readonly ?float $subtotalOverride = null,
+        public readonly ?float $igvOverride = null,
+        public readonly ?float $totalOverride = null,
     ) {
     }
 }

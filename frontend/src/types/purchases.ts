@@ -84,6 +84,8 @@ export interface ImportPreview {
   supplier: { ruc: string; name: string; existingId: number | null }
   exchangeRate: number | null
   exchangeRateAuto: boolean
+  /** Totales leídos tal cual del XML (base, IGV, total). */
+  totals?: { subtotal: string; igv: string; total: string }
   spareParts: ImportSparePart[]
   motorcycles: ImportMotorcycle[]
 }

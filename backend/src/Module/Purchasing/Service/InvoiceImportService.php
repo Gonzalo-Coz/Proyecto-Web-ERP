@@ -107,6 +107,7 @@ final class InvoiceImportService
             ],
             'exchangeRate' => $rate,          // null si no se pudo obtener (USD)
             'exchangeRateAuto' => $rate !== null,
+            'totals' => $data['totals'] ?? ['subtotal' => '', 'igv' => '', 'total' => ''],
             'spareParts' => $spareParts,
             'motorcycles' => $motorcycles,
         ];
@@ -203,13 +204,18 @@ final class InvoiceImportService
             throw new UnprocessableEntityHttpException('No hay líneas para importar.');
         }
 
+        $totals = (array) ($payload['totals'] ?? []);
+        $ov = static fn (string $k): ?float => isset($totals[$k]) && $totals[$k] !== '' ? (float) $totals[$k] : null;
+
         return $this->purchaseService->create(new PurchasePayload(
             supplierId: (int) $supplier->getId(),
             currency: (string) ($doc['currency'] ?? 'PEN'),
             purchaseDate: (string) ($doc['issueDate'] ?? date('Y-m-d')),
             documentType: 'FACTURA',
             items: $items,
-            igvIncluded: true,
+            subtotalOverride: $ov('subtotal'),
+            igvOverride: $ov('igv'),
+            totalOverride: $ov('total'),
             series: $this->nullify((string) ($doc['series'] ?? '')),
             documentNumber: $this->nullify((string) ($doc['number'] ?? '')),
             notes: 'Importado del XML '.((string) ($doc['fullNumber'] ?? '')),

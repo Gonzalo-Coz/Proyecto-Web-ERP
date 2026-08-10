@@ -103,15 +103,14 @@ final class PurchaseService
                 $sum += $this->processLine($purchase, $line, $index + 1);
             }
 
-            $rate = $this->settings->igvRate();
-            if ($payload->igvIncluded) {
-                // Los precios ya vienen con IGV (tal cual la factura): se extrae la base y el IGV del total.
-                $total = round($sum, 2);
-                $subtotal = round($total / (1 + $rate), 2);
-                $igv = round($total - $subtotal, 2);
+            if ($payload->subtotalOverride !== null && $payload->igvOverride !== null && $payload->totalOverride !== null) {
+                // Totales leídos tal cual del comprobante: se usan directamente, sin recalcular.
+                $subtotal = round($payload->subtotalOverride, 2);
+                $igv = round($payload->igvOverride, 2);
+                $total = round($payload->totalOverride, 2);
             } else {
                 $subtotal = round($sum, 2);
-                $igv = round($subtotal * $rate, 2);
+                $igv = round($subtotal * $this->settings->igvRate(), 2);
                 $total = round($subtotal + $igv, 2);
             }
             $purchase->setTotals($subtotal, $igv, $total);

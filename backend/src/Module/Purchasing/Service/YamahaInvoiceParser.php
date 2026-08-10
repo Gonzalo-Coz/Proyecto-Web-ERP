@@ -63,6 +63,12 @@ final class YamahaInvoiceParser
                 'ruc' => $this->str($xp, $customerBase.'/cac:PartyIdentification/cbc:ID'),
                 'name' => $this->str($xp, $customerBase.'/cac:PartyLegalEntity/cbc:RegistrationName'),
             ],
+            // Totales OFICIALES del documento: se leen tal cual del XML (sin recalcular).
+            'totals' => [
+                'subtotal' => $this->str($xp, '/*/cac:LegalMonetaryTotal/cbc:LineExtensionAmount'), // base sin IGV
+                'igv' => $this->str($xp, '/*/cac:TaxTotal/cbc:TaxAmount'),                            // IGV total
+                'total' => $this->str($xp, '/*/cac:LegalMonetaryTotal/cbc:PayableAmount'),            // total con IGV
+            ],
             'lines' => [],
         ];
 
