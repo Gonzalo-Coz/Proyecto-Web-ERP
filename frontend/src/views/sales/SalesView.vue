@@ -279,9 +279,32 @@ async function resolveLinePrice(line: SaleLine, force = false): Promise<void> {
   }
 }
 
-/** Al cambiar el producto de una línea, re-resuelve su precio (forzado). */
+/** Precio de venta propio del producto seleccionado (unidad de moto o ficha de repuesto). */
+function ownSalePrice(line: SaleLine): number | null {
+  if (line.itemType === 'SPARE_PART' && line.sparePartId) {
+    const p = spareParts.value.find((x) => x.id === line.sparePartId)
+    return p?.salePrice != null && p.salePrice !== '' ? Number(p.salePrice) : null
+  }
+  if (line.itemType === 'MOTORCYCLE_UNIT' && line.motorcycleUnitId) {
+    const u = units.value.find((x) => x.id === line.motorcycleUnitId)
+    return u?.salePrice != null && u.salePrice !== '' ? Number(u.salePrice) : null
+  }
+  return null
+}
+
+/**
+ * Al cambiar el producto de una línea: coloca su precio de venta.
+ * Prioriza el precio propio del producto (moto = unidad, repuesto = ficha); si no
+ * tiene, intenta la lista de precios del cliente.
+ */
 function onLineProductChange(line: SaleLine): void {
-  void resolveLinePrice(line, true)
+  const own = ownSalePrice(line)
+  if (own !== null && own > 0) {
+    line.unitPrice = own
+    line._usd = false // el precio propio ya está en soles
+  } else {
+    void resolveLinePrice(line, true)
+  }
 }
 
 /** % de descuento por defecto del cliente seleccionado (según su tipo). */

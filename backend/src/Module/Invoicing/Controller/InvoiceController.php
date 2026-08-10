@@ -87,4 +87,13 @@ final class InvoiceController
     {
         return new JsonResponse($this->invoiceService->consult($id));
     }
+
+    #[Route('/{id<\d+>}/annul', name: 'invoicing_annul', methods: ['POST'])]
+    #[IsGranted('invoicing.documents.create')]
+    public function annul(int $id, Request $request): JsonResponse
+    {
+        $reason = (string) ($request->toArray()['reason'] ?? '');
+
+        return new JsonResponse($this->invoiceService->annul($id, $reason));
+    }
 }

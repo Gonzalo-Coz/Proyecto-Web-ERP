@@ -37,9 +37,9 @@ final class ReportService
         return match ($type) {
             'sales' => [
                 'title' => 'Reporte de Ventas',
-                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Vendedor', 'Estado', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo']),
+                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Productos', 'Vendedor', 'Estado', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT s.sale_number, s.sale_date, c.name, s.seller, s.status, s.subtotal, s.igv, s.total, s.paid_amount, (s.total - s.paid_amount)
+                    "SELECT s.sale_number, s.sale_date, c.name, {$this->saleProductsSql('s.id')}, s.seller, s.status, s.subtotal, s.igv, s.total, s.paid_amount, (s.total - s.paid_amount)
                      FROM sales s JOIN customers c ON c.id = s.customer_id
                      WHERE s.sale_date BETWEEN :from AND :to
                      ORDER BY s.sale_date, s.id", $params,
@@ -133,11 +133,12 @@ final class ReportService
             ],
             'documents' => [
                 'title' => 'Reporte de Comprobantes SUNAT',
-                'columns' => $this->cols(['Comprobante', 'Tipo', 'Emisión', 'Cliente', 'Documento', 'Total', 'Estado SUNAT']),
+                'columns' => $this->cols(['Comprobante', 'Tipo', 'Emisión', 'Cliente', 'Documento', 'Productos', 'Total', 'Estado SUNAT']),
                 'rows' => $this->db->fetchAllNumeric(
                     "SELECT CONCAT(d.series, '-', LPAD(d.correlative::text, 8, '0')),
                             CASE d.doc_type WHEN '01' THEN 'FACTURA' WHEN '03' THEN 'BOLETA' ELSE d.doc_type END,
                             d.issue_date, d.customer_name, CONCAT(d.customer_doc_type, ' ', d.customer_doc_number),
+                            {$this->saleProductsSql('d.sale_id')},
                             d.total, d.status
                      FROM electronic_documents d
                      WHERE d.issue_date BETWEEN :from AND :to
@@ -192,9 +193,9 @@ final class ReportService
             ],
             'utilities' => [
                 'title' => 'Reporte de Utilidades (aprox. sobre costo actual)',
-                'columns' => $this->cols(['Venta', 'Fecha', 'Cliente', 'Subtotal', 'Costo estimado', 'Utilidad', 'Margen %']),
+                'columns' => $this->cols(['Venta', 'Fecha', 'Cliente', 'Productos', 'Subtotal', 'Costo estimado', 'Utilidad', 'Margen %']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT s.sale_number, s.sale_date, c.name, s.subtotal,
+                    "SELECT s.sale_number, s.sale_date, c.name, {$this->saleProductsSql('s.id')}, s.subtotal,
                             ROUND(cost.total_cost, 2),
                             ROUND(s.subtotal - cost.total_cost, 2),
                             CASE WHEN s.subtotal > 0 THEN ROUND((s.subtotal - cost.total_cost) / s.subtotal * 100, 1) ELSE 0 END
@@ -234,5 +235,23 @@ final class ReportService
     private function cols(array $labels): array
     {
         return array_map(static fn (string $label) => ['label' => $label], $labels);
+    }
+
+    /**
+     * Subconsulta que lista los productos/motos vendidos en una venta, concatenados.
+     * Ej.: "2x ESPEJO COMPLETO | 1x Yamaha XTZ150 (VIN MH3...)". Para motos toma la
+     * primera línea de la descripción (el modelo) y agrega el VIN.
+     *
+     * @param string $saleIdExpr expresión SQL con el id de la venta (ej. 's.id', 'd.sale_id')
+     */
+    private function saleProductsSql(string $saleIdExpr): string
+    {
+        return "COALESCE((SELECT STRING_AGG(
+                    CASE WHEN i.item_type = 'MOTORCYCLE_UNIT'
+                         THEN CONCAT(i.quantity, 'x ', SPLIT_PART(i.description, CHR(10), 1), ' (VIN ', COALESCE(mu.vin, ''), ')')
+                         ELSE CONCAT(i.quantity, 'x ', SPLIT_PART(i.description, CHR(10), 1)) END, ' | ' ORDER BY i.id)
+                 FROM sale_items i
+                 LEFT JOIN motorcycle_units mu ON mu.id = i.motorcycle_unit_id
+                 WHERE i.sale_id = {$saleIdExpr}), '')";
     }
 }

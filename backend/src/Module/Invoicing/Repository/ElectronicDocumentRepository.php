@@ -24,7 +24,7 @@ class ElectronicDocumentRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('d')
             ->andWhere('d.sale = :sale')->setParameter('sale', $sale)
-            ->andWhere("d.status != 'RECHAZADO'")
+            ->andWhere("d.status NOT IN ('RECHAZADO', 'ANULADO')")
             ->andWhere("d.docType IN ('01', '03')")
             ->setMaxResults(1)
             ->getQuery()

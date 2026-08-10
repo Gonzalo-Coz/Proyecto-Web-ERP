@@ -15,6 +15,9 @@ export const invoicingService = {
   resend(id: number): Promise<InvoiceDocument> {
     return api.post(`/invoicing/documents/${id}/resend`).then((r) => r.data)
   },
+  annul(id: number, reason: string): Promise<InvoiceDocument> {
+    return api.post(`/invoicing/documents/${id}/annul`, { reason }).then((r) => r.data)
+  },
   consult(id: number): Promise<InvoiceDocument> {
     return api.post(`/invoicing/documents/${id}/consult`).then((r) => r.data)
   },

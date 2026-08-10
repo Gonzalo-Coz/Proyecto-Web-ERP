@@ -109,6 +109,22 @@ async function doResend(): Promise<void> {
   await load()
 }
 
+async function doAnnul(): Promise<void> {
+  if (!detail.value) return
+  const reason = window.prompt(
+    'Anular este comprobante en el sistema.\n\nEscribe el motivo (debiste darlo de baja antes en NubeFact):',
+    'Anulado en NubeFact — error de emisión',
+  )
+  if (reason === null) return
+  try {
+    detail.value = await invoicingService.annul(detail.value.id, reason)
+    await load()
+    toast.success('Comprobante anulado. Ahora puedes anular la venta para devolver el stock.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo anular el comprobante.')
+  }
+}
+
 async function doConsult(): Promise<void> {
   if (!detail.value) return
   try {
@@ -271,6 +287,14 @@ onMounted(() => load())
           >
             CDR
           </a>
+          <button
+            v-if="auth.can('invoicing.documents.create') && detail.status !== 'ANULADO'"
+            class="btn-secondary !text-red-600"
+            title="Marca el comprobante como anulado en el sistema (tras darlo de baja en NubeFact)"
+            @click="doAnnul"
+          >
+            Anular
+          </button>
           <button
             v-if="auth.can('invoicing.documents.create') && detail.status !== 'ACEPTADO'"
             class="btn-secondary"

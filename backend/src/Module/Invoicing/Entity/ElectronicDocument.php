@@ -22,7 +22,7 @@ class ElectronicDocument
 {
     /** Códigos SUNAT de tipo de comprobante. */
     public const TYPES = ['01' => 'FACTURA', '03' => 'BOLETA', '07' => 'NOTA DE CRÉDITO', '08' => 'NOTA DE DÉBITO'];
-    public const STATUSES = ['PENDIENTE', 'ACEPTADO', 'RECHAZADO'];
+    public const STATUSES = ['PENDIENTE', 'ACEPTADO', 'RECHAZADO', 'ANULADO'];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -215,6 +215,13 @@ class ElectronicDocument
     public function getStatus(): string
     {
         return $this->status;
+    }
+
+    /** Marca el comprobante como ANULADO (baja hecha en el proveedor/SUNAT). */
+    public function markAnnulled(?string $reason): void
+    {
+        $this->status = 'ANULADO';
+        $this->errorMessage = $reason !== null && trim($reason) !== '' ? trim($reason) : 'Anulado';
     }
 
     public function getHash(): ?string

@@ -133,6 +133,31 @@ final class InvoiceService
         return $this->sendToProvider($document);
     }
 
+    /**
+     * Marca el comprobante como ANULADO en el ERP, reflejando la baja hecha en
+     * NubeFact/SUNAT. Deja de estar "activo", de modo que su venta pueda anularse
+     * (lo que devuelve la moto/stock). No emite nada al proveedor.
+     */
+    public function annul(int $id, string $reason): array
+    {
+        $document = $this->documentRepository->find($id)
+            ?? throw new NotFoundHttpException('Comprobante no encontrado.');
+
+        if ($document->getStatus() === 'ANULADO') {
+            throw new ConflictHttpException('El comprobante ya está anulado.');
+        }
+
+        $document->markAnnulled($reason);
+        $this->entityManager->flush();
+
+        $this->sunatLogger->info('Comprobante anulado (baja reflejada en el ERP)', [
+            'number' => $document->getFullNumber(),
+            'reason' => $reason,
+        ]);
+
+        return $this->toArray($document, true);
+    }
+
     /** Reenvía a SUNAT un comprobante PENDIENTE o RECHAZADO (§15). */
     public function resend(int $id): array
     {
