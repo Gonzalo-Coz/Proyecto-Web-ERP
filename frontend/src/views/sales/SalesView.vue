@@ -536,14 +536,14 @@ onMounted(async () => {
             <div class="flex gap-2">
               <button type="button" class="btn-secondary" @click="addLine('MOTORCYCLE_UNIT')">+ Moto</button>
               <button type="button" class="btn-secondary" @click="addLine('SPARE_PART')">+ Repuesto</button>
-              <button type="button" class="btn-secondary" @click="addLine('SERVICE')">+ Servicio</button>
+              <button type="button" class="btn-secondary" @click="addLine('SERVICE')">+ Servicio / texto libre</button>
             </div>
           </div>
           <p v-if="lines.length === 0" class="py-4 text-center text-sm text-gray-400">Sin líneas.</p>
           <div v-for="(line, i) in lines" :key="i" class="mb-2 grid grid-cols-12 items-end gap-2 border-t border-gray-100 pt-2">
             <div class="col-span-5">
               <label class="form-label text-xs">
-                {{ line.itemType === 'SPARE_PART' ? 'Repuesto' : line.itemType === 'MOTORCYCLE_UNIT' ? 'Unidad' : 'Servicio' }}
+                {{ line.itemType === 'SPARE_PART' ? 'Repuesto' : line.itemType === 'MOTORCYCLE_UNIT' ? 'Unidad' : 'Descripción libre' }}
               </label>
               <SearchableSelect
                 v-if="line.itemType === 'SPARE_PART'"
@@ -561,7 +561,7 @@ onMounted(async () => {
                 placeholder="Escribe código, modelo, color, motor, serie o DUA…"
                 @change="onLineProductChange(line)"
               />
-              <input v-else v-model="line.description" class="form-input" placeholder="Descripción del servicio" />
+              <input v-else v-model="line.description" class="form-input" placeholder="Escribe el ítem a cotizar (repuesto, servicio, etc.)" />
             </div>
             <div class="col-span-2">
               <label class="form-label text-xs">Cant.</label>
