@@ -84,6 +84,7 @@ function onModelChange(): void {
 }
 
 const confirmTarget = ref<UnitItem | null>(null)
+const viewTarget = ref<UnitItem | null>(null)
 const statusTarget = ref<UnitItem | null>(null)
 const newStatus = ref<UnitStatus>('DISPONIBLE')
 
@@ -279,6 +280,7 @@ onMounted(async () => {
       </template>
       <template #actions="{ row }">
         <div class="flex justify-end gap-2">
+          <button class="btn-secondary" @click="viewTarget = row as unknown as UnitItem">Ver</button>
           <button
             v-if="auth.can('motorcycles.units.edit') && row.status !== 'VENDIDA'"
             class="btn-secondary"
@@ -413,6 +415,32 @@ onMounted(async () => {
           <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
         </div>
       </form>
+    </BaseModal>
+
+    <!-- Vista de solo lectura -->
+    <BaseModal :open="viewTarget !== null" :title="`Unidad: ${viewTarget?.internalCode}`" size="xl" @close="viewTarget = null">
+      <dl v-if="viewTarget" class="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Código interno</dt><dd class="font-medium">{{ viewTarget.internalCode }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Estado</dt><dd class="font-medium">{{ viewTarget.status }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Modelo</dt><dd>{{ viewTarget.modelName }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Color</dt><dd>{{ viewTarget.color }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">N° de serie / VIN</dt><dd class="font-mono">{{ viewTarget.vin }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">N° de motor</dt><dd class="font-mono">{{ viewTarget.engineNumber || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">N° de chasis</dt><dd class="font-mono">{{ viewTarget.chassisNumber || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Año de fabricación</dt><dd>{{ viewTarget.manufactureYear ?? '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">DUA</dt><dd>{{ viewTarget.duaNumber || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Ítem DUA</dt><dd>{{ viewTarget.duaItem || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de compra</dt><dd>{{ viewTarget.purchasePrice !== null ? 'S/ ' + viewTarget.purchasePrice : '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de venta</dt><dd>{{ viewTarget.salePrice !== null ? 'S/ ' + viewTarget.salePrice : '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Proveedor</dt><dd>{{ viewTarget.supplierName || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Fecha de compra</dt><dd>{{ viewTarget.purchaseDate || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Fecha de ingreso</dt><dd>{{ viewTarget.entryDate }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Ubicación</dt><dd>{{ viewTarget.location || '—' }}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-xs font-medium uppercase text-gray-400">Observaciones</dt><dd>{{ viewTarget.notes || '—' }}</dd></div>
+      </dl>
+      <div class="mt-6 flex justify-end">
+        <button class="btn-secondary" @click="viewTarget = null">Cerrar</button>
+      </div>
     </BaseModal>
 
     <BaseModal :open="statusTarget !== null" :title="`Cambiar estado: ${statusTarget?.internalCode}`" @close="statusTarget = null">

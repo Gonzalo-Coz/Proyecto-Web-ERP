@@ -93,6 +93,7 @@ const pvpMargin = computed(() => {
   return { amount: s - p, pct: ((s - p) / p) * 100 }
 })
 const confirmTarget = ref<SparePartItem | null>(null)
+const viewTarget = ref<SparePartItem | null>(null)
 
 // Kardex y ajuste
 const kardexTarget = ref<SparePartItem | null>(null)
@@ -332,6 +333,7 @@ onMounted(async () => {
       </template>
       <template #actions="{ row }">
         <div class="flex justify-end gap-2">
+          <button class="btn-secondary" @click="viewTarget = row as unknown as SparePartItem">Ver</button>
           <button v-if="auth.can('inventory.kardex.view')" class="btn-secondary" @click="openKardex(row as unknown as SparePartItem)">Kardex</button>
           <button v-if="auth.can('inventory.adjustments.create')" class="btn-secondary" @click="openAdjust(row as unknown as SparePartItem)">Ajustar</button>
           <button v-if="auth.can('inventory.spare_parts.edit')" class="btn-secondary" @click="openEdit(row as unknown as SparePartItem)">Editar</button>
@@ -479,6 +481,29 @@ onMounted(async () => {
     </BaseModal>
 
     <!-- Kardex -->
+    <!-- Vista de solo lectura -->
+    <BaseModal :open="viewTarget !== null" :title="`Repuesto: ${viewTarget?.internalCode}`" size="xl" @close="viewTarget = null">
+      <dl v-if="viewTarget" class="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Código interno</dt><dd class="font-medium">{{ viewTarget.internalCode }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Código / Barra</dt><dd>{{ viewTarget.partCode }}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-xs font-medium uppercase text-gray-400">Descripción</dt><dd>{{ viewTarget.description }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Marca</dt><dd>{{ viewTarget.brandName || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Categoría</dt><dd>{{ viewTarget.categoryName || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Unidad de medida</dt><dd>{{ viewTarget.unitOfMeasure }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Ubicación</dt><dd>{{ viewTarget.location || '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Stock actual</dt><dd class="font-medium">{{ viewTarget.stock }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Stock mínimo / máximo</dt><dd>{{ viewTarget.minStock }} / {{ viewTarget.maxStock ?? '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de compra</dt><dd>{{ viewTarget.purchasePrice !== null ? 'S/ ' + viewTarget.purchasePrice : '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de venta</dt><dd>{{ viewTarget.salePrice !== null ? 'S/ ' + viewTarget.salePrice : '—' }}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-xs font-medium uppercase text-gray-400">Modelos compatibles</dt><dd>{{ viewTarget.compatibleModelNames.length ? viewTarget.compatibleModelNames.join(', ') : '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Última compra</dt><dd>{{ viewTarget.lastPurchaseAt ? viewTarget.lastPurchaseAt.slice(0, 10) : '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Estado</dt><dd>{{ viewTarget.isActive ? 'Activo' : 'Inactivo' }}</dd></div>
+      </dl>
+      <div class="mt-6 flex justify-end">
+        <button class="btn-secondary" @click="viewTarget = null">Cerrar</button>
+      </div>
+    </BaseModal>
+
     <BaseModal :open="kardexTarget !== null" :title="`Kardex: ${kardexTarget?.description}`" @close="kardexTarget = null">
       <table class="w-full text-left text-sm">
         <thead class="text-xs uppercase text-gray-500">
