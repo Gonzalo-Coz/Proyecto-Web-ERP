@@ -60,6 +60,7 @@ const units = ref<UnitItem[]>([])
 const paymentMethods = ref<CatalogItem[]>([])
 
 const modalOpen = ref(false)
+const editingSaleId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref('')
 const form = reactive({
@@ -343,6 +344,7 @@ function onCustomerChange(): void {
 }
 
 function openCreate(complete: boolean): void {
+  editingSaleId.value = null
   Object.assign(form, {
     customerId: customers.value[0]?.id ?? 0,
     saleDate: new Date().toISOString().slice(0, 10),
@@ -356,6 +358,33 @@ function openCreate(complete: boolean): void {
   lines.value = []
   selectedPromoId.value = null
   formError.value = ''
+  modalOpen.value = true
+}
+
+/** Edita una venta existente (antes de la validación de NubeFact): pre-llena el formulario. */
+function openEditSale(sale: SaleSummary): void {
+  editingSaleId.value = sale.id
+  Object.assign(form, {
+    customerId: sale.customerId,
+    saleDate: sale.saleDate,
+    complete: sale.status === 'COMPLETADA',
+    notes: sale.notes,
+    igvIncluded: sale.igvIncluded ?? false,
+    igvExempt: sale.igvExempt ?? false,
+  })
+  lines.value = (sale.items ?? []).map((i) => ({
+    itemType: i.itemType,
+    sparePartId: i.sparePartId,
+    motorcycleUnitId: i.motorcycleUnitId,
+    description: i.description,
+    quantity: i.quantity,
+    unitPrice: Number(i.unitPrice),
+    discountPercent: Number(i.discountPercent),
+    _usd: false,
+  }))
+  selectedPromoId.value = null
+  formError.value = ''
+  detail.value = null
   modalOpen.value = true
 }
 
@@ -377,7 +406,11 @@ async function save(): Promise<void> {
       unitPrice: linePriceSoles(l),
       discountPercent: l.discountPercent,
     }))
-    await saleService.create({ ...form, items })
+    if (editingSaleId.value) {
+      await saleService.update(editingSaleId.value, { ...form, items })
+    } else {
+      await saleService.create({ ...form, items })
+    }
     modalOpen.value = false
     await load()
   } catch (e: any) {
@@ -514,7 +547,7 @@ onMounted(async () => {
     </DataTable>
 
     <!-- Crear cotización / venta directa -->
-    <BaseModal :open="modalOpen" :title="form.complete ? 'Venta directa' : 'Nueva cotización'" size="xl" @close="modalOpen = false">
+    <BaseModal :open="modalOpen" :title="editingSaleId ? 'Editar venta' : form.complete ? 'Venta directa' : 'Nueva cotización'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-3 gap-4">
           <FormField label="Cliente" required class="col-span-2">
@@ -654,7 +687,7 @@ onMounted(async () => {
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" class="btn-secondary" @click="modalOpen = false">Cancelar</button>
           <button type="submit" class="btn-primary" :disabled="saving">
-            {{ saving ? 'Guardando…' : form.complete ? 'Registrar venta' : 'Guardar cotización' }}
+            {{ saving ? 'Guardando…' : editingSaleId ? 'Guardar cambios' : form.complete ? 'Registrar venta' : 'Guardar cotización' }}
           </button>
         </div>
       </form>
@@ -721,6 +754,14 @@ onMounted(async () => {
 
         <!-- Acciones por estado -->
         <div class="flex flex-wrap justify-end gap-2 border-t border-gray-200 pt-3">
+          <button
+            v-if="auth.can('sales.list.edit') && detail.status !== 'ANULADA'"
+            class="btn-secondary"
+            title="Editar la venta (solo antes de que SUNAT acepte el comprobante)"
+            @click="openEditSale(detail)"
+          >
+            Editar
+          </button>
           <button v-if="detail.status === 'COTIZACION'" class="btn-secondary" @click="printCotizacion(detail as any)">
             Imprimir cotización
           </button>

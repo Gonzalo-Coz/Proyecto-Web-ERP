@@ -51,6 +51,13 @@ final class SaleController
         return new JsonResponse($this->saleService->create($payload), Response::HTTP_CREATED);
     }
 
+    #[Route('/{id<\d+>}', name: 'sales_update', methods: ['PUT'])]
+    #[IsGranted('sales.list.edit')]
+    public function update(int $id, #[MapRequestPayload] SalePayload $payload): JsonResponse
+    {
+        return new JsonResponse($this->saleService->update($id, $payload));
+    }
+
     #[Route('/{id<\d+>}/reserve', name: 'sales_reserve', methods: ['POST'])]
     #[IsGranted('sales.list.edit')]
     public function reserve(int $id, Request $request): JsonResponse

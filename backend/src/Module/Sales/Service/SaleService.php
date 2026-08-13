@@ -247,27 +247,78 @@ final class SaleService
         }
 
         return $this->entityManager->wrapInTransaction(function () use ($sale): array {
-            foreach ($sale->getItems() as $item) {
-                $unit = $item->getMotorcycleUnit();
-                if ($item->getItemType() === 'MOTORCYCLE_UNIT' && $unit !== null && in_array($unit->getStatus(), ['RESERVADA', 'VENDIDA'], true)) {
-                    $unit->setStatus('DISPONIBLE');
-                }
-                if ($sale->getStatus() === 'COMPLETADA' && $item->getItemType() === 'SPARE_PART' && $item->getSparePart() !== null) {
-                    $this->stockService->registerMovement(
-                        $item->getSparePart(),
-                        'DEVOLUCION',
-                        $item->getQuantity(),
-                        null,
-                        sprintf('ANULACIÓN %s', $sale->getSaleNumber()),
-                        'Reversión por anulación de venta',
-                    );
-                }
-            }
+            $this->revertStockEffects($sale, 'ANULACIÓN', 'Reversión por anulación de venta');
             $sale->setStatus('ANULADA');
             $this->entityManager->flush();
 
             return $this->toArray($sale, true);
         });
+    }
+
+    /**
+     * Edita una venta ANTES de que su comprobante sea aceptado por SUNAT.
+     * Revierte el stock/motos de los ítems actuales, reemplaza las líneas y,
+     * si estaba completada (o se pide completar), vuelve a descontar stock.
+     */
+    public function update(int $id, SalePayload $payload): array
+    {
+        $sale = $this->find($id);
+        if ($sale->getStatus() === 'ANULADA') {
+            throw new ConflictHttpException('Una venta anulada no se puede editar.');
+        }
+
+        // Solo editable mientras SUNAT NO haya aceptado el comprobante.
+        $document = $this->documentRepository->findActiveForSale($sale);
+        if ($document !== null && $document->getStatus() === 'ACEPTADO') {
+            throw new ConflictHttpException('La venta ya tiene un comprobante ACEPTADO por SUNAT; no se puede editar. Anúlalo y reemítelo.');
+        }
+
+        return $this->entityManager->wrapInTransaction(function () use ($sale, $payload, $document): array {
+            $wasCompleted = $sale->getStatus() === 'COMPLETADA';
+
+            // 1) Revertir efectos de stock/motos de los ítems actuales.
+            $this->revertStockEffects($sale, 'EDICIÓN', 'Reversión por edición de venta');
+
+            // 2) Un comprobante PENDIENTE/RECHAZADO queda anulado: se reemite tras editar.
+            if ($document !== null) {
+                $document->markAnnulled('Editado antes de validar en SUNAT');
+            }
+
+            // 3) Reemplazar líneas (orphanRemoval elimina las viejas) y notas.
+            $sale->clearItems();
+            $sale->setNotes($payload->notes);
+            $this->applyLines($sale, $payload);
+            $this->entityManager->flush();
+
+            // 4) Si estaba completada (o se pide completar), volver a descontar stock/motos.
+            if ($wasCompleted || $payload->complete) {
+                $this->executeCompletion($sale);
+                $this->entityManager->flush();
+            }
+
+            return $this->toArray($sale, true);
+        });
+    }
+
+    /** Devuelve al stock/inventario los ítems de una venta (repuestos y motos). */
+    private function revertStockEffects(Sale $sale, string $refPrefix, string $reason): void
+    {
+        foreach ($sale->getItems() as $item) {
+            $unit = $item->getMotorcycleUnit();
+            if ($item->getItemType() === 'MOTORCYCLE_UNIT' && $unit !== null && in_array($unit->getStatus(), ['RESERVADA', 'VENDIDA'], true)) {
+                $unit->setStatus('DISPONIBLE');
+            }
+            if ($sale->getStatus() === 'COMPLETADA' && $item->getItemType() === 'SPARE_PART' && $item->getSparePart() !== null) {
+                $this->stockService->registerMovement(
+                    $item->getSparePart(),
+                    'DEVOLUCION',
+                    $item->getQuantity(),
+                    null,
+                    sprintf('%s %s', $refPrefix, $sale->getSaleNumber()),
+                    $reason,
+                );
+            }
+        }
     }
 
     /** Efectos de completar (§12): stock, Kardex, estado de unidades. */

@@ -12,6 +12,9 @@ export const saleService = {
   create(payload: SalePayload): Promise<SaleSummary> {
     return api.post('/sales', payload).then((r) => r.data)
   },
+  update(id: number, payload: SalePayload): Promise<SaleSummary> {
+    return api.put(`/sales/${id}`, payload).then((r) => r.data)
+  },
   reserve(id: number, expiresAt: string | null): Promise<SaleSummary> {
     return api.post(`/sales/${id}/reserve`, { expiresAt }).then((r) => r.data)
   },

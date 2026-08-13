@@ -50,6 +50,8 @@ export interface SaleSummary {
   reservationExpiresAt: string | null
   completedAt: string | null
   notes: string | null
+  igvIncluded?: boolean
+  igvExempt?: boolean
   items?: SaleItemDetail[]
   payments?: SalePaymentItem[]
 }
