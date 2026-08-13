@@ -140,10 +140,13 @@ async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
+    // El estado activo/inactivo se maneja por código, no desde el formulario:
+    // todo cliente creado/editado queda ACTIVO para que siempre pueda facturarse.
+    const payload = { ...form, isActive: true }
     if (editing.value) {
-      await customerService.update(editing.value.id, { ...form })
+      await customerService.update(editing.value.id, payload)
     } else {
-      await customerService.create({ ...form })
+      await customerService.create(payload)
     }
     modalOpen.value = false
     await load()
@@ -369,11 +372,6 @@ onMounted(async () => {
             </select>
           </FormField>
         </div>
-
-        <label class="flex items-center gap-2 text-sm text-gray-700">
-          <input v-model="form.isActive" type="checkbox" />
-          Cliente activo
-        </label>
 
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
 
