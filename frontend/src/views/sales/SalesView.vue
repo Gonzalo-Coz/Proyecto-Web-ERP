@@ -157,7 +157,7 @@ async function saveNewCustomer(): Promise<void> {
       email: newCust.email,
       priceListId: newCust.priceListId,
       customerTypeId: newCust.customerTypeId,
-      isActive: newCust.isActive,
+      isActive: true,
     })
     customers.value.unshift(created)
     form.customerId = created.id
@@ -864,10 +864,6 @@ onMounted(async () => {
             </select>
           </FormField>
         </div>
-
-        <label class="flex items-center gap-2 text-sm text-gray-700">
-          <input v-model="newCust.isActive" type="checkbox" /> Cliente activo
-        </label>
 
         <p v-if="newCustError" class="text-sm text-red-600">{{ newCustError }}</p>
         <p class="text-xs text-gray-500">Se guardará en tu lista de clientes y quedará seleccionado en la venta.</p>
