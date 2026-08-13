@@ -103,7 +103,7 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
                 $valorUnitario = $precioUnitario;
                 $baseLine = $lineTotal;
                 $igvLine = 0.0;
-                $tipoIgv = 20; // 20 = Exonerado - Operación Onerosa
+                $tipoIgv = 8; // NubeFact: 8 = Exonerado - Operación Onerosa (NO es el 20 de SUNAT)
                 $totalExonerada += $baseLine;
             } else {
                 // Gravado: el precio incluye IGV → se extrae la base y el IGV.
@@ -145,7 +145,7 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             'cliente_email' => '',
             'fecha_de_emision' => $document->getIssueDate()->format('d-m-Y'),
             'moneda' => 1, // 1 = Soles
-            'porcentaje_de_igv' => round($rate * 100, 2),
+            'porcentaje_de_igv' => $exempt ? 0 : round($rate * 100, 2),
             'total_gravada' => round($totalGravada, 2),
             'total_exonerada' => round($totalExonerada, 2),
             'total_igv' => round($totalIgv, 2),

@@ -122,7 +122,9 @@ final class InvoiceService
                 $docType,
                 $series->getSeries(),
                 $series->nextCorrelative(),
-                new \DateTimeImmutable('today'),
+                // Fecha de emisión SIEMPRE en hora de Perú: el servidor corre en UTC y,
+                // de noche (hora Perú), "today" en UTC ya es mañana → SUNAT rechaza por fecha futura.
+                new \DateTimeImmutable('today', new \DateTimeZone('America/Lima')),
             );
             $this->entityManager->persist($document);
             $this->entityManager->flush();
