@@ -366,7 +366,13 @@ final class SaleService
         $rate = $this->settings->igvRate();
         $sum = round($subtotal, 2);
         $sale->setIgvIncluded($payload->igvIncluded);
-        if ($payload->igvIncluded) {
+        $sale->setIgvExempt($payload->igvExempt);
+        if ($payload->igvExempt) {
+            // Amazonía (Ley 27037): operación EXONERADA, no se aplica IGV.
+            $base = $sum;
+            $igv = 0.0;
+            $total = $sum;
+        } elseif ($payload->igvIncluded) {
             // Zona local (Tingo María): el precio YA incluye IGV → se extrae.
             $base = round($sum / (1 + $rate), 2);
             $igv = round($sum - $base, 2);
@@ -427,6 +433,7 @@ final class SaleService
             'igv' => $s->getIgv(),
             'total' => $s->getTotal(),
             'igvIncluded' => $s->isIgvIncluded(),
+            'igvExempt' => $s->isIgvExempt(),
             'globalDiscount' => $s->getGlobalDiscount(),
             'totalDiscount' => $s->getTotalDiscount(),
             'discountAuthorizedBy' => $s->getDiscountAuthorizedBy(),

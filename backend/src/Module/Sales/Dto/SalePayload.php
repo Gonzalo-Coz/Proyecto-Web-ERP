@@ -34,6 +34,9 @@ final class SalePayload
         /** true = IGV incluido en el precio (zona local); false = IGV agregado (exterior). */
         public readonly bool $igvIncluded = true,
 
+        /** true = operación exonerada de IGV (Amazonía, Ley 27037): no se aplica IGV. */
+        public readonly bool $igvExempt = false,
+
         public readonly ?string $notes = null,
     ) {
     }

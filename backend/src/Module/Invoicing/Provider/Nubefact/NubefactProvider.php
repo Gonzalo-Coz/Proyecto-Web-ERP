@@ -84,23 +84,36 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
     private function buildPayload(ElectronicDocument $document): array
     {
         $rate = $this->settings->igvRate(); // 0.18
+        $exempt = $document->getSale()->isIgvExempt(); // Amazonía: exonerado de IGV
 
         $items = [];
         $totalGravada = 0.0;
+        $totalExonerada = 0.0;
         $totalIgv = 0.0;
         $total = 0.0;
 
         foreach ($document->getSale()->getItems() as $item) {
             /** @var SaleItem $item */
             $qty = $item->getQuantity();
-            $precioUnitario = round((float) $item->getUnitPrice(), 2);           // con IGV
-            $valorUnitario = round($precioUnitario / (1 + $rate), 2);            // sin IGV
-            $lineTotal = round((float) $item->getLineTotal(), 2);               // con IGV (neto de descuento)
-            $baseLine = round($lineTotal / (1 + $rate), 2);
-            $igvLine = round($lineTotal - $baseLine, 2);
+            $precioUnitario = round((float) $item->getUnitPrice(), 2);
+            $lineTotal = round((float) $item->getLineTotal(), 2);
 
-            $totalGravada += $baseLine;
-            $totalIgv += $igvLine;
+            if ($exempt) {
+                // Exonerado: el precio NO lleva IGV; valor = precio, IGV = 0, tipo 20.
+                $valorUnitario = $precioUnitario;
+                $baseLine = $lineTotal;
+                $igvLine = 0.0;
+                $tipoIgv = 20; // 20 = Exonerado - Operación Onerosa
+                $totalExonerada += $baseLine;
+            } else {
+                // Gravado: el precio incluye IGV → se extrae la base y el IGV.
+                $valorUnitario = round($precioUnitario / (1 + $rate), 2);
+                $baseLine = round($lineTotal / (1 + $rate), 2);
+                $igvLine = round($lineTotal - $baseLine, 2);
+                $tipoIgv = 1; // 1 = Gravado - Operación Onerosa
+                $totalGravada += $baseLine;
+                $totalIgv += $igvLine;
+            }
             $total += $lineTotal;
 
             $items[] = [
@@ -112,7 +125,7 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
                 'precio_unitario' => $precioUnitario,
                 'descuento' => '',
                 'subtotal' => $baseLine,
-                'tipo_de_igv' => 1, // 1 = Gravado - Operación Onerosa
+                'tipo_de_igv' => $tipoIgv,
                 'igv' => $igvLine,
                 'total' => $lineTotal,
                 'anticipo_regularizacion' => false,
@@ -134,6 +147,7 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             'moneda' => 1, // 1 = Soles
             'porcentaje_de_igv' => round($rate * 100, 2),
             'total_gravada' => round($totalGravada, 2),
+            'total_exonerada' => round($totalExonerada, 2),
             'total_igv' => round($totalIgv, 2),
             'total' => round($total, 2),
             'enviar_automaticamente_a_la_sunat' => true,

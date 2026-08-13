@@ -355,7 +355,7 @@ onMounted(async () => {
             <div class="col-span-5">
               <label class="form-label text-xs">{{ itemForm.itemType === 'PART' ? 'Repuesto (descuenta stock)' : 'Descripción' }}</label>
               <select v-if="itemForm.itemType === 'PART'" v-model.number="itemForm.sparePartId" class="form-input">
-                <option v-for="p in spareParts" :key="p.id" :value="p.id">{{ p.internalCode }} — {{ p.description }} (stock {{ p.stock }})</option>
+                <option v-for="p in spareParts" :key="p.id" :value="p.id">{{ p.internalCode }} · {{ p.partCode }} — {{ p.description }} (stock {{ p.stock }})</option>
               </select>
               <input v-else v-model="itemForm.description" class="form-input" placeholder="Cambio de aceite y filtro" />
             </div>

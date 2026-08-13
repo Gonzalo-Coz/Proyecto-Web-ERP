@@ -68,6 +68,7 @@ const form = reactive({
   complete: false,
   notes: null as string | null,
   igvIncluded: true,
+  igvExempt: false,
 })
 const lines = ref<SaleLine[]>([])
 const genericCustomerId = ref<number | null>(null)
@@ -206,10 +207,25 @@ function lineNet(l: SaleLine): number {
 // configurada en el sistema).
 const r2 = (n: number): number => Math.round(n * 100) / 100
 const sumLines = computed(() => lines.value.reduce((a, l) => a + lineNet(l), 0))
-// Local (Tingo María): precio con IGV incluido → se extrae. Exterior: IGV se agrega.
-const subtotal = computed(() => (form.igvIncluded ? r2(sumLines.value / 1.18) : r2(sumLines.value)))
-const igv = computed(() => (form.igvIncluded ? r2(sumLines.value - subtotal.value) : r2(sumLines.value * 0.18)))
-const total = computed(() => (form.igvIncluded ? r2(sumLines.value) : r2(subtotal.value + igv.value)))
+// Local: precio con IGV → se extrae. Exterior: IGV se agrega. Amazonía: exonerado (IGV 0).
+const subtotal = computed(() =>
+  form.igvExempt ? r2(sumLines.value) : form.igvIncluded ? r2(sumLines.value / 1.18) : r2(sumLines.value),
+)
+const igv = computed(() =>
+  form.igvExempt ? 0 : form.igvIncluded ? r2(sumLines.value - subtotal.value) : r2(sumLines.value * 0.18),
+)
+const total = computed(() =>
+  form.igvExempt ? r2(sumLines.value) : form.igvIncluded ? r2(sumLines.value) : r2(subtotal.value + igv.value),
+)
+
+/** Zona de venta: mapea a los flags igvIncluded/igvExempt. */
+const zoneMode = computed<'LOCAL' | 'AMAZONIA' | 'EXTERIOR'>({
+  get: () => (form.igvExempt ? 'AMAZONIA' : form.igvIncluded ? 'LOCAL' : 'EXTERIOR'),
+  set: (v) => {
+    form.igvExempt = v === 'AMAZONIA'
+    form.igvIncluded = v === 'LOCAL'
+  },
+})
 
 async function load(): Promise<void> {
   loading.value = true
@@ -335,6 +351,7 @@ function openCreate(complete: boolean): void {
     globalDiscount: 0,
     globalDiscountIsPercent: false,
     igvIncluded: true,
+    igvExempt: false,
   })
   lines.value = []
   selectedPromoId.value = null
@@ -534,9 +551,10 @@ onMounted(async () => {
 
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Zona / IGV">
-            <select v-model="form.igvIncluded" class="form-input">
-              <option :value="true">Local (Tingo María) — IGV incluido</option>
-              <option :value="false">Exterior / fuera de zona — IGV agregado</option>
+            <select v-model="zoneMode" class="form-input">
+              <option value="LOCAL">Local (Tingo María) — IGV incluido</option>
+              <option value="AMAZONIA">Amazonía — exonerado de IGV</option>
+              <option value="EXTERIOR">Exterior / fuera de zona — IGV agregado</option>
             </select>
           </FormField>
           <FormField v-if="promotions.length" label="Promoción (opcional)">
@@ -572,8 +590,8 @@ onMounted(async () => {
                 v-if="line.itemType === 'SPARE_PART'"
                 v-model="line.sparePartId"
                 :options="spareParts"
-                :option-label="(p) => `${p.internalCode} — ${p.description} (stock ${p.stock})`"
-                placeholder="Escribe código o nombre del repuesto…"
+                :option-label="(p) => `${p.internalCode} · ${p.partCode} — ${p.description} (stock ${p.stock})`"
+                placeholder="Escribe código interno, código de repuesto o nombre…"
                 @change="onLineProductChange(line)"
               />
               <SearchableSelect
@@ -623,7 +641,7 @@ onMounted(async () => {
             </div>
           </div>
           <div v-if="lines.length" class="mt-3 space-y-1 border-t border-gray-200 pt-3 text-right text-sm">
-            <p class="text-xs text-gray-400">{{ form.igvIncluded ? 'Precios con IGV incluido (zona local)' : 'IGV agregado al precio (venta al exterior)' }}</p>
+            <p class="text-xs text-gray-400">{{ form.igvExempt ? 'Operación exonerada de IGV (Amazonía)' : form.igvIncluded ? 'Precios con IGV incluido (zona local)' : 'IGV agregado al precio (venta al exterior)' }}</p>
             <p>Op. Gravada: <strong>S/ {{ subtotal.toFixed(2) }}</strong> · IGV (18%): <strong>S/ {{ igv.toFixed(2) }}</strong></p>
             <p class="text-base">Total a pagar: <strong>S/ {{ total.toFixed(2) }}</strong></p>
           </div>

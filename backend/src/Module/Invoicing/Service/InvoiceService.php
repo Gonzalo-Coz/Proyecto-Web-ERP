@@ -313,6 +313,7 @@ final class InvoiceService
             $data['cdrUrl'] = $d->getCdrUrl();
             $data['customerAddress'] = $d->getCustomerAddress();
             $data['igvRate'] = $this->settings->igvRate() * 100;
+            $data['igvExempt'] = $d->getSale()->isIgvExempt();
             $data['company'] = $this->companyData();
             $data['items'] = array_map(static fn (SaleItem $i): array => [
                 'code' => $i->getSparePart()?->getInternalCode() ?? $i->getMotorcycleUnit()?->getInternalCode() ?? '',

@@ -60,4 +60,6 @@ export interface SalePayload {
   items: SaleLine[]
   complete: boolean
   notes: string | null
+  igvIncluded?: boolean
+  igvExempt?: boolean
 }

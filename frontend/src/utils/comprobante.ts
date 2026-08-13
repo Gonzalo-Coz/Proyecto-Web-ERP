@@ -144,8 +144,8 @@ function ticketBody(doc: InvoiceDocument): string {
         <tbody>${itemsRows(doc)}</tbody>
       </table>
       <div class="tot">
-        <div><span>Op. Gravada:</span><span>${money(doc.subtotal)}</span></div>
-        <div><span>IGV (${igvRate}%):</span><span>${money(doc.igv)}</span></div>
+        <div><span>${doc.igvExempt ? 'Op. Exonerada:' : 'Op. Gravada:'}</span><span>${money(doc.subtotal)}</span></div>
+        <div><span>${doc.igvExempt ? 'IGV (Exonerado):' : `IGV (${igvRate}%):`}</span><span>${money(doc.igv)}</span></div>
         <div class="grand"><span>TOTAL:</span><span>${money(doc.total)}</span></div>
       </div>
       <div class="letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
@@ -233,8 +233,8 @@ function a4Body(doc: InvoiceDocument): string {
         </div>
         <div class="a4-tot">
           ${Number(doc.discountTotal ?? 0) > 0 ? `<div><span>Descuento total</span><span>${money(doc.discountTotal)}</span></div>` : ''}
-          <div><span>Op. Gravada</span><span>${money(doc.subtotal)}</span></div>
-          <div><span>IGV (${igvRate}%)</span><span>${money(doc.igv)}</span></div>
+          <div><span>${doc.igvExempt ? 'Op. Exonerada' : 'Op. Gravada'}</span><span>${money(doc.subtotal)}</span></div>
+          <div><span>${doc.igvExempt ? 'IGV (Exonerado)' : `IGV (${igvRate}%)`}</span><span>${money(doc.igv)}</span></div>
           <div class="a4-grand"><span>Importe Total</span><span>${money(doc.total)}</span></div>
         </div>
       </div>

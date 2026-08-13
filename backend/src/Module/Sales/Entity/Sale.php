@@ -66,6 +66,13 @@ class Sale
     #[ORM\Column(options: ['default' => true])]
     private bool $igvIncluded = true;
 
+    /**
+     * Operación exonerada de IGV (Ley de Amazonía, Ley 27037): no se aplica IGV.
+     * Si es true, prevalece sobre igvIncluded: IGV = 0 y la base va como exonerada.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $igvExempt = false;
+
     /** Descuento global sobre el total del comprobante (Adición A1 / 24.1). */
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
     private string $globalDiscount = '0.00';
@@ -177,6 +184,16 @@ class Sale
     public function setIgvIncluded(bool $value): void
     {
         $this->igvIncluded = $value;
+    }
+
+    public function isIgvExempt(): bool
+    {
+        return $this->igvExempt;
+    }
+
+    public function setIgvExempt(bool $value): void
+    {
+        $this->igvExempt = $value;
     }
 
     public function setTotals(float $subtotal, float $igv, float $total): void

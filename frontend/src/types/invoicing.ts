@@ -25,6 +25,7 @@ export interface InvoiceDocument {
   discountTotal?: string
   customerAddress?: string | null
   igvRate?: number
+  igvExempt?: boolean
   company?: InvoiceCompany
   items?: InvoiceLine[]
 }
