@@ -67,8 +67,8 @@ const form = reactive({
   saleDate: new Date().toISOString().slice(0, 10),
   complete: false,
   notes: null as string | null,
-  igvIncluded: true,
-  igvExempt: false,
+  igvIncluded: false,
+  igvExempt: true,
 })
 const lines = ref<SaleLine[]>([])
 const genericCustomerId = ref<number | null>(null)
@@ -350,8 +350,8 @@ function openCreate(complete: boolean): void {
     notes: null,
     globalDiscount: 0,
     globalDiscountIsPercent: false,
-    igvIncluded: true,
-    igvExempt: false,
+    igvIncluded: false,
+    igvExempt: true,
   })
   lines.value = []
   selectedPromoId.value = null
@@ -552,9 +552,8 @@ onMounted(async () => {
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Zona / IGV">
             <select v-model="zoneMode" class="form-input">
-              <option value="LOCAL">Local (Tingo María) — IGV incluido</option>
-              <option value="AMAZONIA">Amazonía — exonerado de IGV</option>
-              <option value="EXTERIOR">Exterior / fuera de zona — IGV agregado</option>
+              <option value="AMAZONIA">Local (Tingo María / Amazonía) — Exonerado de IGV</option>
+              <option value="EXTERIOR">Exterior / fuera de zona — con IGV (18%)</option>
             </select>
           </FormField>
           <FormField v-if="promotions.length" label="Promoción (opcional)">
