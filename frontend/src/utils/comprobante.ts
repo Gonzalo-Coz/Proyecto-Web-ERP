@@ -149,6 +149,7 @@ function ticketBody(doc: InvoiceDocument): string {
         <div class="grand"><span>TOTAL:</span><span>${money(doc.total)}</span></div>
       </div>
       <div class="letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
+      ${doc.observations ? `<div class="rep"><b>Obs.:</b> ${esc(doc.observations).replace(/\n/g, '<br>')}</div>` : ''}
       ${banksTicket(co)}
       <div class="foot">
         ${doc.qrData ? '<div id="qrbox" class="ticket-qr"></div>' : ''}
@@ -225,7 +226,7 @@ function a4Body(doc: InvoiceDocument): string {
         <tbody>${rows}</tbody>
       </table>
 
-      <div class="a4-obs"><b>Observaciones:</b></div>
+      <div class="a4-obs"><b>Observaciones:</b> ${doc.observations ? esc(doc.observations).replace(/\n/g, '<br>') : ''}</div>
 
       <div class="a4-bottom">
         <div class="a4-left">
