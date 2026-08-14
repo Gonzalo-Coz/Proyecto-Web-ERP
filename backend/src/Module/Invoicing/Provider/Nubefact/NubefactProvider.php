@@ -85,6 +85,9 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
     {
         $rate = $this->settings->igvRate(); // 0.18
         $exempt = $document->getSale()->isIgvExempt(); // Amazonía: exonerado de IGV
+        // Moneda de la venta: se emite tal cual (no se convierte). USD requiere tipo de cambio.
+        $usd = $document->getSale()->getCurrency() === 'USD';
+        $tipoCambio = $usd ? (float) ($this->settings->get('tax.exchange_rate') ?: 0) : 0.0;
 
         $items = [];
         $totalGravada = 0.0;
@@ -144,7 +147,8 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             'cliente_direccion' => $document->getCustomerAddress() ?? '',
             'cliente_email' => '',
             'fecha_de_emision' => $document->getIssueDate()->format('d-m-Y'),
-            'moneda' => 1, // 1 = Soles
+            'moneda' => $usd ? 2 : 1, // 1 = Soles, 2 = Dólares
+            'tipo_de_cambio' => $usd ? $tipoCambio : '',
             'porcentaje_de_igv' => $exempt ? 0 : round($rate * 100, 2),
             'total_gravada' => round($totalGravada, 2),
             'total_exonerada' => round($totalExonerada, 2),

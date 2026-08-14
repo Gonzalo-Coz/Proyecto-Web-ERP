@@ -73,6 +73,10 @@ class Sale
     #[ORM\Column(options: ['default' => false])]
     private bool $igvExempt = false;
 
+    /** Moneda de la venta: PEN (soles) o USD (dólares). No se convierte; se guarda tal cual. */
+    #[ORM\Column(length: 3, options: ['default' => 'PEN'])]
+    private string $currency = 'PEN';
+
     /** Descuento global sobre el total del comprobante (Adición A1 / 24.1). */
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
     private string $globalDiscount = '0.00';
@@ -194,6 +198,16 @@ class Sale
     public function setIgvExempt(bool $value): void
     {
         $this->igvExempt = $value;
+    }
+
+    public function getCurrency(): string
+    {
+        return $this->currency;
+    }
+
+    public function setCurrency(string $value): void
+    {
+        $this->currency = strtoupper($value) === 'USD' ? 'USD' : 'PEN';
     }
 
     public function setTotals(float $subtotal, float $igv, float $total): void

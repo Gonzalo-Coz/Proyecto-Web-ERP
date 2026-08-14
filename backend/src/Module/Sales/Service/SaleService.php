@@ -418,6 +418,7 @@ final class SaleService
         $sum = round($subtotal, 2);
         $sale->setIgvIncluded($payload->igvIncluded);
         $sale->setIgvExempt($payload->igvExempt);
+        $sale->setCurrency($payload->currency);
         if ($payload->igvExempt) {
             // Amazonía (Ley 27037): operación EXONERADA, no se aplica IGV.
             $base = $sum;
@@ -485,6 +486,7 @@ final class SaleService
             'total' => $s->getTotal(),
             'igvIncluded' => $s->isIgvIncluded(),
             'igvExempt' => $s->isIgvExempt(),
+            'currency' => $s->getCurrency(),
             'globalDiscount' => $s->getGlobalDiscount(),
             'totalDiscount' => $s->getTotalDiscount(),
             'discountAuthorizedBy' => $s->getDiscountAuthorizedBy(),

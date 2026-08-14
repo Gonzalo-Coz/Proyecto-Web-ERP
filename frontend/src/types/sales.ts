@@ -52,6 +52,7 @@ export interface SaleSummary {
   notes: string | null
   igvIncluded?: boolean
   igvExempt?: boolean
+  currency?: 'PEN' | 'USD'
   items?: SaleItemDetail[]
   payments?: SalePaymentItem[]
 }
@@ -64,4 +65,5 @@ export interface SalePayload {
   notes: string | null
   igvIncluded?: boolean
   igvExempt?: boolean
+  currency?: 'PEN' | 'USD'
 }

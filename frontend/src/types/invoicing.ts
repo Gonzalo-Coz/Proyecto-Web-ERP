@@ -26,6 +26,7 @@ export interface InvoiceDocument {
   customerAddress?: string | null
   igvRate?: number
   igvExempt?: boolean
+  currency?: 'PEN' | 'USD'
   observations?: string | null
   company?: InvoiceCompany
   items?: InvoiceLine[]

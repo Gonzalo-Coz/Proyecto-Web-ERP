@@ -37,6 +37,10 @@ final class SalePayload
         /** true = operación exonerada de IGV (Amazonía, Ley 27037): no se aplica IGV. */
         public readonly bool $igvExempt = false,
 
+        /** Moneda de la venta: PEN o USD (no se convierte). */
+        #[Assert\Choice(choices: ['PEN', 'USD'])]
+        public readonly string $currency = 'PEN',
+
         public readonly ?string $notes = null,
     ) {
     }

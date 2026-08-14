@@ -70,6 +70,7 @@ const form = reactive({
   notes: null as string | null,
   igvIncluded: false,
   igvExempt: true,
+  currency: 'PEN' as 'PEN' | 'USD',
 })
 const lines = ref<SaleLine[]>([])
 const genericCustomerId = ref<number | null>(null)
@@ -194,9 +195,14 @@ function unitLabel(u: UnitItem): string {
 const saleRate = ref<number | null>(null)
 
 /** Precio unitario en soles: si la línea está en US$, se multiplica por el T.C. */
+/** Importe de la línea en la moneda de la venta. Si la venta es en USD, NO se convierte. */
 function linePriceSoles(l: SaleLine): number {
+  if (form.currency === 'USD') return l.unitPrice
   return l._usd && saleRate.value ? Math.round(l.unitPrice * saleRate.value * 100) / 100 : l.unitPrice
 }
+
+/** Símbolo de la moneda de la venta. */
+const curSym = computed(() => (form.currency === 'USD' ? 'US$' : 'S/'))
 
 function lineNet(l: SaleLine): number {
   const gross = l.quantity * linePriceSoles(l)
@@ -354,6 +360,7 @@ function openCreate(complete: boolean): void {
     globalDiscountIsPercent: false,
     igvIncluded: false,
     igvExempt: true,
+    currency: 'PEN',
   })
   lines.value = []
   selectedPromoId.value = null
@@ -371,6 +378,7 @@ function openEditSale(sale: SaleSummary): void {
     notes: sale.notes,
     igvIncluded: sale.igvIncluded ?? false,
     igvExempt: sale.igvExempt ?? false,
+    currency: sale.currency ?? 'PEN',
   })
   lines.value = (sale.items ?? []).map((i) => ({
     itemType: i.itemType,
@@ -589,6 +597,12 @@ onMounted(async () => {
               <option value="EXTERIOR">Exterior / fuera de zona — con IGV (18%)</option>
             </select>
           </FormField>
+          <FormField label="Moneda">
+            <select v-model="form.currency" class="form-input">
+              <option value="PEN">Soles (S/)</option>
+              <option value="USD">Dólares (US$)</option>
+            </select>
+          </FormField>
           <FormField v-if="promotions.length" label="Promoción (opcional)">
             <select v-model.number="selectedPromoId" class="form-input" @change="applyPromotion">
               <option :value="null">Ninguna</option>
@@ -674,8 +688,8 @@ onMounted(async () => {
           </div>
           <div v-if="lines.length" class="mt-3 space-y-1 border-t border-gray-200 pt-3 text-right text-sm">
             <p class="text-xs text-gray-400">{{ form.igvExempt ? 'Operación exonerada de IGV (Amazonía)' : form.igvIncluded ? 'Precios con IGV incluido (zona local)' : 'IGV agregado al precio (venta al exterior)' }}</p>
-            <p>Op. Gravada: <strong>S/ {{ subtotal.toFixed(2) }}</strong> · IGV (18%): <strong>S/ {{ igv.toFixed(2) }}</strong></p>
-            <p class="text-base">Total a pagar: <strong>S/ {{ total.toFixed(2) }}</strong></p>
+            <p>{{ form.igvExempt ? 'Op. Exonerada' : 'Op. Gravada' }}: <strong>{{ curSym }} {{ subtotal.toFixed(2) }}</strong> · IGV{{ form.igvExempt ? ' (Exon.)' : ' (18%)' }}: <strong>{{ curSym }} {{ igv.toFixed(2) }}</strong></p>
+            <p class="text-base">Total a pagar: <strong>{{ curSym }} {{ total.toFixed(2) }}</strong></p>
           </div>
         </div>
 

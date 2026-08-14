@@ -51,8 +51,10 @@ export function numeroALetras(total: number, moneda = 'SOLES'): string {
    ============================================================ */
 export type PrintFormat = 'a4' | 'ticket'
 
+// Símbolo de moneda del comprobante en curso (se fija según doc.currency antes de renderizar).
+let docSym = 'S/'
 const money = (v: string | number | null | undefined): string =>
-  `S/ ${Number(v ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  `${docSym} ${Number(v ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 const esc = (s: string | null | undefined): string =>
   String(s ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c] ?? c)
@@ -103,6 +105,7 @@ function itemsRows(doc: InvoiceDocument): string {
 }
 
 function bodyHtml(doc: InvoiceDocument, format: PrintFormat): string {
+  docSym = doc.currency === 'USD' ? 'US$' : 'S/'
   return format === 'a4' ? a4Body(doc) : ticketBody(doc)
 }
 
@@ -136,11 +139,11 @@ function ticketBody(doc: InvoiceDocument): string {
         <div><b>Documento:</b> ${esc(doc.customerDocument)}</div>
         ${doc.customerAddress ? `<div><b>Dirección:</b> ${esc(doc.customerAddress)}</div>` : ''}
         <div><b>Fecha de emisión:</b> ${esc(doc.issueDate)}</div>
-        <div><b>Moneda:</b> Soles</div>
+        <div><b>Moneda:</b> ${doc.currency === 'USD' ? 'Dólares' : 'Soles'}</div>
         <div><b>Forma de pago:</b> Contado</div>
       </div>
       <table>
-        <thead><tr><th class="c">Cant.</th><th>Descripción</th><th class="r">P.U. S/</th><th class="r">Importe S/</th></tr></thead>
+        <thead><tr><th class="c">Cant.</th><th>Descripción</th><th class="r">P.U. ${docSym}</th><th class="r">Importe ${docSym}</th></tr></thead>
         <tbody>${itemsRows(doc)}</tbody>
       </table>
       <div class="tot">
@@ -214,7 +217,7 @@ function a4Body(doc: InvoiceDocument): string {
           <div class="a4-panel-h">Datos Generales</div>
           <div class="a4-panel-b">
             <div><b>Fecha de emisión:</b> ${esc(doc.issueDate)}</div>
-            <div><b>Moneda:</b> Soles</div>
+            <div><b>Moneda:</b> ${doc.currency === 'USD' ? 'Dólares' : 'Soles'}</div>
             <div><b>Tipo de operación:</b> Venta interna</div>
             <div><b>Forma de pago:</b> Contado</div>
           </div>
@@ -399,6 +402,7 @@ export interface CotizacionDoc {
 }
 
 export function printCotizacion(doc: CotizacionDoc): void {
+  docSym = 'S/' // las cotizaciones se muestran en soles
   const co = doc.company
   const igvRate = doc.igvRate ?? 18
   const rows = (doc.items ?? [])
