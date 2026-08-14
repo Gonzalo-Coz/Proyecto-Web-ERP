@@ -34,7 +34,7 @@ const columns: TableColumn[] = [
   { key: 'saleNumber', label: 'Número', sortable: true },
   { key: 'saleDate', label: 'Fecha', sortable: true },
   { key: 'customerName', label: 'Cliente' },
-  { key: 'total', label: 'Total (S/)', sortable: true },
+  { key: 'total', label: 'Total', sortable: true },
   { key: 'balance', label: 'Saldo' },
   { key: 'status', label: 'Estado', sortable: true },
 ]
@@ -544,9 +544,12 @@ onMounted(async () => {
           {{ row.status }}
         </span>
       </template>
+      <template #cell-total="{ row }">
+        {{ row.currency === 'USD' ? 'US$' : 'S/' }} {{ row.total }}
+      </template>
       <template #cell-balance="{ row }">
         <span :class="Number(row.balance) > 0 && row.status === 'COMPLETADA' ? 'font-semibold text-red-600' : 'text-gray-600'">
-          S/ {{ row.balance }}
+          {{ row.currency === 'USD' ? 'US$' : 'S/' }} {{ row.balance }}
         </span>
       </template>
       <template #actions="{ row }">
@@ -735,8 +738,9 @@ onMounted(async () => {
           <span v-if="detail.discountAuthorizedBy"> · autorizado por {{ detail.discountAuthorizedBy }}</span>
         </p>
         <p class="border-t border-gray-200 pt-2 text-right">
-          Total: <strong>S/ {{ detail.total }}</strong> · Pagado: S/ {{ detail.paidAmount }} ·
-          Saldo: <strong :class="Number(detail.balance) > 0 ? 'text-red-600' : 'text-green-700'">S/ {{ detail.balance }}</strong>
+          Total: <strong>{{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.total }}</strong> ·
+          Pagado: {{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.paidAmount }} ·
+          Saldo: <strong :class="Number(detail.balance) > 0 ? 'text-red-600' : 'text-green-700'">{{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.balance }}</strong>
           <span class="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs">{{ detail.paymentStatus }}</span>
         </p>
 
