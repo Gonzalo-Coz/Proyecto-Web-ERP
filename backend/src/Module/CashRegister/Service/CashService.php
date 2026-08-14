@@ -67,6 +67,12 @@ final class CashService
         return $this->sessionToArray($session);
     }
 
+    /** ¿Hay una caja abierta actualmente? */
+    public function hasOpenSession(): bool
+    {
+        return $this->sessionRepository->findOpenSession() !== null;
+    }
+
     /**
      * Registra un movimiento. Regla §13: sin caja abierta no hay movimientos.
      * Ventas (Fase 6) llamará este método con la referencia del comprobante.

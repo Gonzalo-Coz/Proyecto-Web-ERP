@@ -232,21 +232,33 @@ final class SaleService
         if ($sale->getStatus() === 'ANULADA') {
             throw new ConflictHttpException('La venta ya está anulada.');
         }
-        if ((float) $sale->getPaidAmount() > 0) {
-            throw new ConflictHttpException('Tiene cobros registrados: primero registra el egreso de devolución en Caja y ajusta los cobros.');
-        }
-        // Regla SUNAT: una venta con comprobante emitido no se anula libremente;
-        // el comprobante es un documento legal y se revierte con una Nota de Crédito.
+        // Regla SUNAT: un comprobante ACEPTADO es un documento legal; anúlalo primero
+        // (botón Anular del comprobante) o revierte con Nota de Crédito.
         $document = $this->documentRepository->findActiveForSale($sale);
-        if ($document !== null) {
+        if ($document !== null && $document->getStatus() === 'ACEPTADO') {
             throw new ConflictHttpException(sprintf(
-                'La venta tiene un comprobante emitido (%s %s). No puede anularse: para revertirla emite una Nota de Crédito.',
+                'La venta tiene un comprobante ACEPTADO por SUNAT (%s %s). Anúlalo primero (botón Anular del comprobante) y luego anula la venta.',
                 $document->getDocTypeName(),
                 $document->getFullNumber(),
             ));
         }
 
-        return $this->entityManager->wrapInTransaction(function () use ($sale): array {
+        return $this->entityManager->wrapInTransaction(function () use ($sale, $document): array {
+            // Reversa los cobros con un egreso de devolución en Caja (si hay caja abierta).
+            $paid = (float) $sale->getPaidAmount();
+            if ($paid > 0 && $this->cashService->hasOpenSession()) {
+                $this->cashService->registerMovement(
+                    'EGRESO',
+                    $paid,
+                    null,
+                    sprintf('Devolución por anulación %s', $sale->getSaleNumber()),
+                    $sale->getSaleNumber(),
+                );
+            }
+            // Si había un comprobante pendiente/rechazado, queda anulado también.
+            if ($document !== null) {
+                $document->markAnnulled('Venta anulada');
+            }
             $this->revertStockEffects($sale, 'ANULACIÓN', 'Reversión por anulación de venta');
             $sale->setStatus('ANULADA');
             $this->entityManager->flush();
