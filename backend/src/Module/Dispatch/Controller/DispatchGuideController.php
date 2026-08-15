@@ -43,4 +43,16 @@ final class DispatchGuideController
     {
         return new JsonResponse($this->service->create($payload), Response::HTTP_CREATED);
     }
+
+    #[Route('/{id<\d+>}/emit', name: 'dispatch_guides_emit', methods: ['POST'])]
+    public function emit(int $id): JsonResponse
+    {
+        return new JsonResponse($this->service->emit($id));
+    }
+
+    #[Route('/{id<\d+>}/consult', name: 'dispatch_guides_consult', methods: ['POST'])]
+    public function consult(int $id): JsonResponse
+    {
+        return new JsonResponse($this->service->consult($id));
+    }
 }

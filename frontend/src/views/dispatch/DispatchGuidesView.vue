@@ -172,6 +172,31 @@ async function openDetail(row: DispatchGuideItem): Promise<void> {
   detail.value = await dispatchService.get(row.id)
 }
 
+const emitting = ref(false)
+async function doEmit(): Promise<void> {
+  if (!detail.value) return
+  emitting.value = true
+  try {
+    detail.value = await dispatchService.emit(detail.value.id)
+    await load()
+    toast.success(detail.value.status === 'ACEPTADO' ? 'Guía ACEPTADA por SUNAT.' : `Guía enviada (${detail.value.status}).`)
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo emitir la guía.')
+  } finally {
+    emitting.value = false
+  }
+}
+async function doConsult(): Promise<void> {
+  if (!detail.value) return
+  try {
+    detail.value = await dispatchService.consult(detail.value.id)
+    await load()
+    toast.success(`Estado: ${detail.value.status}.`)
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail ?? 'No se pudo consultar la guía.')
+  }
+}
+
 onMounted(() => {
   load()
   loadSales()
@@ -348,7 +373,10 @@ onMounted(() => {
         </div>
         <div v-if="detail.errorMessage" class="sm:col-span-2"><dt class="text-xs uppercase text-gray-400">Mensaje</dt><dd class="text-red-600">{{ detail.errorMessage }}</dd></div>
       </dl>
-      <div class="mt-6 flex justify-end">
+      <div class="mt-6 flex flex-wrap justify-end gap-2">
+        <a v-if="detail?.pdfUrl" :href="detail.pdfUrl" target="_blank" rel="noopener" class="btn-secondary">PDF SUNAT</a>
+        <button v-if="detail && detail.status !== 'ACEPTADO'" class="btn-secondary" @click="doConsult">Consultar</button>
+        <button v-if="detail && detail.status !== 'ACEPTADO'" class="btn-primary" :disabled="emitting" @click="doEmit">{{ emitting ? 'Emitiendo…' : 'Emitir a SUNAT' }}</button>
         <button class="btn-secondary" @click="detail = null">Cerrar</button>
       </div>
     </BaseModal>

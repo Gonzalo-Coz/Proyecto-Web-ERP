@@ -10,6 +10,7 @@ use App\Module\Dispatch\Repository\DispatchGuideRepository;
 use App\Module\Sales\Repository\SaleRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 
@@ -25,7 +26,47 @@ final class DispatchGuideService
         private readonly EntityManagerInterface $entityManager,
         private readonly DispatchGuideRepository $repository,
         private readonly SaleRepository $saleRepository,
+        private readonly NubefactGuideClient $guideClient,
     ) {
+    }
+
+    /** Emite la guía a SUNAT vía NubeFact (generar_guia). */
+    public function emit(int $id): array
+    {
+        $guide = $this->repository->find($id) ?? throw new NotFoundHttpException('Guía no encontrada.');
+        if ($guide->getStatus() === 'ACEPTADO') {
+            throw new ConflictHttpException('La guía ya fue aceptada por SUNAT.');
+        }
+        try {
+            $result = $this->guideClient->emit($guide);
+        } catch (\Throwable $e) {
+            throw new UnprocessableEntityHttpException('No se pudo emitir la guía: '.$e->getMessage());
+        }
+        $guide->applyProviderResult(
+            $result['status'], $result['hash'], $result['qrData'],
+            $result['pdfUrl'], $result['xmlUrl'], $result['errorMessage'], $result['raw'],
+        );
+        $this->entityManager->flush();
+
+        return $this->toArray($guide);
+    }
+
+    /** Consulta el estado real de la guía en NubeFact y lo sincroniza. */
+    public function consult(int $id): array
+    {
+        $guide = $this->repository->find($id) ?? throw new NotFoundHttpException('Guía no encontrada.');
+        try {
+            $result = $this->guideClient->consult($guide);
+        } catch (\Throwable $e) {
+            throw new UnprocessableEntityHttpException('No se pudo consultar la guía: '.$e->getMessage());
+        }
+        $guide->applyProviderResult(
+            $result['status'], $result['hash'], $result['qrData'],
+            $result['pdfUrl'], $result['xmlUrl'], $result['errorMessage'], $result['raw'],
+        );
+        $this->entityManager->flush();
+
+        return $this->toArray($guide);
     }
 
     public function create(DispatchGuidePayload $payload): array
