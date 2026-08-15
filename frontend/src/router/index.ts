@@ -70,6 +70,12 @@ const router = createRouter({
       meta: { title: 'Taller', permission: 'workshop.orders.view' },
     },
     {
+      path: '/dispatch-guides',
+      name: 'dispatch-guides',
+      component: () => import('@/views/dispatch/DispatchGuidesView.vue'),
+      meta: { title: 'Guías de Remisión' },
+    },
+    {
       path: '/invoicing',
       name: 'invoicing',
       component: () => import('@/views/invoicing/InvoicesView.vue'),

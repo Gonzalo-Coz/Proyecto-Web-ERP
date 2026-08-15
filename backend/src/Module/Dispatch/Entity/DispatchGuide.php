@@ -38,6 +38,12 @@ class DispatchGuide
     /** Modalidad de transporte (catálogo 18). */
     public const MODALIDADES = ['01' => 'Transporte público', '02' => 'Transporte privado'];
 
+    /** @return list<string> códigos de motivo válidos (para validación). */
+    public static function motiveCodes(): array
+    {
+        return array_keys(self::MOTIVOS);
+    }
+
     public const STATUSES = ['PENDIENTE', 'ACEPTADO', 'RECHAZADO', 'ANULADO'];
 
     #[ORM\Id]
@@ -46,7 +52,7 @@ class DispatchGuide
     private ?int $id = null;
 
     #[ORM\Column(length: 4)]
-    private string $series = 'T001';
+    private string $series = 'TTT1';
 
     #[ORM\Column]
     private int $correlative;
