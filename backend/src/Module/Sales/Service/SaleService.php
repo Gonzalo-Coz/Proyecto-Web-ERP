@@ -94,9 +94,6 @@ final class SaleService
     {
         $customer = $this->customerRepository->find($payload->customerId)
             ?? throw new UnprocessableEntityHttpException('Cliente no encontrado.');
-        if (!$customer->isActive()) {
-            throw new UnprocessableEntityHttpException('El cliente está inactivo.');
-        }
 
         return $this->entityManager->wrapInTransaction(function () use ($payload, $customer): array {
             $sale = new Sale($customer, $this->username(), new \DateTimeImmutable($payload->saleDate));

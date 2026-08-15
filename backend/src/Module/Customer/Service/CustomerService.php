@@ -31,7 +31,7 @@ final class CustomerService
     public function list(int $page, int $perPage, string $search, string $sort, string $direction): array
     {
         $page = max(1, $page);
-        $perPage = min(100, max(1, $perPage));
+        $perPage = min(5000, max(1, $perPage));
         $sort = in_array($sort, self::SORTABLE, true) ? $sort : 'name';
         $direction = strtolower($direction) === 'desc' ? 'DESC' : 'ASC';
 

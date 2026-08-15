@@ -36,7 +36,7 @@ final class SparePartService
     public function list(int $page, int $perPage, string $search, string $sort, string $direction, int $compatibleModelId, string $stockFilter): array
     {
         $page = max(1, $page);
-        $perPage = min(100, max(1, $perPage));
+        $perPage = min(5000, max(1, $perPage));
         $sort = in_array($sort, self::SORTABLE, true) ? $sort : 'description';
         $direction = strtolower($direction) === 'desc' ? 'DESC' : 'ASC';
 
@@ -187,7 +187,7 @@ final class SparePartService
     {
         $part = $this->find($id);
         $page = max(1, $page);
-        $perPage = min(100, max(1, $perPage));
+        $perPage = min(5000, max(1, $perPage));
 
         $qb = $this->kardexRepository->createQueryBuilder('k')
             ->andWhere('k.sparePart = :part')->setParameter('part', $part)

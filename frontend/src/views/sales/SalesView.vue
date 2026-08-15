@@ -476,7 +476,7 @@ async function confirmCancel(): Promise<void> {
 
 onMounted(async () => {
   await load()
-  customers.value = (await customerService.list({ page: 1, perPage: 100, search: '', sort: 'name', direction: 'asc' })).data.filter((c) => c.isActive)
+  customers.value = (await customerService.list({ page: 1, perPage: 5000, search: '', sort: 'name', direction: 'asc' })).data
   // Cliente genérico "Público General" (boleta simple): garantiza que esté disponible arriba de la lista.
   try {
     const generic = await customerService.generic()
@@ -487,8 +487,8 @@ onMounted(async () => {
   } catch {
     genericCustomerId.value = null
   }
-  spareParts.value = (await sparePartService.list({ page: 1, perPage: 100, search: '', sort: 'description', direction: 'asc' })).data.filter((p) => p.isActive)
-  units.value = (await unitService.list({ page: 1, perPage: 100, search: '', sort: 'internalCode', direction: 'asc', status: 'DISPONIBLE' })).data
+  spareParts.value = (await sparePartService.list({ page: 1, perPage: 5000, search: '', sort: 'description', direction: 'asc' })).data
+  units.value = (await unitService.list({ page: 1, perPage: 5000, search: '', sort: 'internalCode', direction: 'asc', status: 'DISPONIBLE' })).data
   paymentMethods.value = (await catalogService.list('payment_methods')).filter((m) => m.isActive)
   try {
     customerTypes.value = await customerTypeService.list()
