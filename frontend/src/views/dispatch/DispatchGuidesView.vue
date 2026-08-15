@@ -4,11 +4,15 @@ import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import FormField from '@/components/ui/FormField.vue'
+import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { dispatchService } from '@/services/dispatch'
+import { saleService } from '@/services/sales'
+import { lookupService } from '@/services/lookup'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
 import type { DispatchGuideItem, DispatchItem } from '@/types/dispatch'
 import { DISPATCH_MOTIVES } from '@/types/dispatch'
+import type { SaleSummary } from '@/types/sales'
 
 const toast = useToast()
 
@@ -61,8 +65,65 @@ const form = reactive({
   totalWeight: 0,
   packages: 1,
   observations: '',
+  saleId: null as number | null,
 })
 const items = ref<DispatchItem[]>([emptyItem()])
+
+// Ventas completadas para generar la guía a partir del comprobante.
+const sales = ref<SaleSummary[]>([])
+const fromSaleId = ref<number | null>(null)
+const lookupLoading = ref(false)
+
+async function loadSales(): Promise<void> {
+  try {
+    const r = await saleService.list({ page: 1, perPage: 1000, search: '', sort: 'saleNumber', direction: 'desc', status: 'COMPLETADA' } as any)
+    sales.value = r.data
+  } catch {
+    sales.value = []
+  }
+}
+
+/** Carga destinatario e ítems desde una venta/comprobante ya hecho. */
+async function loadFromSale(id: number | null): Promise<void> {
+  fromSaleId.value = id
+  if (!id) {
+    form.saleId = null
+    return
+  }
+  const s = await saleService.get(id)
+  const parts = (s.customerDocument || '').split(' ')
+  form.recipientDocType = parts[0] || 'DNI'
+  form.recipientDocNumber = parts[1] || ''
+  form.recipientName = s.customerName || ''
+  form.saleId = id
+  items.value = (s.items ?? []).map((i) => ({
+    codigo: '',
+    descripcion: (i.description || '').split('\n')[0],
+    cantidad: i.quantity,
+    unidad: 'NIU',
+  }))
+  if (items.value.length === 0) items.value = [emptyItem()]
+}
+
+/** Autocompleta el nombre del destinatario consultando DNI/RUC. */
+async function lookupRecipient(): Promise<void> {
+  const doc = form.recipientDocNumber.trim()
+  if (!doc) return
+  lookupLoading.value = true
+  try {
+    if (form.recipientDocType === 'RUC') {
+      const c = await lookupService.ruc(doc)
+      form.recipientName = c.razonSocial
+    } else {
+      const p = await lookupService.dni(doc)
+      form.recipientName = p.nombreCompleto
+    }
+  } catch {
+    toast.error('No se encontró ese documento.')
+  } finally {
+    lookupLoading.value = false
+  }
+}
 
 function openCreate(): void {
   Object.assign(form, {
@@ -84,8 +145,10 @@ function openCreate(): void {
     totalWeight: 0,
     packages: 1,
     observations: '',
+    saleId: null,
   })
   items.value = [emptyItem()]
+  fromSaleId.value = null
   formError.value = ''
   modalOpen.value = true
 }
@@ -109,7 +172,10 @@ async function openDetail(row: DispatchGuideItem): Promise<void> {
   detail.value = await dispatchService.get(row.id)
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadSales()
+})
 </script>
 
 <template>
@@ -139,6 +205,19 @@ onMounted(load)
     <!-- Formulario -->
     <BaseModal :open="modalOpen" title="Nueva guía de remisión" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
+        <div class="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
+          <FormField label="Generar desde una venta/comprobante (autocompleta destinatario e ítems)">
+            <SearchableSelect
+              v-model="fromSaleId"
+              :options="sales"
+              :option-label="(s) => `${s.saleNumber} — ${s.customerName}`"
+              placeholder="Busca la venta por número o cliente…"
+              @change="loadFromSale(fromSaleId)"
+            />
+          </FormField>
+          <p class="mt-1 text-xs text-gray-500">Elige la venta de la moto o repuestos ya realizada; el destinatario y los ítems se cargan solos. Igual puedes ajustarlos abajo.</p>
+        </div>
+
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FormField label="Fecha de traslado" required>
             <input v-model="form.transferDate" type="date" class="form-input" required />
@@ -165,7 +244,10 @@ onMounted(load)
               </select>
             </FormField>
             <FormField label="Número" required>
-              <input v-model="form.recipientDocNumber" class="form-input" required maxlength="20" />
+              <div class="flex gap-1">
+                <input v-model="form.recipientDocNumber" class="form-input" required maxlength="20" />
+                <button type="button" class="btn-secondary whitespace-nowrap" :disabled="lookupLoading" @click="lookupRecipient">{{ lookupLoading ? '…' : 'Buscar' }}</button>
+              </div>
             </FormField>
             <FormField label="Nombre / Razón social" required>
               <input v-model="form.recipientName" class="form-input" required maxlength="200" />
