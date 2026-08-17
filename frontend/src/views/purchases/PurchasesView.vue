@@ -144,9 +144,10 @@ async function confirmImport(): Promise<void> {
   try {
     // El precio de venta de motos se guarda SIEMPRE en soles (convertido si se escribió en US$).
     const p = preview.value
+    // El precio de venta se guarda en la moneda de la factura (no se convierte).
     const payload = {
       ...p,
-      motorcycles: p.motorcycles.map((m) => ({ ...m, salePrice: motoSaleSoles(m) })),
+      motorcycles: p.motorcycles.map((m) => ({ ...m, salePrice: m.salePrice })),
     }
     await purchaseService.importConfirm(payload)
     importOpen.value = false

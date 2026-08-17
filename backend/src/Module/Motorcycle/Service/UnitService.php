@@ -207,6 +207,7 @@ final class UnitService
         $unit->setSupplier($payload->supplierId !== null ? $this->supplierRepository->find($payload->supplierId) : null);
         $unit->setPurchasePrice($payload->purchasePrice !== null ? number_format($payload->purchasePrice, 2, '.', '') : null);
         $unit->setSalePrice($payload->salePrice !== null ? number_format($payload->salePrice, 2, '.', '') : null);
+        $unit->setPriceCurrency($payload->priceCurrency);
         $unit->setLocation($payload->location);
         $unit->setNotes($payload->notes);
         $unit->setDuaNumber($payload->duaNumber);
@@ -233,6 +234,7 @@ final class UnitService
             'supplierName' => $unit->getSupplier()?->getBusinessName(),
             'purchasePrice' => $unit->getPurchasePrice(),
             'salePrice' => $unit->getSalePrice(),
+            'priceCurrency' => $unit->getPriceCurrency(),
             'status' => $unit->getStatus(),
             'location' => $unit->getLocation(),
             'notes' => $unit->getNotes(),

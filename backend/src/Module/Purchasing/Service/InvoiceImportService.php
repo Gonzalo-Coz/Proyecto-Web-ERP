@@ -194,6 +194,7 @@ final class InvoiceImportService
                 supplierId: (int) $supplier->getId(),
                 purchasePrice: $cost,
                 salePrice: $sale,
+                priceCurrency: (string) ($doc['currency'] ?? 'PEN'),
                 duaNumber: $this->nullify((string) ($mt['duaNumber'] ?? '')),
                 duaItem: $this->nullify((string) ($mt['duaItem'] ?? '')),
             ));

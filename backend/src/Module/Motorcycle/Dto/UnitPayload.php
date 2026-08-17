@@ -54,6 +54,10 @@ final class UnitPayload
         #[Assert\PositiveOrZero]
         public readonly ?float $salePrice = null,
 
+        /** Moneda de los precios (compra/venta): PEN o USD (no se convierte). */
+        #[Assert\Choice(choices: ['PEN', 'USD'])]
+        public readonly string $priceCurrency = 'PEN',
+
         #[Assert\Length(max: 100)]
         public readonly ?string $location = null,
 

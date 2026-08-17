@@ -49,6 +49,7 @@ export interface UnitItem {
   supplierName: string | null
   purchasePrice: string | null
   salePrice: string | null
+  priceCurrency: 'PEN' | 'USD'
   status: UnitStatus
   location: string | null
   notes: string | null

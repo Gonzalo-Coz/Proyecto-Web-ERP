@@ -79,6 +79,10 @@ class MotorcycleUnit implements SoftDeletableInterface
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
     private ?string $salePrice = null;
 
+    /** Moneda en que están guardados los precios (compra/venta): PEN o USD. No se convierte. */
+    #[ORM\Column(length: 3, options: ['default' => 'PEN'])]
+    private string $priceCurrency = 'PEN';
+
     #[ORM\Column(length: 20)]
     private string $status = 'DISPONIBLE';
 
@@ -232,6 +236,16 @@ class MotorcycleUnit implements SoftDeletableInterface
     public function setSalePrice(?string $value): void
     {
         $this->salePrice = $value;
+    }
+
+    public function getPriceCurrency(): string
+    {
+        return $this->priceCurrency;
+    }
+
+    public function setPriceCurrency(string $value): void
+    {
+        $this->priceCurrency = strtoupper($value) === 'USD' ? 'USD' : 'PEN';
     }
 
     public function getStatus(): string

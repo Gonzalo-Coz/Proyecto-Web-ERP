@@ -47,8 +47,13 @@ final class NubefactGuideClient
         return $this->mapResponse($response);
     }
 
-    /** @return array<string, mixed> */
-    private function buildPayload(DispatchGuide $guide): array
+    /**
+     * Arma el JSON de `generar_guia` desde la guía. Público para poder probarlo
+     * unitariamente (no toca red ni config).
+     *
+     * @return array<string, mixed>
+     */
+    public function buildPayload(DispatchGuide $guide): array
     {
         $items = [];
         foreach ($guide->getItems() as $it) {

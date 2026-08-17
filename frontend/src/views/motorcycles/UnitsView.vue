@@ -129,6 +129,7 @@ function openEdit(unit: UnitItem): void {
     duaNumber: unit.duaNumber,
     duaItem: unit.duaItem,
   })
+  priceCurrency.value = unit.priceCurrency ?? 'PEN'
   formError.value = ''
   modalOpen.value = true
 }
@@ -163,8 +164,8 @@ async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
-    const cost = toSoles(form.purchasePrice)
-    const payload = { ...form, purchasePrice: cost, salePrice: toSoles(form.salePrice) }
+    // Se guardan los precios TAL CUAL en la moneda elegida (no se convierten a soles).
+    const payload = { ...form, priceCurrency: priceCurrency.value }
     if (editing.value) {
       await unitService.update(editing.value.id, payload)
     } else {
@@ -430,8 +431,8 @@ onMounted(async () => {
         <div><dt class="text-xs font-medium uppercase text-gray-400">Año de fabricación</dt><dd>{{ viewTarget.manufactureYear ?? '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">DUA</dt><dd>{{ viewTarget.duaNumber || '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Ítem DUA</dt><dd>{{ viewTarget.duaItem || '—' }}</dd></div>
-        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de compra</dt><dd>{{ viewTarget.purchasePrice !== null ? 'S/ ' + viewTarget.purchasePrice : '—' }}</dd></div>
-        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de venta</dt><dd>{{ viewTarget.salePrice !== null ? 'S/ ' + viewTarget.salePrice : '—' }}</dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de compra</dt><dd>{{ viewTarget.purchasePrice !== null ? (viewTarget.priceCurrency === 'USD' ? 'US$ ' : 'S/ ') + viewTarget.purchasePrice : '—' }}<span v-if="viewTarget.priceCurrency === 'USD' && dayRate && viewTarget.purchasePrice" class="text-xs text-gray-400"> · ≈ S/ {{ (Number(viewTarget.purchasePrice) * dayRate).toFixed(2) }}</span></dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de venta</dt><dd>{{ viewTarget.salePrice !== null ? (viewTarget.priceCurrency === 'USD' ? 'US$ ' : 'S/ ') + viewTarget.salePrice : '—' }}<span v-if="viewTarget.priceCurrency === 'USD' && dayRate && viewTarget.salePrice" class="text-xs text-gray-400"> · ≈ S/ {{ (Number(viewTarget.salePrice) * dayRate).toFixed(2) }}</span></dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Proveedor</dt><dd>{{ viewTarget.supplierName || '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Fecha de compra</dt><dd>{{ viewTarget.purchaseDate || '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Fecha de ingreso</dt><dd>{{ viewTarget.entryDate }}</dd></div>

@@ -310,9 +310,24 @@ function ownSalePrice(line: SaleLine): number | null {
   }
   if (line.itemType === 'MOTORCYCLE_UNIT' && line.motorcycleUnitId) {
     const u = units.value.find((x) => x.id === line.motorcycleUnitId)
-    return u?.salePrice != null && u.salePrice !== '' ? Number(u.salePrice) : null
+    if (!u || u.salePrice == null || u.salePrice === '') return null
+    const raw = Number(u.salePrice)
+    const uc = u.priceCurrency ?? 'PEN'
+    // Convierte el precio de la moto a la moneda de la venta (US$ o S/).
+    if (uc === form.currency) return raw
+    if (uc === 'USD' && form.currency === 'PEN') return saleRate.value ? Math.round(raw * saleRate.value * 100) / 100 : raw
+    if (uc === 'PEN' && form.currency === 'USD') return saleRate.value ? Math.round((raw / saleRate.value) * 100) / 100 : raw
+    return raw
   }
   return null
+}
+
+/** Al cambiar la moneda de la venta: reconvierte los precios de las líneas. */
+function onCurrencyChange(): void {
+  lines.value.forEach((l) => {
+    const own = ownSalePrice(l)
+    if (own !== null && own > 0) l.unitPrice = own
+  })
 }
 
 /**
@@ -601,7 +616,7 @@ onMounted(async () => {
             </select>
           </FormField>
           <FormField label="Moneda">
-            <select v-model="form.currency" class="form-input">
+            <select v-model="form.currency" class="form-input" @change="onCurrencyChange">
               <option value="PEN">Soles (S/)</option>
               <option value="USD">Dólares (US$)</option>
             </select>
