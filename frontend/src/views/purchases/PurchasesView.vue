@@ -500,7 +500,7 @@ onMounted(async () => {
             <div class="overflow-x-auto rounded-lg border border-gray-200">
               <table class="min-w-full text-xs">
                 <thead class="bg-gray-50 text-left text-gray-500">
-                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta</th><th class="px-2 py-1 text-right">Margen S/</th></tr>
+                  <tr><th class="px-2 py-1">Modelo</th><th class="px-2 py-1">Color</th><th class="px-2 py-1">VIN</th><th class="px-2 py-1">Motor</th><th class="px-2 py-1">DUA / Ítem</th><th class="px-2 py-1 text-right">Costo {{ curSym }}</th><th class="px-2 py-1 text-right">P. Venta</th><th class="px-2 py-1 text-right">Margen S/</th><th class="px-2 py-1"></th></tr>
                 </thead>
                 <tbody>
                   <tr v-for="(m, i) in preview.motorcycles" :key="i" class="border-t border-gray-100" :class="m.alreadyExists ? 'bg-red-50' : ''">
@@ -527,6 +527,9 @@ onMounted(async () => {
                         </span>
                       </template>
                       <span v-else class="text-gray-300">—</span>
+                    </td>
+                    <td class="px-2 py-1 text-center">
+                      <button type="button" class="font-bold text-red-600 hover:text-red-800" title="Quitar esta moto del import" @click="preview.motorcycles.splice(i, 1)">✕</button>
                     </td>
                   </tr>
                 </tbody>
