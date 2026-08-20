@@ -795,8 +795,12 @@ onMounted(async () => {
           >
             Editar
           </button>
-          <button v-if="detail.status === 'COTIZACION'" class="btn-secondary" @click="printCotizacion(detail as any)">
-            Imprimir cotización
+          <button
+            v-if="detail.status !== 'ANULADA'"
+            class="btn-secondary"
+            @click="printCotizacion(detail as any, detail.status === 'COTIZACION' ? 'COTIZACIÓN' : 'PROFORMA / VISTA PREVIA')"
+          >
+            {{ detail.status === 'COTIZACION' ? 'Imprimir cotización' : 'Vista previa (PDF)' }}
           </button>
           <button
             v-if="auth.can('sales.list.edit') && detail.status === 'COTIZACION'"

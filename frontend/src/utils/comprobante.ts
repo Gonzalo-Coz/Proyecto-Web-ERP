@@ -397,12 +397,13 @@ export interface CotizacionDoc {
   total: string
   totalDiscount?: string
   igvRate?: number
+  currency?: 'PEN' | 'USD'
   company?: { name: string; ruc: string; address: string; phone: string; email: string; logo?: string | null }
   items?: { description: string; quantity: number; unitPrice: string; lineTotal: string }[]
 }
 
-export function printCotizacion(doc: CotizacionDoc): void {
-  docSym = 'S/' // las cotizaciones se muestran en soles
+export function printCotizacion(doc: CotizacionDoc, label = 'COTIZACIÓN'): void {
+  docSym = doc.currency === 'USD' ? 'US$' : 'S/'
   const co = doc.company
   const igvRate = doc.igvRate ?? 18
   const rows = (doc.items ?? [])
@@ -422,7 +423,7 @@ export function printCotizacion(doc: CotizacionDoc): void {
         </div>
         <div class="box">
           <div>RUC ${esc(co?.ruc)}</div>
-          <div class="box-type">COTIZACIÓN</div>
+          <div class="box-type">${esc(label)}</div>
           <div class="box-num">${esc(doc.saleNumber)}</div>
         </div>
       </div>
@@ -444,7 +445,7 @@ export function printCotizacion(doc: CotizacionDoc): void {
       </div>
       <div class="letras">SON: ${numeroALetras(Number(doc.total ?? 0))}</div>
       <div class="foot">
-        <div class="rep">COTIZACIÓN — no es un comprobante de pago. Precios con IGV incluido. Válida por 7 días.</div>
+        <div class="rep">${esc(label)} — NO es un comprobante de pago (vista previa, sin validez tributaria).</div>
       </div>
     </div>`
   const w = window.open('', '_blank', `width=${screen.availWidth},height=${screen.availHeight},left=0,top=0`)
