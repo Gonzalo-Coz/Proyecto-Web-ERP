@@ -8,8 +8,12 @@ export interface SaleLine {
   description: string | null
   quantity: number
   unitPrice: number
-  /** Único descuento del sistema: porcentaje por línea (admite decimales). */
+  /** Descuento por línea en porcentaje (admite decimales). */
   discountPercent: number
+  /** UI: tipo de descuento elegido — porcentaje o monto fijo. */
+  discountMode?: 'PERCENT' | 'AMOUNT'
+  /** UI: monto fijo de descuento cuando discountMode === 'AMOUNT' (en la moneda de la línea). */
+  discountAmount?: number
   /** UI: si el precio unitario está en US$ (se convierte a soles con el T.C.). */
   _usd?: boolean
 }

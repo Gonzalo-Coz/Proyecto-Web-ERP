@@ -252,7 +252,9 @@ function a4Body(doc: InvoiceDocument): string {
         </div>
         <div class="a4-footinfo">
           ${doc.hash ? `<div class="hash"><b>Hash:</b> ${esc(doc.hash)}</div>` : ''}
-          <div class="rep">Representación impresa de la ${esc(docFull(doc))}.</div>
+          ${doc.isPreview
+            ? '<div class="rep"><b>VISTA PREVIA / PROFORMA</b> — NO es un comprobante de pago (sin validez tributaria).</div>'
+            : `<div class="rep">Representación impresa de la ${esc(docFull(doc))}.</div>`}
           ${aviso}
         </div>
       </div>
@@ -386,6 +388,49 @@ function css(format: PrintFormat): string {
 }
 
 /** Documento mínimo para imprimir una cotización (copia al cliente). */
+/**
+ * Muestra una venta como PROFORMA usando el MISMO diseño de la boleta/factura
+ * (logo, panels, columna Código, bancos), pero sin QR/hash y marcada "sin validez".
+ */
+export function openSaleProforma(sale: any, label = 'PROFORMA / VISTA PREVIA'): Promise<void> {
+  const doc: InvoiceDocument = {
+    id: 0,
+    saleId: sale.id,
+    saleNumber: sale.saleNumber,
+    docType: '' as InvoiceDocument['docType'],
+    docTypeName: label,
+    fullNumber: sale.saleNumber,
+    issueDate: sale.saleDate,
+    customerName: sale.customerName,
+    customerDocument: sale.customerDocument,
+    subtotal: sale.subtotal,
+    igv: sale.igv,
+    total: sale.total,
+    status: 'PENDIENTE',
+    errorMessage: null,
+    discountTotal: sale.totalDiscount,
+    customerAddress: sale.customerAddress ?? null,
+    igvRate: sale.igvRate ?? 18,
+    igvExempt: sale.igvExempt,
+    currency: sale.currency,
+    observations: sale.notes,
+    isPreview: true,
+    company: sale.company,
+    items: (sale.items ?? []).map((i: any) => ({
+      code: i.code ?? '',
+      description: i.description,
+      quantity: i.quantity,
+      unitPrice: i.unitPrice,
+      discount: i.discount ?? '0.00',
+      lineTotal: i.lineTotal,
+    })),
+    hash: null,
+    qrData: null,
+  }
+
+  return openComprobantePdf(doc, 'a4')
+}
+
 export interface CotizacionDoc {
   saleNumber: string
   saleDate: string

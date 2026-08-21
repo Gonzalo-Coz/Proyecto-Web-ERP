@@ -293,7 +293,13 @@ final class SaleService
                 $document->markAnnulled('Editado antes de validar en SUNAT');
             }
 
-            // 3) Reemplazar líneas (orphanRemoval elimina las viejas) y notas.
+            // 3) Cliente (permite identificar al cliente, ej. boleta > S/700 requiere DNI).
+            $customer = $this->customerRepository->find($payload->customerId);
+            if ($customer !== null) {
+                $sale->setCustomer($customer);
+            }
+
+            // 4) Reemplazar líneas (orphanRemoval elimina las viejas) y notas.
             $sale->clearItems();
             $sale->setNotes($payload->notes);
             $this->applyLines($sale, $payload);
@@ -368,18 +374,30 @@ final class SaleService
             $itemType = (string) ($line['itemType'] ?? '');
             $quantity = (int) ($line['quantity'] ?? 0);
             $unitPrice = (float) ($line['unitPrice'] ?? 0);
-            // Descuento ÚNICAMENTE porcentual por línea (admite decimales)
+            // Descuento por línea: porcentual (discountPercent) O por monto fijo
+            // (discountAmount). Si llega un monto fijo válido, manda ese y se
+            // deriva el % equivalente para almacenarlo (admiten decimales).
             $discountPercent = round((float) ($line['discountPercent'] ?? 0), 2);
+            $discountAmountIn = isset($line['discountAmount']) ? round((float) $line['discountAmount'], 2) : null;
 
             if ($quantity < 1 || $unitPrice < 0) {
                 throw new UnprocessableEntityHttpException(sprintf('Línea %d: cantidad o precio inválidos.', $position));
             }
-            if ($discountPercent < 0 || $discountPercent > 100) {
-                throw new UnprocessableEntityHttpException(sprintf('Línea %d: el descuento debe estar entre 0%% y 100%%.', $position));
-            }
 
             $gross = $quantity * $unitPrice;
-            $discount = round($gross * $discountPercent / 100, 2);
+
+            if ($discountAmountIn !== null && $discountAmountIn > 0) {
+                if ($discountAmountIn > $gross) {
+                    throw new UnprocessableEntityHttpException(sprintf('Línea %d: el descuento (%.2f) no puede superar el importe de la línea (%.2f).', $position, $discountAmountIn, $gross));
+                }
+                $discount = $discountAmountIn;
+                $discountPercent = $gross > 0 ? round($discount / $gross * 100, 2) : 0.0;
+            } else {
+                if ($discountPercent < 0 || $discountPercent > 100) {
+                    throw new UnprocessableEntityHttpException(sprintf('Línea %d: el descuento debe estar entre 0%% y 100%%.', $position));
+                }
+                $discount = round($gross * $discountPercent / 100, 2);
+            }
 
             if ($itemType === 'SPARE_PART') {
                 $part = $this->sparePartRepository->find((int) ($line['sparePartId'] ?? 0))
@@ -514,6 +532,7 @@ final class SaleService
                 'itemType' => $i->getItemType(),
                 'sparePartId' => $i->getSparePart()?->getId(),
                 'motorcycleUnitId' => $i->getMotorcycleUnit()?->getId(),
+                'code' => $i->getSparePart()?->getInternalCode() ?? $i->getMotorcycleUnit()?->getInternalCode() ?? '',
                 'description' => $i->getDescription(),
                 'quantity' => $i->getQuantity(),
                 'unitPrice' => $i->getUnitPrice(),
@@ -536,13 +555,38 @@ final class SaleService
             $data['igvRate'] = $this->settings->igvRate() * 100;
             $data['company'] = [
                 'name' => $this->settings->get('company.name') ?? '',
+                'tradeName' => $this->settings->get('company.trade_name') ?? '',
                 'ruc' => $this->settings->get('company.ruc') ?? '',
                 'address' => $this->settings->get('company.address') ?? '',
+                'department' => $this->settings->get('company.department') ?? '',
+                'province' => $this->settings->get('company.province') ?? '',
+                'district' => $this->settings->get('company.district') ?? '',
                 'phone' => $this->settings->get('company.phone') ?? '',
                 'email' => $this->settings->get('company.email') ?? '',
+                'logo' => $this->settings->get('company.logo_full_path') ?: '/brand/logo-full.png',
+                'banks' => $this->companyBanks(),
             ];
         }
 
         return $data;
+    }
+
+    /** @return list<array{name: string, account: string, cci: string}> cuentas bancarias para la proforma */
+    private function companyBanks(): array
+    {
+        $banks = [];
+        foreach (['bank1', 'bank2'] as $b) {
+            $name = trim((string) $this->settings->get("company.{$b}_name"));
+            if ($name === '') {
+                continue;
+            }
+            $banks[] = [
+                'name' => $name,
+                'account' => trim((string) $this->settings->get("company.{$b}_account")),
+                'cci' => trim((string) $this->settings->get("company.{$b}_cci")),
+            ];
+        }
+
+        return $banks;
     }
 }

@@ -28,6 +28,8 @@ export interface InvoiceDocument {
   igvExempt?: boolean
   currency?: 'PEN' | 'USD'
   observations?: string | null
+  /** true = vista previa / proforma (no emitida): cambia la leyenda del pie. */
+  isPreview?: boolean
   company?: InvoiceCompany
   items?: InvoiceLine[]
 }

@@ -26,7 +26,7 @@ import type { SparePartItem } from '@/types/inventory'
 import type { UnitItem } from '@/types/motorcycles'
 import type { CatalogItem } from '@/types/catalogs'
 import { type SaleLine, type SaleStatus, type SaleSummary } from '@/types/sales'
-import { printCotizacion } from '@/utils/comprobante'
+import { openSaleProforma } from '@/utils/comprobante'
 
 const auth = useAuthStore()
 
@@ -204,9 +204,16 @@ function linePriceSoles(l: SaleLine): number {
 /** Símbolo de la moneda de la venta. */
 const curSym = computed(() => (form.currency === 'USD' ? 'US$' : 'S/'))
 
+/** Descuento efectivo de la línea (en la moneda de la venta), según el modo elegido. */
+function lineDiscountValue(l: SaleLine): number {
+  const gross = l.quantity * linePriceSoles(l)
+  if (l.discountMode === 'AMOUNT') return Math.min(Math.max(0, l.discountAmount || 0), gross)
+  return (gross * (l.discountPercent || 0)) / 100
+}
+
 function lineNet(l: SaleLine): number {
   const gross = l.quantity * linePriceSoles(l)
-  return Math.max(0, gross - (gross * (l.discountPercent || 0)) / 100)
+  return Math.max(0, gross - lineDiscountValue(l))
 }
 
 // Precios CON IGV incluido: la suma de líneas es el TOTAL; la base (op. gravada)
@@ -260,6 +267,8 @@ function addLine(itemType: SaleLine['itemType']): void {
     quantity: 1,
     unitPrice: 0,
     discountPercent: currentCustomerDiscount(),
+    discountMode: 'PERCENT',
+    discountAmount: 0,
   }
   lines.value.push(line)
   void resolveLinePrice(line)
@@ -274,6 +283,7 @@ function applyPromotion(): void {
   const promo = promotions.value.find((p) => p.id === selectedPromoId.value)
   const pct = promo && promo.discountPercent !== null ? Number(promo.discountPercent) : 0
   lines.value.forEach((l) => {
+    l.discountMode = 'PERCENT'
     l.discountPercent = pct
   })
 }
@@ -359,6 +369,7 @@ function onCustomerChange(): void {
   const pct = currentCustomerDiscount()
   lines.value.forEach((l) => {
     void resolveLinePrice(l, true)
+    l.discountMode = 'PERCENT'
     l.discountPercent = pct
   })
   selectedPromoId.value = null
@@ -403,6 +414,8 @@ function openEditSale(sale: SaleSummary): void {
     quantity: i.quantity,
     unitPrice: Number(i.unitPrice),
     discountPercent: Number(i.discountPercent),
+    discountMode: 'PERCENT',
+    discountAmount: 0,
     _usd: false,
   }))
   selectedPromoId.value = null
@@ -427,7 +440,10 @@ async function save(): Promise<void> {
       description: l.description,
       quantity: l.quantity,
       unitPrice: linePriceSoles(l),
-      discountPercent: l.discountPercent,
+      // Descuento por monto fijo (en la moneda de la venta) o porcentual.
+      ...(l.discountMode === 'AMOUNT'
+        ? { discountAmount: l.discountAmount || 0 }
+        : { discountPercent: l.discountPercent }),
     }))
     if (editingSaleId.value) {
       await saleService.update(editingSaleId.value, { ...form, items })
@@ -686,8 +702,24 @@ onMounted(async () => {
               </div>
             </div>
             <div class="col-span-2">
-              <label class="form-label text-xs">Dscto. (%)</label>
+              <label class="form-label flex items-center justify-between text-xs">
+                <span>Dscto.</span>
+                <select v-model="line.discountMode" class="rounded border border-gray-200 px-0.5 text-[10px]">
+                  <option value="PERCENT">%</option>
+                  <option value="AMOUNT">{{ curSym }}</option>
+                </select>
+              </label>
               <input
+                v-if="line.discountMode === 'AMOUNT'"
+                v-model.number="line.discountAmount"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0"
+                class="form-input"
+              />
+              <input
+                v-else
                 v-model.number="line.discountPercent"
                 type="number"
                 step="0.01"
@@ -798,7 +830,7 @@ onMounted(async () => {
           <button
             v-if="detail.status !== 'ANULADA'"
             class="btn-secondary"
-            @click="printCotizacion(detail as any, detail.status === 'COTIZACION' ? 'COTIZACIÓN' : 'PROFORMA / VISTA PREVIA')"
+            @click="openSaleProforma(detail, detail.status === 'COTIZACION' ? 'COTIZACIÓN' : 'PROFORMA / VISTA PREVIA')"
           >
             {{ detail.status === 'COTIZACION' ? 'Imprimir cotización' : 'Vista previa (PDF)' }}
           </button>

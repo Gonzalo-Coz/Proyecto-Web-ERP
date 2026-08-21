@@ -145,6 +145,11 @@ class Sale
         return $this->customer;
     }
 
+    public function setCustomer(Customer $customer): void
+    {
+        $this->customer = $customer;
+    }
+
     public function getSeller(): string
     {
         return $this->seller;

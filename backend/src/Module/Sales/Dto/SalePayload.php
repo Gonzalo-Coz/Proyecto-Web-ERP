@@ -14,7 +14,8 @@ final class SalePayload
 {
     /**
      * @param list<array{itemType?: string, sparePartId?: int|null, motorcycleUnitId?: int|null,
-     *                    description?: string|null, quantity?: int, unitPrice?: float, discount?: float}> $items
+     *                    description?: string|null, quantity?: int, unitPrice?: float,
+     *                    discountPercent?: float, discountAmount?: float}> $items
      */
     public function __construct(
         #[Assert\NotBlank(message: 'El cliente es obligatorio.')]

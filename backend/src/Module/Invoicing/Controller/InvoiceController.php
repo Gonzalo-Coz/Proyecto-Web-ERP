@@ -62,15 +62,11 @@ final class InvoiceController
                 Response::HTTP_CREATED,
             );
         } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
-            // Errores de validación (422/409): se propagan con su código normal.
-            throw $e;
+            // Muestra el motivo real (ej. "La boleta a Público General solo hasta S/700")
+            // en vez del texto genérico "Unprocessable Content".
+            return new JsonResponse(['detail' => $e->getMessage()], $e->getStatusCode());
         } catch (\Throwable $e) {
-            // DEBUG temporal: muestra el error real en vez de "Internal Server Error".
-            return new JsonResponse([
-                'detail' => $e->getMessage(),
-                'exception' => $e::class,
-                'at' => basename($e->getFile()).':'.$e->getLine(),
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return new JsonResponse(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
