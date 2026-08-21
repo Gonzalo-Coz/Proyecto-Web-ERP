@@ -98,8 +98,12 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
         foreach ($document->getSale()->getItems() as $item) {
             /** @var SaleItem $item */
             $qty = $item->getQuantity();
-            $precioUnitario = round((float) $item->getUnitPrice(), 2);
             $lineTotal = round((float) $item->getLineTotal(), 2);
+            // Precio unitario NETO: el descuento de la línea ya viene aplicado en
+            // el total, así que el precio por unidad se deriva de total ÷ cantidad.
+            // Enviar el bruto (getUnitPrice) aquí provoca que valor_unitario × cantidad
+            // no cuadre con el valor de venta y SUNAT rechaza (código 3270).
+            $precioUnitario = $qty > 0 ? round($lineTotal / $qty, 2) : 0.0;
 
             if ($exempt) {
                 // Exonerado: el precio NO lleva IGV; valor = precio, IGV = 0, tipo 20.
