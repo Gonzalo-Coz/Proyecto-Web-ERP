@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import FormField from '@/components/ui/FormField.vue'
 import { workshopService } from '@/services/workshop'
+import { maintenanceService } from '@/services/maintenance'
 import { customerService } from '@/services/masters'
 import { unitService } from '@/services/motorcycles'
 import { sparePartService } from '@/services/inventory'
@@ -13,6 +14,7 @@ import type { CustomerItem } from '@/types/masters'
 import type { UnitItem } from '@/types/motorcycles'
 import type { SparePartItem } from '@/types/inventory'
 import { ORDER_STATUSES, type OrderStatus, type ServiceOrderSummary } from '@/types/workshop'
+import type { MaintenancePlanModel, MaintenancePlanServiceDetail } from '@/types/maintenance'
 
 const auth = useAuthStore()
 
@@ -63,6 +65,56 @@ const itemForm = reactive({
   unitPrice: 0,
 })
 const newStatus = ref<OrderStatus>('RECIBIDA')
+
+// --- Plan de mantenimiento por kilometraje ---
+const planModels = ref<MaintenancePlanModel[]>([])
+const planForm = reactive({ planId: null as number | null, km: null as number | null })
+const planPreview = ref<MaintenancePlanServiceDetail | null>(null)
+const planWarnings = ref<string[]>([])
+const planLoading = ref(false)
+
+const selectedPlanModel = computed(() => planModels.value.find((m) => m.id === planForm.planId) ?? null)
+
+function onPlanModelChange(): void {
+  planPreview.value = null
+  planForm.km = selectedPlanModel.value?.kmIntervals[0] ?? null
+}
+
+async function loadPlanPreview(): Promise<void> {
+  planPreview.value = null
+  const planId = planForm.planId
+  const km = planForm.km
+  if (!planId || !km) return
+  planLoading.value = true
+  try {
+    planPreview.value = await maintenanceService.service(planId, km)
+  } catch {
+    detailError.value = 'No se pudo cargar el plan.'
+  } finally {
+    planLoading.value = false
+  }
+}
+
+async function applyPlan(): Promise<void> {
+  const orderId = detail.value?.id
+  const planId = planForm.planId
+  const km = planForm.km
+  if (!orderId || !planId || !km) return
+  detailError.value = ''
+  planWarnings.value = []
+  planLoading.value = true
+  try {
+    const res = await workshopService.applyPlan(orderId, planId, km)
+    planWarnings.value = res.planWarnings ?? []
+    detail.value = res
+    planPreview.value = null
+    await load(meta.value?.page ?? 1)
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo cargar el plan a la orden.'
+  } finally {
+    planLoading.value = false
+  }
+}
 
 async function load(page = 1): Promise<void> {
   loading.value = true
@@ -118,6 +170,11 @@ async function openDetail(row: ServiceOrderSummary): Promise<void> {
   newStatus.value = detail.value.status
   detailError.value = ''
   Object.assign(itemForm, { itemType: 'LABOR', sparePartId: spareParts.value[0]?.id ?? null, description: '', quantity: 1, unitPrice: 0 })
+  // Reinicia el cargador de plan de mantenimiento para esta orden.
+  planForm.planId = null
+  planForm.km = null
+  planPreview.value = null
+  planWarnings.value = []
 }
 
 async function doAddItem(): Promise<void> {
@@ -176,6 +233,9 @@ onMounted(async () => {
   try {
     spareParts.value = (await sparePartService.list({ page: 1, perPage: 100, search: '', sort: 'description', direction: 'asc' })).data.filter((p) => p.isActive)
   } catch { spareParts.value = [] }
+  try {
+    planModels.value = await maintenanceService.models()
+  } catch { planModels.value = [] }
   load().catch(() => undefined)
 })
 </script>
@@ -312,6 +372,66 @@ onMounted(async () => {
             </select>
           </div>
           <button class="btn-primary" @click="doChangeStatus">Actualizar</button>
+        </div>
+
+        <!-- Plan de mantenimiento por kilometraje -->
+        <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p class="mb-2 text-xs font-semibold uppercase text-gray-500">Cargar plan de mantenimiento</p>
+          <div class="grid grid-cols-12 items-end gap-2">
+            <div class="col-span-5">
+              <label class="form-label text-xs">Modelo</label>
+              <select v-model.number="planForm.planId" class="form-input" @change="onPlanModelChange">
+                <option :value="null">— Selecciona —</option>
+                <option v-for="m in planModels" :key="m.id" :value="m.id">{{ m.model }}</option>
+              </select>
+            </div>
+            <div class="col-span-4">
+              <label class="form-label text-xs">Kilometraje</label>
+              <select v-model.number="planForm.km" class="form-input" :disabled="!selectedPlanModel" @change="loadPlanPreview">
+                <option :value="null">— km —</option>
+                <option v-for="k in selectedPlanModel?.kmIntervals ?? []" :key="k" :value="k">{{ k.toLocaleString('es-PE') }} km</option>
+              </select>
+            </div>
+            <div class="col-span-3">
+              <button class="btn-secondary w-full" :disabled="!planForm.planId || !planForm.km || planLoading" @click="loadPlanPreview">
+                Ver plan
+              </button>
+            </div>
+          </div>
+
+          <!-- Vista previa del servicio -->
+          <div v-if="planPreview" class="mt-3 space-y-2">
+            <p class="text-sm text-gray-700">
+              Mano de obra:
+              <strong>{{ planPreview.labor?.cost != null ? `S/ ${planPreview.labor.cost.toFixed(2)}` : 'definir manualmente' }}</strong>
+              <span v-if="planPreview.labor?.hours != null" class="text-xs text-gray-400"> · {{ planPreview.labor.hours }} h</span>
+              <span class="text-xs text-gray-400"> · {{ planPreview.activities.length }} actividades de revisión</span>
+            </p>
+            <table class="w-full text-left text-xs">
+              <thead class="uppercase text-gray-500">
+                <tr><th class="py-1">Repuesto</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Stock</th></tr>
+              </thead>
+              <tbody>
+                <tr v-for="p in planPreview.parts" :key="p.code" class="border-t border-gray-100" :class="p.inInventory ? '' : 'text-orange-600'">
+                  <td class="py-1">{{ p.description }} <span class="text-gray-400">({{ p.code }})</span></td>
+                  <td class="py-1 text-right">{{ p.quantity }}</td>
+                  <td class="py-1 text-right">{{ p.inInventory ? `S/ ${Number(p.salePrice ?? 0).toFixed(2)}` : '—' }}</td>
+                  <td class="py-1 text-right">{{ p.inInventory ? p.stock : 'sin ficha' }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="flex justify-end">
+              <button class="btn-primary" :disabled="planLoading" @click="applyPlan">Cargar a la orden</button>
+            </div>
+          </div>
+
+          <!-- Avisos tras cargar el plan -->
+          <div v-if="planWarnings.length" class="mt-2 rounded border border-orange-200 bg-orange-50 p-2 text-xs text-orange-700">
+            <p class="font-semibold">Repuestos no cargados automáticamente (agrégalos manualmente):</p>
+            <ul class="ml-4 list-disc">
+              <li v-for="(w, i) in planWarnings" :key="i">{{ w }}</li>
+            </ul>
+          </div>
         </div>
 
         <!-- Items -->

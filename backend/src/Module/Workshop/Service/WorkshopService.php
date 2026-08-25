@@ -7,6 +7,7 @@ namespace App\Module\Workshop\Service;
 use App\Module\Customer\Repository\CustomerRepository;
 use App\Module\Inventory\Repository\SparePartRepository;
 use App\Module\Inventory\Service\StockService;
+use App\Module\Maintenance\Service\MaintenancePlanService;
 use App\Module\Motorcycle\Repository\MotorcycleUnitRepository;
 use App\Module\Sales\Dto\SalePayload;
 use App\Module\Sales\Service\SaleService;
@@ -34,6 +35,7 @@ final class WorkshopService
         private readonly SparePartRepository $sparePartRepository,
         private readonly StockService $stockService,
         private readonly SaleService $saleService,
+        private readonly MaintenancePlanService $maintenancePlans,
     ) {
     }
 
@@ -158,6 +160,84 @@ final class WorkshopService
             $this->entityManager->flush();
 
             return $this->toArray($order, true);
+        });
+    }
+
+    /**
+     * Carga un plan de mantenimiento (modelo + kilometraje) en la orden:
+     * agrega la mano de obra del plan y el kit de repuestos que estén cargados
+     * en inventario con stock suficiente. Los que falten (sin ficha o sin stock)
+     * se devuelven en "planWarnings" para que el mecánico decida.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function applyMaintenancePlan(int $orderId, array $data): array
+    {
+        $order = $this->find($orderId);
+        $this->assertEditable($order);
+
+        $planId = (int) ($data['planId'] ?? 0);
+        $km = (int) ($data['km'] ?? 0);
+        if ($planId < 1 || $km < 1) {
+            throw new UnprocessableEntityHttpException('Selecciona el modelo y el kilometraje del plan.');
+        }
+
+        $plan = $this->maintenancePlans->getService($planId, $km);
+
+        return $this->entityManager->wrapInTransaction(function () use ($order, $plan): array {
+            $warnings = [];
+
+            // 1) Mano de obra del plan (una línea LABOR). Si el plan no trae costo
+            //    (modelo sin tarifa), se agrega en 0 para que el mecánico lo defina.
+            $laborCost = isset($plan['labor']['cost']) ? (float) $plan['labor']['cost'] : 0.0;
+            $laborItem = new ServiceOrderItem(
+                $order,
+                'LABOR',
+                sprintf('Mantenimiento %s - %s km (mano de obra)', $plan['model'], number_format((int) $plan['km'], 0, '.', ',')),
+                1,
+                round($laborCost, 2),
+            );
+            $order->addItem($laborItem);
+            $this->entityManager->persist($laborItem);
+
+            // 2) Kit de repuestos: solo los que existen en inventario con stock.
+            foreach ($plan['parts'] as $p) {
+                $qty = max(1, (int) round((float) ($p['quantity'] ?? 1)));
+                if (empty($p['inInventory']) || $p['sparePartId'] === null) {
+                    $warnings[] = sprintf('%s %s: no está en inventario (agrégalo manualmente).', $p['code'], $p['description']);
+                    continue;
+                }
+                $part = $this->sparePartRepository->find((int) $p['sparePartId']);
+                if ($part === null) {
+                    $warnings[] = sprintf('%s: repuesto no encontrado.', $p['code']);
+                    continue;
+                }
+                if ($part->getStock() < $qty) {
+                    $warnings[] = sprintf('%s %s: sin stock suficiente (disponible %d).', $part->getInternalCode(), $part->getDescription(), $part->getStock());
+                    continue;
+                }
+
+                $this->stockService->registerMovement(
+                    $part,
+                    'TALLER',
+                    -$qty,
+                    null,
+                    sprintf('TALLER %s', $order->getOrderNumber()),
+                    null,
+                );
+
+                $item = new ServiceOrderItem($order, 'PART', $part->getDescription(), $qty, (float) ($part->getSalePrice() ?? 0));
+                $item->setSparePart($part);
+                $order->addItem($item);
+                $this->entityManager->persist($item);
+            }
+
+            $this->entityManager->flush();
+
+            $result = $this->toArray($order, true);
+            $result['planWarnings'] = $warnings;
+
+            return $result;
         });
     }
 

@@ -33,6 +33,8 @@ export interface ServiceOrderSummary {
   invoiceSaleId: number | null
   total: string
   items?: ServiceOrderItem[]
+  /** Avisos al cargar un plan de mantenimiento (repuestos sin stock/no cargados). */
+  planWarnings?: string[]
 }
 
 export interface ServiceOrderPayload {

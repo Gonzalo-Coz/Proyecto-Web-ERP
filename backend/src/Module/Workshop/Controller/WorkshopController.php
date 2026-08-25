@@ -53,6 +53,13 @@ final class WorkshopController
         return new JsonResponse($this->workshopService->addItem($id, $request->toArray()), Response::HTTP_CREATED);
     }
 
+    #[Route('/{id<\d+>}/maintenance-plan', name: 'workshop_apply_plan', methods: ['POST'])]
+    #[IsGranted('workshop.orders.edit')]
+    public function applyMaintenancePlan(int $id, Request $request): JsonResponse
+    {
+        return new JsonResponse($this->workshopService->applyMaintenancePlan($id, $request->toArray()), Response::HTTP_CREATED);
+    }
+
     #[Route('/{id<\d+>}/items/{itemId<\d+>}', name: 'workshop_remove_item', methods: ['DELETE'])]
     #[IsGranted('workshop.orders.edit')]
     public function removeItem(int $id, int $itemId): JsonResponse
