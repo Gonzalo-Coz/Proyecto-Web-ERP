@@ -45,6 +45,10 @@ class ServiceOrderItem
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2)]
     private string $lineTotal;
 
+    /** true = proviene del plan de mantenimiento (principal); false = adicional. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $fromPlan = false;
+
     public function __construct(ServiceOrder $order, string $itemType, string $description, int $quantity, float $unitPrice)
     {
         $this->serviceOrder = $order;
@@ -53,6 +57,16 @@ class ServiceOrderItem
         $this->quantity = $quantity;
         $this->unitPrice = number_format($unitPrice, 2, '.', '');
         $this->lineTotal = number_format($quantity * $unitPrice, 2, '.', '');
+    }
+
+    public function isFromPlan(): bool
+    {
+        return $this->fromPlan;
+    }
+
+    public function setFromPlan(bool $v): void
+    {
+        $this->fromPlan = $v;
     }
 
     public function getId(): ?int

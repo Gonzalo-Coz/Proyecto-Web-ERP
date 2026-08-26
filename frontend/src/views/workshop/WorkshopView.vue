@@ -13,7 +13,7 @@ import type { PageMeta } from '@/types/common'
 import type { CustomerItem } from '@/types/masters'
 import type { UnitItem } from '@/types/motorcycles'
 import type { SparePartItem } from '@/types/inventory'
-import { ORDER_STATUSES, type OrderStatus, type ServiceOrderSummary } from '@/types/workshop'
+import { ORDER_STATUSES, type OrderStatus, type ServiceOrderItem, type ServiceOrderSummary } from '@/types/workshop'
 import type { MaintenancePlanActivity, MaintenancePlanModel, MaintenancePlanServiceDetail } from '@/types/maintenance'
 
 const auth = useAuthStore()
@@ -44,6 +44,7 @@ const saving = ref(false)
 const formError = ref('')
 const form = reactive({
   customerId: 0,
+  broughtBy: null as string | null,
   motorcycleUnitId: null as number | null,
   motorcycleDescription: null as string | null,
   plate: null as string | null,
@@ -87,6 +88,13 @@ function partAvailable(p: { inInventory: boolean; stock: number | null; quantity
 }
 
 const selectedPlanModel = computed(() => planModels.value.find((m) => m.id === planForm.planId) ?? null)
+
+// Ítems separados: mantenimiento programado (del plan) vs adicionales (manuales).
+const planItems = computed<ServiceOrderItem[]>(() => detail.value?.items?.filter((i) => i.fromPlan) ?? [])
+const extraItems = computed<ServiceOrderItem[]>(() => detail.value?.items?.filter((i) => !i.fromPlan) ?? [])
+function sumItems(list: ServiceOrderItem[]): number {
+  return list.reduce((a, i) => a + Number(i.lineTotal), 0)
+}
 
 /** Etiqueta y color de cada acción de la leyenda (I/R/A/E/L). */
 const ACTION_LABEL: Record<string, string> = {
@@ -181,6 +189,7 @@ function onSearch(): void {
 function openCreate(): void {
   Object.assign(form, {
     customerId: customers.value[0]?.id ?? 0,
+    broughtBy: null,
     motorcycleUnitId: null,
     motorcycleDescription: null,
     plate: null,
@@ -371,11 +380,16 @@ onMounted(async () => {
     <!-- Recepción -->
     <BaseModal :open="modalOpen" title="Recepción de motocicleta" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
-        <FormField label="Cliente" required>
-          <select v-model.number="form.customerId" class="form-input" required>
-            <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.documentNumber }})</option>
-          </select>
-        </FormField>
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Cliente (titular)" required>
+            <select v-model.number="form.customerId" class="form-input" required>
+              <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.documentNumber }})</option>
+            </select>
+          </FormField>
+          <FormField label="Ingresa / a nombre de (opcional)">
+            <input v-model="form.broughtBy" class="form-input" maxlength="150" placeholder="Quién trae la moto, si es distinto" />
+          </FormField>
+        </div>
         <FormField label="Unidad vendida por la empresa (expediente digital)">
           <select v-model.number="form.motorcycleUnitId" class="form-input">
             <option :value="null">— Motocicleta externa —</option>
@@ -426,12 +440,16 @@ onMounted(async () => {
     <BaseModal :open="detail !== null" :title="`${detail?.orderNumber} — ${detail?.customerName}`" size="xl" @close="detail = null">
       <div v-if="detail" class="space-y-4 text-sm">
         <div class="grid grid-cols-2 gap-2 text-gray-600">
+          <p>Cliente (titular): <strong class="text-gray-900">{{ detail.customerName }}</strong> <span v-if="detail.customerDocument" class="text-xs text-gray-400">({{ detail.customerDocument }})</span></p>
+          <p v-if="detail.broughtBy">Ingresa / a nombre de: <strong class="text-gray-900">{{ detail.broughtBy }}</strong></p>
           <p>Motocicleta: <strong class="text-gray-900">{{ detail.motorcycleLabel }}</strong></p>
+          <p>Placa: <strong class="text-gray-900">{{ detail.plate ?? '—' }}</strong></p>
           <p>Kilometraje: <strong class="text-gray-900">{{ detail.mileage ?? '—' }}</strong></p>
           <p>Ingreso: <strong class="text-gray-900">{{ detail.entryDate }}</strong></p>
           <p>Estimada: <strong class="text-gray-900">{{ detail.estimatedDate ?? '—' }}</strong></p>
           <p>Mecánico: <strong class="text-gray-900">{{ detail.mechanicName ?? '—' }}</strong></p>
-          <p>Diagnóstico: <strong class="text-gray-900">{{ detail.diagnosis ?? '—' }}</strong></p>
+          <p class="col-span-2">Diagnóstico: <strong class="text-gray-900">{{ detail.diagnosis ?? '—' }}</strong></p>
+          <p v-if="detail.notes" class="col-span-2">Observaciones: <strong class="text-gray-900">{{ detail.notes }}</strong></p>
         </div>
 
         <!-- Estado -->
@@ -550,32 +568,54 @@ onMounted(async () => {
           </div>
         </div>
 
-        <!-- Items -->
-        <table class="w-full text-left">
-          <thead class="text-xs uppercase text-gray-500">
-            <tr><th class="py-1">Tipo</th><th class="py-1">Descripción</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Total</th><th /></tr>
-          </thead>
-          <tbody>
-            <tr v-if="!detail.items?.length"><td colspan="6" class="py-3 text-center text-gray-400">Sin trabajos registrados.</td></tr>
-            <tr v-for="i in detail.items" :key="i.id" class="border-t border-gray-100">
-              <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
-              <td class="py-1">{{ i.description }}</td>
-              <td class="py-1 text-right">{{ i.quantity }}</td>
-              <td class="py-1 text-right">{{ i.unitPrice }}</td>
-              <td class="py-1 text-right">{{ i.lineTotal }}</td>
-              <td class="py-1 text-right">
-                <button
-                  v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt"
-                  class="text-xs text-red-600 hover:underline"
-                  @click="doRemoveItem(i.id)"
-                >
-                  Retirar
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="text-right">Total de la orden: <strong>S/ {{ detail.total }}</strong></p>
+        <!-- Items agrupados: mantenimiento programado vs adicionales -->
+        <p v-if="!detail.items?.length" class="py-3 text-center text-sm text-gray-400">Sin trabajos registrados.</p>
+
+        <div v-if="planItems.length" class="mb-3">
+          <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-primary-700">Mantenimiento programado</p>
+          <table class="w-full text-left">
+            <thead class="text-xs uppercase text-gray-500">
+              <tr><th class="py-1">Tipo</th><th class="py-1">Descripción</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Total</th><th /></tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in planItems" :key="i.id" class="border-t border-gray-100">
+                <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
+                <td class="py-1">{{ i.description }}</td>
+                <td class="py-1 text-right">{{ i.quantity }}</td>
+                <td class="py-1 text-right">{{ i.unitPrice }}</td>
+                <td class="py-1 text-right">{{ i.lineTotal }}</td>
+                <td class="py-1 text-right">
+                  <button v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-right text-xs text-gray-500">Subtotal programado: <strong class="text-gray-700">S/ {{ sumItems(planItems).toFixed(2) }}</strong></p>
+        </div>
+
+        <div v-if="extraItems.length" class="mb-3">
+          <p class="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-700">Adicionales (repuestos y/o trabajos)</p>
+          <table class="w-full text-left">
+            <thead class="text-xs uppercase text-gray-500">
+              <tr><th class="py-1">Tipo</th><th class="py-1">Descripción</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Total</th><th /></tr>
+            </thead>
+            <tbody>
+              <tr v-for="i in extraItems" :key="i.id" class="border-t border-gray-100">
+                <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
+                <td class="py-1">{{ i.description }}</td>
+                <td class="py-1 text-right">{{ i.quantity }}</td>
+                <td class="py-1 text-right">{{ i.unitPrice }}</td>
+                <td class="py-1 text-right">{{ i.lineTotal }}</td>
+                <td class="py-1 text-right">
+                  <button v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="text-right text-xs text-gray-500">Subtotal adicionales: <strong class="text-gray-700">S/ {{ sumItems(extraItems).toFixed(2) }}</strong></p>
+        </div>
+
+        <p class="border-t border-gray-200 pt-2 text-right text-base">Total de la orden: <strong>S/ {{ detail.total }}</strong></p>
 
         <!-- Agregar item -->
         <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="rounded-lg border border-gray-200 p-3">

@@ -53,6 +53,10 @@ class ServiceOrder
     #[ORM\Column(length: 10, nullable: true)]
     private ?string $plate = null;
 
+    /** Quién ingresa la moto / a nombre de otra persona (opcional). */
+    #[ORM\Column(length: 150, nullable: true)]
+    private ?string $broughtBy = null;
+
     #[ORM\Column(nullable: true)]
     private ?int $mileage = null;
 
@@ -140,6 +144,16 @@ class ServiceOrder
     public function setPlate(?string $v): void
     {
         $this->plate = $v !== null ? strtoupper($v) : null;
+    }
+
+    public function getBroughtBy(): ?string
+    {
+        return $this->broughtBy;
+    }
+
+    public function setBroughtBy(?string $v): void
+    {
+        $this->broughtBy = $v !== null && trim($v) !== '' ? trim($v) : null;
     }
 
     public function getMileage(): ?int

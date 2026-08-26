@@ -103,6 +103,7 @@ final class WorkshopService
 
             $order->setMotorcycleDescription($description !== '' ? $description : null);
             $order->setPlate(isset($data['plate']) ? (string) $data['plate'] : null);
+            $order->setBroughtBy(isset($data['broughtBy']) ? (string) $data['broughtBy'] : null);
             $order->setMileage(isset($data['mileage']) && $data['mileage'] !== null ? (int) $data['mileage'] : null);
             $order->setEstimatedDate(isset($data['estimatedDate']) && $data['estimatedDate'] ? new \DateTimeImmutable((string) $data['estimatedDate']) : null);
             $order->setMechanicName(isset($data['mechanicName']) ? (string) $data['mechanicName'] : null);
@@ -210,6 +211,7 @@ final class WorkshopService
                 1,
                 $laborFree ? 0.0 : round($laborCost, 2),
             );
+            $laborItem->setFromPlan(true);
             $order->addItem($laborItem);
             $this->entityManager->persist($laborItem);
 
@@ -245,6 +247,7 @@ final class WorkshopService
 
                 $item = new ServiceOrderItem($order, 'PART', $part->getDescription(), $qty, (float) ($part->getSalePrice() ?? 0));
                 $item->setSparePart($part);
+                $item->setFromPlan(true);
                 $order->addItem($item);
                 $this->entityManager->persist($item);
             }
@@ -370,6 +373,8 @@ final class WorkshopService
             'orderNumber' => $o->getOrderNumber(),
             'customerId' => $o->getCustomer()->getId(),
             'customerName' => $o->getCustomer()->getName(),
+            'customerDocument' => $o->getCustomer()->getDocumentNumber(),
+            'broughtBy' => $o->getBroughtBy(),
             'motorcycleUnitId' => $o->getMotorcycleUnit()?->getId(),
             'motorcycleLabel' => $o->getMotorcycleUnit() !== null
                 ? sprintf('%s — VIN %s', $o->getMotorcycleUnit()->getModel()->getFullName(), $o->getMotorcycleUnit()->getVin())
@@ -396,6 +401,7 @@ final class WorkshopService
                 'quantity' => $i->getQuantity(),
                 'unitPrice' => $i->getUnitPrice(),
                 'lineTotal' => $i->getLineTotal(),
+                'fromPlan' => $i->isFromPlan(),
             ], $o->getItems()->toArray());
         }
 

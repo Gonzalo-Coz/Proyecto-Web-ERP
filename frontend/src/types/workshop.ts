@@ -12,6 +12,8 @@ export interface ServiceOrderItem {
   quantity: number
   unitPrice: string
   lineTotal: string
+  /** true = proviene del plan de mantenimiento (principal); false = adicional. */
+  fromPlan?: boolean
 }
 
 export interface ServiceOrderSummary {
@@ -19,6 +21,8 @@ export interface ServiceOrderSummary {
   orderNumber: string
   customerId: number
   customerName: string
+  customerDocument?: string
+  broughtBy?: string | null
   motorcycleUnitId: number | null
   motorcycleLabel: string | null
   plate: string | null
@@ -39,6 +43,7 @@ export interface ServiceOrderSummary {
 
 export interface ServiceOrderPayload {
   customerId: number
+  broughtBy: string | null
   motorcycleUnitId: number | null
   motorcycleDescription: string | null
   plate: string | null
