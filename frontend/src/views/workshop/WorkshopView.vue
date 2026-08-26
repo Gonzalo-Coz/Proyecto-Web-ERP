@@ -442,6 +442,9 @@ onMounted(async () => {
         <div class="grid grid-cols-2 gap-2 text-gray-600">
           <p>Cliente (titular): <strong class="text-gray-900">{{ detail.customerName }}</strong> <span v-if="detail.customerDocument" class="text-xs text-gray-400">({{ detail.customerDocument }})</span></p>
           <p v-if="detail.broughtBy">Ingresa / a nombre de: <strong class="text-gray-900">{{ detail.broughtBy }}</strong></p>
+          <p v-if="detail.planModel" class="col-span-2 rounded bg-primary-50 px-2 py-1">
+            Plan de mantenimiento: <strong class="text-primary-700">{{ detail.planModel }} — {{ detail.planKm?.toLocaleString('es-PE') }} km</strong>
+          </p>
           <p>Motocicleta: <strong class="text-gray-900">{{ detail.motorcycleLabel }}</strong></p>
           <p>Placa: <strong class="text-gray-900">{{ detail.plate ?? '—' }}</strong></p>
           <p>Kilometraje: <strong class="text-gray-900">{{ detail.mileage ?? '—' }}</strong></p>

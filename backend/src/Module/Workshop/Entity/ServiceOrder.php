@@ -57,6 +57,13 @@ class ServiceOrder
     #[ORM\Column(length: 150, nullable: true)]
     private ?string $broughtBy = null;
 
+    /** Plan de mantenimiento aplicado (modelo y kilometraje), si se cargó uno. */
+    #[ORM\Column(length: 60, nullable: true)]
+    private ?string $planModel = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $planKm = null;
+
     #[ORM\Column(nullable: true)]
     private ?int $mileage = null;
 
@@ -154,6 +161,22 @@ class ServiceOrder
     public function setBroughtBy(?string $v): void
     {
         $this->broughtBy = $v !== null && trim($v) !== '' ? trim($v) : null;
+    }
+
+    public function getPlanModel(): ?string
+    {
+        return $this->planModel;
+    }
+
+    public function getPlanKm(): ?int
+    {
+        return $this->planKm;
+    }
+
+    public function setPlan(?string $model, ?int $km): void
+    {
+        $this->planModel = $model;
+        $this->planKm = $km;
     }
 
     public function getMileage(): ?int

@@ -22,11 +22,15 @@ final class Version20260826120000 extends AbstractMigration
     {
         $this->addSql("ALTER TABLE service_order_items ADD COLUMN IF NOT EXISTS from_plan BOOLEAN DEFAULT false NOT NULL");
         $this->addSql("ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS brought_by VARCHAR(150) DEFAULT NULL");
+        $this->addSql("ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS plan_model VARCHAR(60) DEFAULT NULL");
+        $this->addSql("ALTER TABLE service_orders ADD COLUMN IF NOT EXISTS plan_km INT DEFAULT NULL");
     }
 
     public function down(Schema $schema): void
     {
         $this->addSql('ALTER TABLE service_order_items DROP COLUMN IF EXISTS from_plan');
         $this->addSql('ALTER TABLE service_orders DROP COLUMN IF EXISTS brought_by');
+        $this->addSql('ALTER TABLE service_orders DROP COLUMN IF EXISTS plan_model');
+        $this->addSql('ALTER TABLE service_orders DROP COLUMN IF EXISTS plan_km');
     }
 }

@@ -23,6 +23,8 @@ export interface ServiceOrderSummary {
   customerName: string
   customerDocument?: string
   broughtBy?: string | null
+  planModel?: string | null
+  planKm?: number | null
   motorcycleUnitId: number | null
   motorcycleLabel: string | null
   plate: string | null

@@ -195,6 +195,9 @@ final class WorkshopService
         return $this->entityManager->wrapInTransaction(function () use ($order, $plan, $selected): array {
             $warnings = [];
 
+            // Deja registrado el plan aplicado para que quede visible al revisar la orden.
+            $order->setPlan((string) $plan['model'], (int) $plan['km']);
+
             // 1) Mano de obra del plan (una línea LABOR). Si el plan no trae costo
             //    (modelo sin tarifa), se agrega en 0 para que el mecánico lo defina.
             $laborCost = isset($plan['labor']['cost']) ? (float) $plan['labor']['cost'] : 0.0;
@@ -375,6 +378,8 @@ final class WorkshopService
             'customerName' => $o->getCustomer()->getName(),
             'customerDocument' => $o->getCustomer()->getDocumentNumber(),
             'broughtBy' => $o->getBroughtBy(),
+            'planModel' => $o->getPlanModel(),
+            'planKm' => $o->getPlanKm(),
             'motorcycleUnitId' => $o->getMotorcycleUnit()?->getId(),
             'motorcycleLabel' => $o->getMotorcycleUnit() !== null
                 ? sprintf('%s — VIN %s', $o->getMotorcycleUnit()->getModel()->getFullName(), $o->getMotorcycleUnit()->getVin())
