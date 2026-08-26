@@ -10,6 +10,8 @@ export interface MaintenancePlanPart {
   description: string
   unit: string
   quantity: number
+  /** Acción de la leyenda para el repuesto (en el kit siempre 'R' = Reemplazar). */
+  action?: string
   sparePartId: number | null
   internalCode: string | null
   salePrice: string | null

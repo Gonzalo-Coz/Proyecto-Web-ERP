@@ -96,6 +96,8 @@ final class MaintenancePlanService
                 'description' => $p['description'],
                 'unit' => $p['unit'],
                 'quantity' => $p['qty'],
+                // Acción de la leyenda: en el kit siempre es R (Reemplazar / Cambiar).
+                'action' => 'R',
                 // Enlace al inventario (por código de parte).
                 'sparePartId' => $sp?->getId(),
                 'internalCode' => $sp?->getInternalCode(),

@@ -57,13 +57,18 @@ const form = reactive({
 
 const detail = ref<ServiceOrderSummary | null>(null)
 const detailError = ref('')
-const itemForm = reactive({
-  itemType: 'LABOR' as 'PART' | 'LABOR',
-  sparePartId: null as number | null,
-  description: '',
-  quantity: 1,
-  unitPrice: 0,
-})
+// Alta múltiple: varias filas de trabajo/repuesto a la vez ("más casillas").
+interface DraftItem {
+  itemType: 'PART' | 'LABOR'
+  sparePartId: number | null
+  description: string
+  quantity: number
+  unitPrice: number
+}
+function blankDraft(): DraftItem {
+  return { itemType: 'LABOR', sparePartId: spareParts.value[0]?.id ?? null, description: '', quantity: 1, unitPrice: 0 }
+}
+const draftItems = ref<DraftItem[]>([blankDraft()])
 const newStatus = ref<OrderStatus>('RECIBIDA')
 
 // --- Plan de mantenimiento por kilometraje ---
@@ -210,7 +215,7 @@ async function openDetail(row: ServiceOrderSummary): Promise<void> {
   detail.value = await workshopService.get(row.id)
   newStatus.value = detail.value.status
   detailError.value = ''
-  Object.assign(itemForm, { itemType: 'LABOR', sparePartId: spareParts.value[0]?.id ?? null, description: '', quantity: 1, unitPrice: 0 })
+  draftItems.value = [blankDraft()]
   // Reinicia el cargador de plan de mantenimiento para esta orden.
   planForm.planId = null
   planForm.km = null
@@ -220,15 +225,38 @@ async function openDetail(row: ServiceOrderSummary): Promise<void> {
   Object.keys(planPartSel).forEach((k) => delete planPartSel[k])
 }
 
-async function doAddItem(): Promise<void> {
+function addDraftRow(): void {
+  draftItems.value.push(blankDraft())
+}
+function removeDraftRow(i: number): void {
+  draftItems.value.splice(i, 1)
+  if (!draftItems.value.length) draftItems.value.push(blankDraft())
+}
+
+/** Agrega TODAS las filas completadas a la orden (una llamada por fila). */
+async function submitDrafts(): Promise<void> {
   if (!detail.value) return
   detailError.value = ''
+  const orderId = detail.value.id
+  const rows = draftItems.value.filter((d) => (d.itemType === 'PART' ? d.sparePartId != null : d.description.trim() !== ''))
+  if (!rows.length) {
+    detailError.value = 'Completa al menos una fila (descripción o repuesto).'
+    return
+  }
   try {
-    detail.value = await workshopService.addItem(detail.value.id, { ...itemForm })
-    Object.assign(itemForm, { description: '', quantity: 1, unitPrice: 0 })
+    for (const d of rows) {
+      detail.value = await workshopService.addItem(orderId, {
+        itemType: d.itemType,
+        sparePartId: d.sparePartId,
+        description: d.description,
+        quantity: d.quantity,
+        unitPrice: d.unitPrice,
+      })
+    }
+    draftItems.value = [blankDraft()]
     await load(meta.value?.page ?? 1)
   } catch (e: any) {
-    detailError.value = e.response?.data?.detail ?? 'No se pudo agregar la línea.'
+    detailError.value = e.response?.data?.detail ?? 'No se pudo agregar alguna línea.'
   }
 }
 
@@ -489,7 +517,10 @@ onMounted(async () => {
                   <td class="py-1">
                     <input v-model="planPartSel[p.code]" type="checkbox" :disabled="!partAvailable(p) || planApplied" />
                   </td>
-                  <td class="py-1">{{ p.description }} <span :class="partAvailable(p) ? 'text-gray-400' : 'text-red-400'">({{ p.code }})</span></td>
+                  <td class="py-1">
+                    <span class="mr-1 inline-flex h-4 w-4 items-center justify-center rounded font-bold" :class="ACTION_COLOR[p.action ?? 'R']" :title="ACTION_LABEL[p.action ?? 'R']">{{ p.action ?? 'R' }}</span>
+                    {{ p.description }} <span :class="partAvailable(p) ? 'text-gray-400' : 'text-red-400'">({{ p.code }})</span>
+                  </td>
                   <td class="py-1 text-right">{{ p.quantity }}</td>
                   <td class="py-1 text-right">{{ p.inInventory ? `S/ ${Number(p.salePrice ?? 0).toFixed(2)}` : '—' }}</td>
                   <td class="py-1 text-right font-medium">
@@ -499,7 +530,8 @@ onMounted(async () => {
               </tbody>
             </table>
             <p class="text-[11px] text-gray-400">
-              En rojo: sin stock o no cargados en inventario (no se cargan). Puedes destildar los que no uses, y agregar o retirar repuestos en la orden después de cargar.
+              <span class="inline-flex h-3.5 w-3.5 items-center justify-center rounded bg-red-100 text-[9px] font-bold text-red-700">R</span>
+              Reemplazar / Cambiar. En rojo: sin stock o no cargados en inventario (no se cargan). Puedes destildar los que no uses, y agregar o retirar repuestos en la orden después de cargar.
             </p>
             <div class="flex justify-end">
               <span v-if="planApplied" class="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
@@ -548,32 +580,36 @@ onMounted(async () => {
         <!-- Agregar item -->
         <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="rounded-lg border border-gray-200 p-3">
           <p class="mb-2 text-xs font-semibold uppercase text-gray-500">Agregar trabajo o repuesto</p>
-          <div class="grid grid-cols-12 items-end gap-2">
+          <div v-for="(d, i) in draftItems" :key="i" class="mb-2 grid grid-cols-12 items-end gap-2">
             <div class="col-span-2">
-              <label class="form-label text-xs">Tipo</label>
-              <select v-model="itemForm.itemType" class="form-input">
+              <label v-if="i === 0" class="form-label text-xs">Tipo</label>
+              <select v-model="d.itemType" class="form-input">
                 <option value="LABOR">Mano de obra</option>
                 <option value="PART">Repuesto</option>
               </select>
             </div>
             <div class="col-span-5">
-              <label class="form-label text-xs">{{ itemForm.itemType === 'PART' ? 'Repuesto (descuenta stock)' : 'Descripción' }}</label>
-              <select v-if="itemForm.itemType === 'PART'" v-model.number="itemForm.sparePartId" class="form-input">
+              <label v-if="i === 0" class="form-label text-xs">{{ d.itemType === 'PART' ? 'Repuesto (descuenta stock)' : 'Descripción' }}</label>
+              <select v-if="d.itemType === 'PART'" v-model.number="d.sparePartId" class="form-input">
                 <option v-for="p in spareParts" :key="p.id" :value="p.id">{{ p.internalCode }} · {{ p.partCode }} — {{ p.description }} (stock {{ p.stock }})</option>
               </select>
-              <input v-else v-model="itemForm.description" class="form-input" placeholder="Cambio de aceite y filtro" />
+              <input v-else v-model="d.description" class="form-input" placeholder="Cambio de aceite y filtro" />
             </div>
             <div class="col-span-2">
-              <label class="form-label text-xs">Cant.</label>
-              <input v-model.number="itemForm.quantity" type="number" min="1" class="form-input" />
+              <label v-if="i === 0" class="form-label text-xs">Cant.</label>
+              <input v-model.number="d.quantity" type="number" min="1" class="form-input" />
             </div>
             <div class="col-span-2">
-              <label class="form-label text-xs">P. Unit.</label>
-              <input v-model.number="itemForm.unitPrice" type="number" step="0.01" min="0" class="form-input" />
+              <label v-if="i === 0" class="form-label text-xs">P. Unit.</label>
+              <input v-model.number="d.unitPrice" type="number" step="0.01" min="0" class="form-input" />
             </div>
             <div class="col-span-1">
-              <button class="btn-primary !px-3" @click="doAddItem">+</button>
+              <button class="btn-secondary !px-2 !text-red-600" title="Quitar fila" @click="removeDraftRow(i)">✕</button>
             </div>
+          </div>
+          <div class="mt-1 flex items-center justify-between">
+            <button class="text-xs font-medium text-primary-600 hover:underline" @click="addDraftRow">+ agregar otra fila</button>
+            <button class="btn-primary" @click="submitDrafts">Agregar a la orden</button>
           </div>
         </div>
 
