@@ -74,9 +74,11 @@ final class SaleService
         if ($customerId > 0) {
             $qb->andWhere('c.id = :cid')->setParameter('cid', $customerId);
         }
-        // Solo ventas con saldo por cobrar (completadas no pagadas del todo).
+        // Solo ventas con saldo por cobrar: completadas, con comprobante ACEPTADO
+        // (aprobadas) y no pagadas del todo. Coincide con el total del dashboard.
         if ($pendingOnly) {
-            $qb->andWhere("v.status = 'COMPLETADA' AND (v.total - v.paidAmount) > 0.009");
+            $qb->andWhere("v.status = 'COMPLETADA' AND (v.total - v.paidAmount) > 0.009")
+                ->andWhere('EXISTS (SELECT 1 FROM App\Module\Invoicing\Entity\ElectronicDocument d WHERE d.sale = v AND d.status = \'ACEPTADO\')');
         }
 
         $paginator = new Paginator($qb->getQuery());

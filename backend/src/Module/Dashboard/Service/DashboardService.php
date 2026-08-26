@@ -31,22 +31,30 @@ final class DashboardService
         ];
     }
 
+    /**
+     * Condición contable de "venta aprobada": completada Y con comprobante
+     * ACEPTADO por SUNAT. Excluye anuladas, rechazadas y las que aún no tienen
+     * comprobante aceptado. (Alias de la tabla de ventas: s.)
+     */
+    private const APPROVED_SALE = "s.status = 'COMPLETADA' AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')";
+
     private function sales(): array
     {
-        $base = "SELECT COALESCE(SUM(total), 0) FROM sales WHERE status = 'COMPLETADA'";
+        $approved = self::APPROVED_SALE;
+        $base = "SELECT COALESCE(SUM(s.total), 0) FROM sales s WHERE $approved";
 
         return [
-            'today' => $this->scalar($base." AND sale_date = CURRENT_DATE"),
-            'week' => $this->scalar($base." AND sale_date >= date_trunc('week', CURRENT_DATE)::date"),
-            'month' => $this->scalar($base." AND sale_date >= date_trunc('month', CURRENT_DATE)::date"),
-            'year' => $this->scalar($base." AND sale_date >= date_trunc('year', CURRENT_DATE)::date"),
+            'today' => $this->scalar($base." AND s.sale_date = CURRENT_DATE"),
+            'week' => $this->scalar($base." AND s.sale_date >= date_trunc('week', CURRENT_DATE)::date"),
+            'month' => $this->scalar($base." AND s.sale_date >= date_trunc('month', CURRENT_DATE)::date"),
+            'year' => $this->scalar($base." AND s.sale_date >= date_trunc('year', CURRENT_DATE)::date"),
             'totalBilled' => $this->scalar($base),
-            'totalCollected' => $this->scalar("SELECT COALESCE(SUM(paid_amount), 0) FROM sales WHERE status != 'ANULADA'"),
-            'receivables' => $this->scalar("SELECT COALESCE(SUM(total - paid_amount), 0) FROM sales WHERE status = 'COMPLETADA'"),
+            'totalCollected' => $this->scalar("SELECT COALESCE(SUM(s.paid_amount), 0) FROM sales s WHERE $approved"),
+            'receivables' => $this->scalar("SELECT COALESCE(SUM(s.total - s.paid_amount), 0) FROM sales s WHERE $approved"),
             'bySeller' => $this->db->fetchAllAssociative(
-                "SELECT seller, COALESCE(SUM(total), 0) AS total, COUNT(*) AS count
-                 FROM sales WHERE status = 'COMPLETADA' AND sale_date >= date_trunc('month', CURRENT_DATE)::date
-                 GROUP BY seller ORDER BY total DESC LIMIT 5",
+                "SELECT s.seller, COALESCE(SUM(s.total), 0) AS total, COUNT(*) AS count
+                 FROM sales s WHERE $approved AND s.sale_date >= date_trunc('month', CURRENT_DATE)::date
+                 GROUP BY s.seller ORDER BY total DESC LIMIT 5",
             ),
             'trend' => $this->salesTrend(),
         ];
@@ -60,11 +68,12 @@ final class DashboardService
      */
     private function salesTrend(): array
     {
+        $approved = self::APPROVED_SALE;
         $rows = $this->db->fetchAllKeyValue(
-            "SELECT to_char(date_trunc('month', sale_date), 'YYYY-MM') AS ym, COALESCE(SUM(total), 0) AS total
-             FROM sales
-             WHERE status = 'COMPLETADA'
-               AND sale_date >= (date_trunc('month', CURRENT_DATE) - interval '5 months')::date
+            "SELECT to_char(date_trunc('month', s.sale_date), 'YYYY-MM') AS ym, COALESCE(SUM(s.total), 0) AS total
+             FROM sales s
+             WHERE $approved
+               AND s.sale_date >= (date_trunc('month', CURRENT_DATE) - interval '5 months')::date
              GROUP BY 1",
         );
 
@@ -203,7 +212,7 @@ final class DashboardService
             $alerts[] = ['level' => 'warning', 'message' => sprintf('%d orden(es) de taller retrasada(s).', $delayed), 'link' => ['name' => 'workshop']];
         }
 
-        $receivables = (float) $this->scalar("SELECT COALESCE(SUM(total - paid_amount), 0) FROM sales WHERE status = 'COMPLETADA'");
+        $receivables = (float) $this->scalar('SELECT COALESCE(SUM(s.total - s.paid_amount), 0) FROM sales s WHERE '.self::APPROVED_SALE);
         if ($receivables > 0.009) {
             $alerts[] = ['level' => 'info', 'message' => sprintf('Cuentas por cobrar pendientes: S/ %.2f.', $receivables), 'link' => ['name' => 'sales', 'query' => ['pending' => '1']]];
         }
