@@ -184,18 +184,31 @@ final class WorkshopService
 
         $plan = $this->maintenancePlans->getService($planId, $km);
 
-        return $this->entityManager->wrapInTransaction(function () use ($order, $plan): array {
+        // Selección opcional de repuestos a cargar (IDs de repuesto elegidos por
+        // el mecánico). Si no se envía, se cargan todos los disponibles del kit.
+        $selected = null;
+        if (isset($data['sparePartIds']) && is_array($data['sparePartIds'])) {
+            $selected = array_map('intval', $data['sparePartIds']);
+        }
+
+        return $this->entityManager->wrapInTransaction(function () use ($order, $plan, $selected): array {
             $warnings = [];
 
             // 1) Mano de obra del plan (una línea LABOR). Si el plan no trae costo
             //    (modelo sin tarifa), se agrega en 0 para que el mecánico lo defina.
             $laborCost = isset($plan['labor']['cost']) ? (float) $plan['labor']['cost'] : 0.0;
+            $laborFree = !empty($plan['labor']['free']); // primeros 3 servicios: gratuitos
             $laborItem = new ServiceOrderItem(
                 $order,
                 'LABOR',
-                sprintf('Mantenimiento %s - %s km (mano de obra)', $plan['model'], number_format((int) $plan['km'], 0, '.', ',')),
+                sprintf(
+                    'Mantenimiento %s - %s km (mano de obra%s)',
+                    $plan['model'],
+                    number_format((int) $plan['km'], 0, '.', ','),
+                    $laborFree ? ', gratuito' : '',
+                ),
                 1,
-                round($laborCost, 2),
+                $laborFree ? 0.0 : round($laborCost, 2),
             );
             $order->addItem($laborItem);
             $this->entityManager->persist($laborItem);
@@ -205,6 +218,10 @@ final class WorkshopService
                 $qty = max(1, (int) round((float) ($p['quantity'] ?? 1)));
                 if (empty($p['inInventory']) || $p['sparePartId'] === null) {
                     $warnings[] = sprintf('%s %s: no está en inventario (agrégalo manualmente).', $p['code'], $p['description']);
+                    continue;
+                }
+                // Si el mecánico eligió una selección, se omiten los no marcados.
+                if ($selected !== null && !in_array((int) $p['sparePartId'], $selected, true)) {
                     continue;
                 }
                 $part = $this->sparePartRepository->find((int) $p['sparePartId']);

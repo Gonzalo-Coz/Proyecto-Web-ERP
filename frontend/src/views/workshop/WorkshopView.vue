@@ -14,7 +14,7 @@ import type { CustomerItem } from '@/types/masters'
 import type { UnitItem } from '@/types/motorcycles'
 import type { SparePartItem } from '@/types/inventory'
 import { ORDER_STATUSES, type OrderStatus, type ServiceOrderSummary } from '@/types/workshop'
-import type { MaintenancePlanModel, MaintenancePlanServiceDetail } from '@/types/maintenance'
+import type { MaintenancePlanActivity, MaintenancePlanModel, MaintenancePlanServiceDetail } from '@/types/maintenance'
 
 const auth = useAuthStore()
 
@@ -72,22 +72,59 @@ const planForm = reactive({ planId: null as number | null, km: null as number | 
 const planPreview = ref<MaintenancePlanServiceDetail | null>(null)
 const planWarnings = ref<string[]>([])
 const planLoading = ref(false)
+const planApplied = ref(false)
+// Selección de repuestos del kit a cargar (por código). Los no disponibles no se pueden marcar.
+const planPartSel = reactive<Record<string, boolean>>({})
+
+/** Un repuesto está disponible si está en inventario y tiene stock suficiente. */
+function partAvailable(p: { inInventory: boolean; stock: number | null; quantity: number }): boolean {
+  return p.inInventory && (p.stock ?? 0) >= p.quantity
+}
 
 const selectedPlanModel = computed(() => planModels.value.find((m) => m.id === planForm.planId) ?? null)
 
+/** Etiqueta y color de cada acción de la leyenda (I/R/A/E/L). */
+const ACTION_LABEL: Record<string, string> = {
+  I: 'Inspeccionar', R: 'Reemplazar', A: 'Ajustar', E: 'Engrasar / Lubricar', L: 'Limpiar',
+}
+const ACTION_COLOR: Record<string, string> = {
+  I: 'bg-blue-100 text-blue-700', R: 'bg-red-100 text-red-700', A: 'bg-amber-100 text-amber-700',
+  E: 'bg-emerald-100 text-emerald-700', L: 'bg-purple-100 text-purple-700',
+}
+
+/** Actividades de la rutina agrupadas por sistema (para la checklist). */
+const planActivityGroups = computed(() => {
+  const groups: { system: string; items: MaintenancePlanActivity[] }[] = []
+  for (const a of planPreview.value?.activities ?? []) {
+    let g = groups.find((x) => x.system === a.system)
+    if (!g) {
+      g = { system: a.system, items: [] }
+      groups.push(g)
+    }
+    g.items.push(a)
+  }
+  return groups
+})
+
 function onPlanModelChange(): void {
   planPreview.value = null
+  planApplied.value = false
   planForm.km = selectedPlanModel.value?.kmIntervals[0] ?? null
 }
 
 async function loadPlanPreview(): Promise<void> {
   planPreview.value = null
+  planApplied.value = false
   const planId = planForm.planId
   const km = planForm.km
   if (!planId || !km) return
   planLoading.value = true
   try {
-    planPreview.value = await maintenanceService.service(planId, km)
+    const svc = await maintenanceService.service(planId, km)
+    planPreview.value = svc
+    // Marca por defecto los repuestos disponibles; los que faltan quedan sin marcar.
+    Object.keys(planPartSel).forEach((k) => delete planPartSel[k])
+    for (const p of svc.parts) planPartSel[p.code] = partAvailable(p)
   } catch {
     detailError.value = 'No se pudo cargar el plan.'
   } finally {
@@ -104,10 +141,14 @@ async function applyPlan(): Promise<void> {
   planWarnings.value = []
   planLoading.value = true
   try {
-    const res = await workshopService.applyPlan(orderId, planId, km)
+    // Solo se cargan los repuestos disponibles que el mecánico dejó marcados.
+    const selectedIds = (planPreview.value?.parts ?? [])
+      .filter((p) => partAvailable(p) && planPartSel[p.code] && p.sparePartId != null)
+      .map((p) => p.sparePartId as number)
+    const res = await workshopService.applyPlan(orderId, planId, km, selectedIds)
     planWarnings.value = res.planWarnings ?? []
     detail.value = res
-    planPreview.value = null
+    planApplied.value = true // se mantiene la checklist visible como guía
     await load(meta.value?.page ?? 1)
   } catch (e: any) {
     detailError.value = e.response?.data?.detail ?? 'No se pudo cargar el plan a la orden.'
@@ -175,6 +216,8 @@ async function openDetail(row: ServiceOrderSummary): Promise<void> {
   planForm.km = null
   planPreview.value = null
   planWarnings.value = []
+  planApplied.value = false
+  Object.keys(planPartSel).forEach((k) => delete planPartSel[k])
 }
 
 async function doAddItem(): Promise<void> {
@@ -403,25 +446,66 @@ onMounted(async () => {
           <div v-if="planPreview" class="mt-3 space-y-2">
             <p class="text-sm text-gray-700">
               Mano de obra:
-              <strong>{{ planPreview.labor?.cost != null ? `S/ ${planPreview.labor.cost.toFixed(2)}` : 'definir manualmente' }}</strong>
+              <strong :class="planPreview.labor?.free ? 'text-emerald-600' : ''">
+                {{ planPreview.labor?.free ? 'Gratuito (mantenimiento incluido)' : planPreview.labor?.cost != null ? `S/ ${planPreview.labor.cost.toFixed(2)}` : 'definir manualmente' }}
+              </strong>
               <span v-if="planPreview.labor?.hours != null" class="text-xs text-gray-400"> · {{ planPreview.labor.hours }} h</span>
               <span class="text-xs text-gray-400"> · {{ planPreview.activities.length }} actividades de revisión</span>
             </p>
+
+            <!-- Checklist de la rutina: qué se hace en cada punto según la leyenda -->
+            <div v-if="planActivityGroups.length" class="rounded-lg border border-gray-200 bg-white p-3">
+              <div class="mb-2 flex items-center justify-between">
+                <p class="text-xs font-semibold uppercase text-gray-500">Rutina del servicio ({{ planPreview.km.toLocaleString('es-PE') }} km)</p>
+                <div class="flex flex-wrap gap-1">
+                  <span v-for="(lab, k) in ACTION_LABEL" :key="k" class="inline-flex items-center gap-1 text-[10px] text-gray-500">
+                    <span class="inline-flex h-4 w-4 items-center justify-center rounded font-bold" :class="ACTION_COLOR[k]">{{ k }}</span>{{ lab }}
+                  </span>
+                </div>
+              </div>
+              <div v-for="g in planActivityGroups" :key="g.system" class="border-t border-gray-100 py-1.5 first:border-t-0">
+                <p class="text-xs font-semibold text-gray-600">{{ g.system }}</p>
+                <ul class="mt-0.5 space-y-0.5">
+                  <li v-for="(a, idx) in g.items" :key="idx" class="flex items-start gap-2 text-xs text-gray-700">
+                    <span class="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded font-bold" :class="ACTION_COLOR[a.action] ?? 'bg-gray-100 text-gray-600'" :title="ACTION_LABEL[a.action] ?? a.action">{{ a.action }}</span>
+                    <span>{{ a.activity }}</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
             <table class="w-full text-left text-xs">
               <thead class="uppercase text-gray-500">
-                <tr><th class="py-1">Repuesto</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Stock</th></tr>
+                <tr>
+                  <th class="w-6 py-1"></th>
+                  <th class="py-1">Repuesto</th>
+                  <th class="py-1 text-right">Cant.</th>
+                  <th class="py-1 text-right">P.Unit</th>
+                  <th class="py-1 text-right">Stock</th>
+                </tr>
               </thead>
               <tbody>
-                <tr v-for="p in planPreview.parts" :key="p.code" class="border-t border-gray-100" :class="p.inInventory ? '' : 'text-orange-600'">
-                  <td class="py-1">{{ p.description }} <span class="text-gray-400">({{ p.code }})</span></td>
+                <tr v-for="p in planPreview.parts" :key="p.code" class="border-t border-gray-100" :class="partAvailable(p) ? '' : 'text-red-600'">
+                  <td class="py-1">
+                    <input v-model="planPartSel[p.code]" type="checkbox" :disabled="!partAvailable(p) || planApplied" />
+                  </td>
+                  <td class="py-1">{{ p.description }} <span :class="partAvailable(p) ? 'text-gray-400' : 'text-red-400'">({{ p.code }})</span></td>
                   <td class="py-1 text-right">{{ p.quantity }}</td>
                   <td class="py-1 text-right">{{ p.inInventory ? `S/ ${Number(p.salePrice ?? 0).toFixed(2)}` : '—' }}</td>
-                  <td class="py-1 text-right">{{ p.inInventory ? p.stock : 'sin ficha' }}</td>
+                  <td class="py-1 text-right font-medium">
+                    {{ !p.inInventory ? 'sin ficha' : (p.stock ?? 0) < p.quantity ? `stock ${p.stock}` : p.stock }}
+                  </td>
                 </tr>
               </tbody>
             </table>
+            <p class="text-[11px] text-gray-400">
+              En rojo: sin stock o no cargados en inventario (no se cargan). Puedes destildar los que no uses, y agregar o retirar repuestos en la orden después de cargar.
+            </p>
             <div class="flex justify-end">
-              <button class="btn-primary" :disabled="planLoading" @click="applyPlan">Cargar a la orden</button>
+              <span v-if="planApplied" class="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
+                ✓ Cargado a la orden
+              </span>
+              <button v-else class="btn-primary" :disabled="planLoading" @click="applyPlan">Cargar a la orden</button>
             </div>
           </div>
 

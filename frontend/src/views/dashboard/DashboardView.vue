@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
+const router = useRouter()
+
+/** Navega al destino de una alerta (si lo tiene). */
+function goToAlert(a: { link?: { name: string; query?: Record<string, string> } }): void {
+  if (a.link?.name) router.push({ name: a.link.name, query: a.link.query ?? {} })
+}
 const data = ref<any>(null)
 const loading = ref(true)
 const forbidden = ref(false)
@@ -66,12 +73,20 @@ const kpis = computed(() => [
           v-for="(a, i) in data.alerts"
           :key="i"
           class="flex items-center gap-2.5 rounded-lg border px-3.5 py-2.5 text-sm"
-          :class="a.level === 'danger' ? 'border-red-200 bg-red-50 text-red-700' : a.level === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-primary-200 bg-primary-50 text-primary-800'"
+          :class="[
+            a.level === 'danger' ? 'border-red-200 bg-red-50 text-red-700' : a.level === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-primary-200 bg-primary-50 text-primary-800',
+            a.link ? 'cursor-pointer transition hover:brightness-95' : '',
+          ]"
+          :role="a.link ? 'button' : undefined"
+          @click="goToAlert(a)"
         >
           <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
           </svg>
-          {{ a.message }}
+          <span class="flex-1">{{ a.message }}</span>
+          <svg v-if="a.link" class="h-4 w-4 shrink-0 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
         </div>
       </div>
 

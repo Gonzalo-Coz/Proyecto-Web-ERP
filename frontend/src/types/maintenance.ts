@@ -27,7 +27,7 @@ export interface MaintenancePlanServiceDetail {
   id: number
   model: string
   km: number
-  labor: { hours: number | null; cost: number | null } | null
+  labor: { hours: number | null; cost: number | null; free?: boolean } | null
   activities: MaintenancePlanActivity[]
   parts: MaintenancePlanPart[]
   legend: Record<string, string>

@@ -34,6 +34,7 @@ final class SaleController
             direction: $request->query->getString('direction', 'desc'),
             status: $request->query->getString('status', ''),
             customerId: $request->query->getInt('customerId', 0),
+            pendingOnly: $request->query->getBoolean('pending', false),
         ));
     }
 

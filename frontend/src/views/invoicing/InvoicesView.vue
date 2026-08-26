@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import FormField from '@/components/ui/FormField.vue'
@@ -136,7 +137,12 @@ async function doConsult(): Promise<void> {
   }
 }
 
-onMounted(() => load())
+onMounted(() => {
+  // Desde el dashboard: ?status=RECHAZADO
+  const qs = useRoute().query.status
+  if (typeof qs === 'string' && qs !== '') statusFilter.value = qs
+  return load()
+})
 </script>
 
 <template>

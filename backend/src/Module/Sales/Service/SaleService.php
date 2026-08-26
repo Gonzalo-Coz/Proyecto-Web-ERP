@@ -51,7 +51,7 @@ final class SaleService
     }
 
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */
-    public function list(int $page, int $perPage, string $search, string $sort, string $direction, string $status, int $customerId): array
+    public function list(int $page, int $perPage, string $search, string $sort, string $direction, string $status, int $customerId, bool $pendingOnly = false): array
     {
         $page = max(1, $page);
         $perPage = min(100, max(1, $perPage));
@@ -73,6 +73,10 @@ final class SaleService
         }
         if ($customerId > 0) {
             $qb->andWhere('c.id = :cid')->setParameter('cid', $customerId);
+        }
+        // Solo ventas con saldo por cobrar (completadas no pagadas del todo).
+        if ($pendingOnly) {
+            $qb->andWhere("v.status = 'COMPLETADA' AND (v.total - v.paidAmount) > 0.009");
         }
 
         $paginator = new Paginator($qb->getQuery());

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
@@ -274,6 +275,9 @@ async function confirmDelete(): Promise<void> {
 }
 
 onMounted(async () => {
+  // Filtro inicial desde el dashboard: ?stock=out | low
+  const qStock = useRoute().query.stock
+  if (qStock === 'out' || qStock === 'low') stockFilter.value = qStock
   await load()
   try {
     dayRate.value = (await api.get('/exchange-rate')).data.sell

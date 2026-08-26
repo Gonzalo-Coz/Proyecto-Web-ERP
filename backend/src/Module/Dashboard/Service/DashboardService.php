@@ -175,12 +175,12 @@ final class DashboardService
 
         $out = (int) $this->scalar('SELECT COUNT(*) FROM spare_parts WHERE deleted_at IS NULL AND is_active = true AND stock <= 0');
         if ($out > 0) {
-            $alerts[] = ['level' => 'danger', 'message' => sprintf('%d repuesto(s) sin stock.', $out)];
+            $alerts[] = ['level' => 'danger', 'message' => sprintf('%d repuesto(s) sin stock.', $out), 'link' => ['name' => 'spare-parts', 'query' => ['stock' => 'out']]];
         }
 
         $low = (int) $this->scalar('SELECT COUNT(*) FROM spare_parts WHERE deleted_at IS NULL AND stock > 0 AND stock <= min_stock');
         if ($low > 0) {
-            $alerts[] = ['level' => 'warning', 'message' => sprintf('%d repuesto(s) con stock bajo.', $low)];
+            $alerts[] = ['level' => 'warning', 'message' => sprintf('%d repuesto(s) con stock bajo.', $low), 'link' => ['name' => 'spare-parts', 'query' => ['stock' => 'low']]];
         }
 
         // Caja mensual: solo avisa si la caja abierta es de un MES anterior (nuevo mes → cerrar y abrir otra).
@@ -188,24 +188,24 @@ final class DashboardService
             "SELECT session_number FROM cash_sessions WHERE status = 'ABIERTA' AND date_trunc('month', opened_at) < date_trunc('month', CURRENT_DATE) LIMIT 1",
         );
         if ($oldSession !== false) {
-            $alerts[] = ['level' => 'warning', 'message' => sprintf('La caja %s es del mes anterior. Ciérrala y abre una nueva para el mes en curso.', $oldSession['session_number'])];
+            $alerts[] = ['level' => 'warning', 'message' => sprintf('La caja %s es del mes anterior. Ciérrala y abre una nueva para el mes en curso.', $oldSession['session_number']), 'link' => ['name' => 'cash']];
         }
 
         $rejected = (int) $this->scalar("SELECT COUNT(*) FROM electronic_documents WHERE status = 'RECHAZADO'");
         if ($rejected > 0) {
-            $alerts[] = ['level' => 'danger', 'message' => sprintf('%d comprobante(s) rechazado(s) por SUNAT.', $rejected)];
+            $alerts[] = ['level' => 'danger', 'message' => sprintf('%d comprobante(s) rechazado(s) por SUNAT.', $rejected), 'link' => ['name' => 'invoicing', 'query' => ['status' => 'RECHAZADO']]];
         }
 
         $delayed = (int) $this->scalar(
             "SELECT COUNT(*) FROM service_orders WHERE status NOT IN ('ENTREGADA') AND estimated_date IS NOT NULL AND estimated_date < CURRENT_DATE",
         );
         if ($delayed > 0) {
-            $alerts[] = ['level' => 'warning', 'message' => sprintf('%d orden(es) de taller retrasada(s).', $delayed)];
+            $alerts[] = ['level' => 'warning', 'message' => sprintf('%d orden(es) de taller retrasada(s).', $delayed), 'link' => ['name' => 'workshop']];
         }
 
         $receivables = (float) $this->scalar("SELECT COALESCE(SUM(total - paid_amount), 0) FROM sales WHERE status = 'COMPLETADA'");
         if ($receivables > 0.009) {
-            $alerts[] = ['level' => 'info', 'message' => sprintf('Cuentas por cobrar pendientes: S/ %.2f.', $receivables)];
+            $alerts[] = ['level' => 'info', 'message' => sprintf('Cuentas por cobrar pendientes: S/ %.2f.', $receivables), 'link' => ['name' => 'sales', 'query' => ['pending' => '1']]];
         }
 
         return $alerts;

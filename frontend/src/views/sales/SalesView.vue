@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import DataTable from '@/components/ui/DataTable.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
@@ -50,6 +51,8 @@ const rows = ref<SaleSummary[]>([])
 const meta = ref<PageMeta | null>(null)
 const loading = ref(false)
 const statusFilter = ref('')
+// Filtro "solo con saldo por cobrar" (desde el dashboard: ?pending=1).
+const pendingOnly = ref(false)
 const query = reactive({ page: 1, perPage: 10, search: '', sort: 'saleDate', direction: 'desc' as const })
 
 const customers = ref<CustomerItem[]>([])
@@ -244,7 +247,7 @@ const zoneMode = computed<'LOCAL' | 'AMAZONIA' | 'EXTERIOR'>({
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const result = await saleService.list({ ...query, status: statusFilter.value })
+    const result = await saleService.list({ ...query, status: statusFilter.value, pending: pendingOnly.value || undefined })
     rows.value = result.data
     meta.value = result.meta
   } finally {
@@ -506,6 +509,8 @@ async function confirmCancel(): Promise<void> {
 }
 
 onMounted(async () => {
+  // Desde el dashboard: mostrar solo ventas con saldo por cobrar.
+  if (useRoute().query.pending === '1') pendingOnly.value = true
   await load()
   customers.value = (await customerService.list({ page: 1, perPage: 5000, search: '', sort: 'name', direction: 'asc' })).data
   // Cliente genérico "Público General" (boleta simple): garantiza que esté disponible arriba de la lista.
@@ -564,6 +569,14 @@ onMounted(async () => {
             <option value="COMPLETADA">Ventas completadas</option>
             <option value="ANULADA">Anuladas / rechazadas</option>
           </select>
+          <button
+            v-if="pendingOnly"
+            type="button"
+            class="inline-flex items-center gap-1 rounded-full bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 ring-1 ring-red-200"
+            @click="pendingOnly = false; load()"
+          >
+            Solo con saldo por cobrar ✕
+          </button>
           <div v-if="auth.can('sales.list.create')" class="flex gap-2">
             <button class="btn-secondary" @click="openCreate(false)">Nueva cotización</button>
             <button class="btn-primary" @click="openCreate(true)">Venta directa</button>
