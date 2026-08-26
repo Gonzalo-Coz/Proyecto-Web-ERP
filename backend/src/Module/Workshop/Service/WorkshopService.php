@@ -302,8 +302,8 @@ final class WorkshopService
     public function changeStatus(int $orderId, string $status): array
     {
         $order = $this->find($orderId);
-        if (!in_array($status, ServiceOrder::STATUSES, true)) {
-            throw new UnprocessableEntityHttpException('Estado inválido.');
+        if (!in_array($status, ServiceOrder::STATUSES, true) || $status === 'ANULADA') {
+            throw new UnprocessableEntityHttpException('Estado inválido. Para anular usa la opción de anular la orden.');
         }
         $this->assertEditable($order);
 
@@ -356,10 +356,56 @@ final class WorkshopService
         return $this->toArray($order, true);
     }
 
+    /** Anula la orden: devuelve el stock de repuestos y libera la moto. */
+    public function cancel(int $orderId, string $reason): array
+    {
+        $order = $this->find($orderId);
+        if ($order->getInvoiceSaleId() !== null) {
+            throw new ConflictHttpException('La orden ya fue facturada. Anula primero el comprobante/venta.');
+        }
+        if ($order->getStatus() === 'ANULADA') {
+            throw new ConflictHttpException('La orden ya está anulada.');
+        }
+        if ($order->isDelivered()) {
+            throw new ConflictHttpException('Una orden entregada no puede anularse.');
+        }
+
+        return $this->entityManager->wrapInTransaction(function () use ($order, $reason): array {
+            // Devuelve al inventario los repuestos que se habían descontado.
+            foreach ($order->getItems() as $item) {
+                if ($item->getItemType() === 'PART' && $item->getSparePart() !== null) {
+                    $this->stockService->registerMovement(
+                        $item->getSparePart(),
+                        'DEVOLUCION',
+                        $item->getQuantity(),
+                        null,
+                        sprintf('TALLER %s (anulación)', $order->getOrderNumber()),
+                        null,
+                    );
+                }
+            }
+            // Libera la unidad si estaba en taller.
+            $unit = $order->getMotorcycleUnit();
+            if ($unit !== null && $unit->getStatus() === 'EN_TALLER') {
+                $unit->setStatus('DISPONIBLE');
+            }
+            $order->setStatus('ANULADA');
+            if (trim($reason) !== '') {
+                $order->setNotes(trim(($order->getNotes() ?? '')."\n[Anulada: ".trim($reason).']'));
+            }
+            $this->entityManager->flush();
+
+            return $this->toArray($order, true);
+        });
+    }
+
     private function assertEditable(ServiceOrder $order): void
     {
         if ($order->isDelivered()) {
             throw new ConflictHttpException('Una orden entregada no puede modificarse.');
+        }
+        if ($order->getStatus() === 'ANULADA') {
+            throw new ConflictHttpException('Una orden anulada no puede modificarse.');
         }
     }
 

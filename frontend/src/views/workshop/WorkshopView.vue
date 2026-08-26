@@ -26,6 +26,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
   LISTA_PARA_ENTREGA: 'bg-teal-100 text-teal-800',
   ENTREGADA: 'bg-green-100 text-green-800',
   GARANTIA: 'bg-purple-100 text-purple-800',
+  ANULADA: 'bg-red-100 text-red-700',
 }
 
 const rows = ref<ServiceOrderSummary[]>([])
@@ -301,6 +302,22 @@ async function doInvoice(): Promise<void> {
   }
 }
 
+async function doCancel(): Promise<void> {
+  if (!detail.value) return
+  const reason = window.prompt('Motivo de anulación (opcional):') ?? ''
+  if (!window.confirm('¿Anular esta orden? Se devolverá el stock de los repuestos usados.')) return
+  detailError.value = ''
+  try {
+    detail.value = await workshopService.cancel(detail.value.id, reason)
+    await load(meta.value?.page ?? 1)
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo anular la orden.'
+  }
+}
+
+/** La orden se puede editar si no está entregada ni anulada. */
+const orderEditable = computed(() => detail.value != null && !detail.value.deliveredAt && detail.value.status !== 'ANULADA')
+
 onMounted(async () => {
   // Los datos del formulario se cargan PRIMERO e independientes: si la lista de
   // órdenes falla, el formulario de recepción igual tiene clientes/motos/repuestos.
@@ -456,7 +473,7 @@ onMounted(async () => {
         </div>
 
         <!-- Estado -->
-        <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="flex items-end gap-2 rounded-lg bg-gray-50 p-3">
+        <div v-if="auth.can('workshop.orders.edit') && orderEditable" class="flex items-end gap-2 rounded-lg bg-gray-50 p-3">
           <div class="flex-1">
             <label class="form-label text-xs">Estado de la orden</label>
             <select v-model="newStatus" class="form-input">
@@ -467,7 +484,7 @@ onMounted(async () => {
         </div>
 
         <!-- Plan de mantenimiento por kilometraje -->
-        <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <div v-if="auth.can('workshop.orders.edit') && orderEditable" class="rounded-lg border border-gray-200 bg-gray-50 p-3">
           <p class="mb-2 text-xs font-semibold uppercase text-gray-500">Cargar plan de mantenimiento</p>
           <div class="grid grid-cols-12 items-end gap-2">
             <div class="col-span-5">
@@ -588,7 +605,7 @@ onMounted(async () => {
                 <td class="py-1 text-right">{{ i.unitPrice }}</td>
                 <td class="py-1 text-right">{{ i.lineTotal }}</td>
                 <td class="py-1 text-right">
-                  <button v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
+                  <button v-if="auth.can('workshop.orders.edit') && orderEditable" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
                 </td>
               </tr>
             </tbody>
@@ -610,7 +627,7 @@ onMounted(async () => {
                 <td class="py-1 text-right">{{ i.unitPrice }}</td>
                 <td class="py-1 text-right">{{ i.lineTotal }}</td>
                 <td class="py-1 text-right">
-                  <button v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
+                  <button v-if="auth.can('workshop.orders.edit') && orderEditable" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
                 </td>
               </tr>
             </tbody>
@@ -621,7 +638,7 @@ onMounted(async () => {
         <p class="border-t border-gray-200 pt-2 text-right text-base">Total de la orden: <strong>S/ {{ detail.total }}</strong></p>
 
         <!-- Agregar item -->
-        <div v-if="auth.can('workshop.orders.edit') && !detail.deliveredAt" class="rounded-lg border border-gray-200 p-3">
+        <div v-if="auth.can('workshop.orders.edit') && orderEditable" class="rounded-lg border border-gray-200 p-3">
           <p class="mb-2 text-xs font-semibold uppercase text-gray-500">Agregar trabajo o repuesto</p>
           <div v-for="(d, i) in draftItems" :key="i" class="mb-2 grid grid-cols-12 items-end gap-2">
             <div class="col-span-2">
@@ -658,17 +675,30 @@ onMounted(async () => {
 
         <p v-if="detailError" class="text-sm text-red-600">{{ detailError }}</p>
 
-        <div class="flex justify-end gap-2 border-t border-gray-200 pt-3">
-          <span v-if="detail.invoiceSaleId" class="rounded-full bg-green-100 px-3 py-1 text-xs text-green-800">
-            Facturada (venta #{{ detail.invoiceSaleId }})
-          </span>
+        <div class="flex items-center justify-between gap-2 border-t border-gray-200 pt-3">
           <button
-            v-if="auth.can('workshop.orders.approve') && !detail.invoiceSaleId && (detail.items?.length ?? 0) > 0"
-            class="btn-primary"
-            @click="doInvoice"
+            v-if="auth.can('workshop.orders.edit') && orderEditable && !detail.invoiceSaleId"
+            class="text-sm font-medium text-red-600 hover:underline"
+            @click="doCancel"
           >
-            Facturar orden
+            Anular orden
           </button>
+          <span v-else />
+          <div class="flex items-center gap-2">
+            <span v-if="detail.status === 'ANULADA'" class="rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700">
+              Orden anulada
+            </span>
+            <span v-if="detail.invoiceSaleId" class="rounded-full bg-green-100 px-3 py-1 text-xs text-green-800">
+              Facturada (venta #{{ detail.invoiceSaleId }})
+            </span>
+            <button
+              v-if="auth.can('workshop.orders.approve') && !detail.invoiceSaleId && orderEditable && (detail.items?.length ?? 0) > 0"
+              class="btn-primary"
+              @click="doInvoice"
+            >
+              Facturar orden
+            </button>
+          </div>
         </div>
       </div>
     </BaseModal>

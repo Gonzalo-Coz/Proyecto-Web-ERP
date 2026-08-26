@@ -2,7 +2,8 @@ export const ORDER_STATUSES = [
   'RECIBIDA', 'EN_DIAGNOSTICO', 'ESPERANDO_REPUESTOS',
   'EN_REPARACION', 'LISTA_PARA_ENTREGA', 'ENTREGADA', 'GARANTIA',
 ] as const
-export type OrderStatus = (typeof ORDER_STATUSES)[number]
+// 'ANULADA' es un estado válido pero NO se elige por el selector (se usa el botón de anular).
+export type OrderStatus = (typeof ORDER_STATUSES)[number] | 'ANULADA'
 
 export interface ServiceOrderItem {
   id: number

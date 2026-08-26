@@ -30,4 +30,7 @@ export const workshopService = {
   invoice(id: number): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/invoice`).then((r) => r.data)
   },
+  cancel(id: number, reason: string): Promise<ServiceOrderSummary> {
+    return api.post(`/workshop/orders/${id}/cancel`, { reason }).then((r) => r.data)
+  },
 }

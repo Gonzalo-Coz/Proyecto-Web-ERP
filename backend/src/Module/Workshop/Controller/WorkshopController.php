@@ -80,4 +80,11 @@ final class WorkshopController
     {
         return new JsonResponse($this->workshopService->invoice($id));
     }
+
+    #[Route('/{id<\d+>}/cancel', name: 'workshop_cancel', methods: ['POST'])]
+    #[IsGranted('workshop.orders.edit')]
+    public function cancel(int $id, Request $request): JsonResponse
+    {
+        return new JsonResponse($this->workshopService->cancel($id, (string) ($request->toArray()['reason'] ?? '')));
+    }
 }

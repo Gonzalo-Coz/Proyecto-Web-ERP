@@ -26,7 +26,7 @@ class ServiceOrder
 {
     public const STATUSES = [
         'RECIBIDA', 'EN_DIAGNOSTICO', 'ESPERANDO_REPUESTOS',
-        'EN_REPARACION', 'LISTA_PARA_ENTREGA', 'ENTREGADA', 'GARANTIA',
+        'EN_REPARACION', 'LISTA_PARA_ENTREGA', 'ENTREGADA', 'GARANTIA', 'ANULADA',
     ];
 
     #[ORM\Id]
