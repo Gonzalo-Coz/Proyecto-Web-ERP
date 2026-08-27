@@ -23,9 +23,19 @@ export interface ServiceOrderSummary {
   customerId: number
   customerName: string
   customerDocument?: string
+  customerPhone?: string | null
+  customerEmail?: string | null
   broughtBy?: string | null
   planModel?: string | null
   planKm?: number | null
+  moto?: {
+    brand: string
+    model: string
+    color: string
+    vin: string
+    engineNumber: string | null
+    year: number | null
+  } | null
   motorcycleUnitId: number | null
   motorcycleLabel: string | null
   plate: string | null

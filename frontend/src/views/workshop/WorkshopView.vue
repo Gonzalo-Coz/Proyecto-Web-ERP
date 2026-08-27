@@ -5,6 +5,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import FormField from '@/components/ui/FormField.vue'
 import { workshopService } from '@/services/workshop'
 import { maintenanceService } from '@/services/maintenance'
+import { printServiceOrder } from '@/utils/serviceOrder'
 import { customerService } from '@/services/masters'
 import { unitService } from '@/services/motorcycles'
 import { sparePartService } from '@/services/inventory'
@@ -318,6 +319,10 @@ async function doCancel(): Promise<void> {
 /** La orden se puede editar si no está entregada ni anulada. */
 const orderEditable = computed(() => detail.value != null && !detail.value.deliveredAt && detail.value.status !== 'ANULADA')
 
+function doPrint(): void {
+  if (detail.value) printServiceOrder(detail.value)
+}
+
 onMounted(async () => {
   // Los datos del formulario se cargan PRIMERO e independientes: si la lista de
   // órdenes falla, el formulario de recepción igual tiene clientes/motos/repuestos.
@@ -470,6 +475,10 @@ onMounted(async () => {
           <p>Mecánico: <strong class="text-gray-900">{{ detail.mechanicName ?? '—' }}</strong></p>
           <p class="col-span-2">Diagnóstico: <strong class="text-gray-900">{{ detail.diagnosis ?? '—' }}</strong></p>
           <p v-if="detail.notes" class="col-span-2">Observaciones: <strong class="text-gray-900">{{ detail.notes }}</strong></p>
+        </div>
+
+        <div class="flex justify-end">
+          <button class="btn-secondary" @click="doPrint">🖨 Imprimir Orden de Servicio</button>
         </div>
 
         <!-- Estado -->

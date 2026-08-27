@@ -423,7 +423,18 @@ final class WorkshopService
             'customerId' => $o->getCustomer()->getId(),
             'customerName' => $o->getCustomer()->getName(),
             'customerDocument' => $o->getCustomer()->getDocumentNumber(),
+            'customerPhone' => $o->getCustomer()->getPhone() ?: $o->getCustomer()->getMobile(),
+            'customerEmail' => $o->getCustomer()->getEmail(),
             'broughtBy' => $o->getBroughtBy(),
+            // Datos de la moto registrada para la Orden de Servicio imprimible.
+            'moto' => $o->getMotorcycleUnit() !== null ? [
+                'brand' => $o->getMotorcycleUnit()->getModel()->getBrand()->getName(),
+                'model' => $o->getMotorcycleUnit()->getModel()->getModel(),
+                'color' => $o->getMotorcycleUnit()->getColor(),
+                'vin' => $o->getMotorcycleUnit()->getVin(),
+                'engineNumber' => $o->getMotorcycleUnit()->getEngineNumber(),
+                'year' => $o->getMotorcycleUnit()->getManufactureYear() ?? $o->getMotorcycleUnit()->getModel()->getModelYear(),
+            ] : null,
             'planModel' => $o->getPlanModel(),
             'planKm' => $o->getPlanKm(),
             'motorcycleUnitId' => $o->getMotorcycleUnit()?->getId(),

@@ -431,7 +431,7 @@ onMounted(async () => {
         <div><dt class="text-xs font-medium uppercase text-gray-400">Año de fabricación</dt><dd>{{ viewTarget.manufactureYear ?? '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">DUA</dt><dd>{{ viewTarget.duaNumber || '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Ítem DUA</dt><dd>{{ viewTarget.duaItem || '—' }}</dd></div>
-        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de compra</dt><dd>{{ viewTarget.purchasePrice !== null ? (viewTarget.priceCurrency === 'USD' ? 'US$ ' : 'S/ ') + viewTarget.purchasePrice : '—' }}<span v-if="viewTarget.priceCurrency === 'USD' && dayRate && viewTarget.purchasePrice" class="text-xs text-gray-400"> · ≈ S/ {{ (Number(viewTarget.purchasePrice) * dayRate).toFixed(2) }}</span></dd></div>
+        <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de compra</dt><dd>{{ viewTarget.purchasePrice !== null ? 'US$ ' + viewTarget.purchasePrice : '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Precio de venta</dt><dd>{{ viewTarget.salePrice !== null ? (viewTarget.priceCurrency === 'USD' ? 'US$ ' : 'S/ ') + viewTarget.salePrice : '—' }}<span v-if="viewTarget.priceCurrency === 'USD' && dayRate && viewTarget.salePrice" class="text-xs text-gray-400"> · ≈ S/ {{ (Number(viewTarget.salePrice) * dayRate).toFixed(2) }}</span></dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Proveedor</dt><dd>{{ viewTarget.supplierName || '—' }}</dd></div>
         <div><dt class="text-xs font-medium uppercase text-gray-400">Fecha de compra</dt><dd>{{ viewTarget.purchaseDate || '—' }}</dd></div>
