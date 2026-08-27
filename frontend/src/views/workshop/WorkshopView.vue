@@ -53,7 +53,9 @@ const form = reactive({
   plate: null as string | null,
   mileage: null as number | null,
   entryDate: new Date().toISOString().slice(0, 10),
+  entryTime: null as string | null,
   estimatedDate: null as string | null,
+  estimatedHours: null as number | null,
   mechanicName: null as string | null,
   diagnosis: null as string | null,
   notes: null as string | null,
@@ -198,7 +200,9 @@ function openCreate(): void {
     plate: null,
     mileage: null,
     entryDate: new Date().toISOString().slice(0, 10),
+    entryTime: new Date().toTimeString().slice(0, 5),
     estimatedDate: null,
+    estimatedHours: null,
     mechanicName: null,
     diagnosis: null,
     notes: null,
@@ -442,15 +446,18 @@ onMounted(async () => {
             <input v-model="form.plate" class="form-input uppercase" maxlength="10" />
           </FormField>
         </div>
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-4 gap-4">
           <FormField label="Kilometraje">
             <input v-model.number="form.mileage" type="number" min="0" class="form-input" />
           </FormField>
           <FormField label="Fecha de ingreso" required>
             <input v-model="form.entryDate" type="date" class="form-input" required />
           </FormField>
-          <FormField label="Fecha estimada">
-            <input v-model="form.estimatedDate" type="date" class="form-input" />
+          <FormField label="Hora de ingreso">
+            <input v-model="form.entryTime" type="time" class="form-input" />
+          </FormField>
+          <FormField label="Tiempo estimado (horas)">
+            <input v-model.number="form.estimatedHours" type="number" min="0" step="0.5" class="form-input" placeholder="Ej. 3" />
           </FormField>
         </div>
         <div class="grid grid-cols-2 gap-4">
@@ -484,8 +491,8 @@ onMounted(async () => {
           <p>Motocicleta: <strong class="text-gray-900">{{ detail.motorcycleLabel }}</strong></p>
           <p>Placa: <strong class="text-gray-900">{{ detail.plate ?? '—' }}</strong></p>
           <p>Kilometraje: <strong class="text-gray-900">{{ detail.mileage ?? '—' }}</strong></p>
-          <p>Ingreso: <strong class="text-gray-900">{{ detail.entryDate }}</strong></p>
-          <p>Estimada: <strong class="text-gray-900">{{ detail.estimatedDate ?? '—' }}</strong></p>
+          <p>Ingreso: <strong class="text-gray-900">{{ detail.entryDate }}<span v-if="detail.entryTime"> · {{ detail.entryTime }}</span></strong></p>
+          <p>Tiempo estimado: <strong class="text-gray-900">{{ detail.estimatedHours ? Number(detail.estimatedHours) + ' h' : (detail.estimatedDate ?? '—') }}</strong></p>
           <p>Mecánico: <strong class="text-gray-900">{{ detail.mechanicName ?? '—' }}</strong></p>
           <p class="col-span-2">Diagnóstico: <strong class="text-gray-900">{{ detail.diagnosis ?? '—' }}</strong></p>
           <p v-if="detail.notes" class="col-span-2">Observaciones: <strong class="text-gray-900">{{ detail.notes }}</strong></p>

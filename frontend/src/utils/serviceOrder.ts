@@ -84,8 +84,8 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
         <div class="fld"><span class="lbl">Ingreso en grúa:</span><span class="box" style="width:12px;height:12px;border:1.5px solid #111;display:inline-block"></span> Sí <span class="box" style="width:12px;height:12px;border:1.5px solid #111;display:inline-block"></span> No</div>
       </div>
       <div class="col">
-        ${field('Ingreso:', esc(o.entryDate))}
-        ${field('Salida:', esc(o.estimatedDate ?? ''))}
+        ${field('Ingreso:', esc(o.entryDate) + (o.entryTime ? ' &nbsp; ' + esc(o.entryTime) : ''))}
+        ${field('Tiempo estimado:', o.estimatedHours ? esc(Number(o.estimatedHours)) + ' horas' : '')}
         ${field('Nombre:', esc(o.customerName) + (o.customerDocument ? ' (' + esc(o.customerDocument) + ')' : ''))}
         ${o.broughtBy ? field('A nombre de / ingresa:', esc(o.broughtBy)) : ''}
         ${field('Teléfono:', esc(o.customerPhone ?? ''))}

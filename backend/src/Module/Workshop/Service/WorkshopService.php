@@ -105,6 +105,8 @@ final class WorkshopService
             $order->setPlate(isset($data['plate']) ? (string) $data['plate'] : null);
             $order->setBroughtBy(isset($data['broughtBy']) ? (string) $data['broughtBy'] : null);
             $order->setMileage(isset($data['mileage']) && $data['mileage'] !== null ? (int) $data['mileage'] : null);
+            $order->setEntryTime(isset($data['entryTime']) ? (string) $data['entryTime'] : null);
+            $order->setEstimatedHours(isset($data['estimatedHours']) && $data['estimatedHours'] !== null && $data['estimatedHours'] !== '' ? (float) $data['estimatedHours'] : null);
             $order->setEstimatedDate(isset($data['estimatedDate']) && $data['estimatedDate'] ? new \DateTimeImmutable((string) $data['estimatedDate']) : null);
             $order->setMechanicName(isset($data['mechanicName']) ? (string) $data['mechanicName'] : null);
             $order->setDiagnosis(isset($data['diagnosis']) ? (string) $data['diagnosis'] : null);
@@ -444,7 +446,9 @@ final class WorkshopService
             'plate' => $o->getPlate(),
             'mileage' => $o->getMileage(),
             'entryDate' => $o->getEntryDate()->format('Y-m-d'),
+            'entryTime' => $o->getEntryTime(),
             'estimatedDate' => $o->getEstimatedDate()?->format('Y-m-d'),
+            'estimatedHours' => $o->getEstimatedHours(),
             'deliveredAt' => $o->getDeliveredAt()?->format(\DateTimeInterface::ATOM),
             'mechanicName' => $o->getMechanicName(),
             'diagnosis' => $o->getDiagnosis(),

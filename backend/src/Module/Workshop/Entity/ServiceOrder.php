@@ -70,8 +70,16 @@ class ServiceOrder
     #[ORM\Column(type: 'date_immutable')]
     private \DateTimeImmutable $entryDate;
 
+    /** Hora de entrada de la moto (HH:MM). */
+    #[ORM\Column(length: 5, nullable: true)]
+    private ?string $entryTime = null;
+
     #[ORM\Column(type: 'date_immutable', nullable: true)]
     private ?\DateTimeImmutable $estimatedDate = null;
+
+    /** Tiempo estimado de trabajo, en horas (reemplaza a la fecha estimada). */
+    #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
+    private ?string $estimatedHours = null;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $deliveredAt = null;
@@ -202,6 +210,27 @@ class ServiceOrder
     public function setEstimatedDate(?\DateTimeImmutable $v): void
     {
         $this->estimatedDate = $v;
+    }
+
+    public function getEntryTime(): ?string
+    {
+        return $this->entryTime;
+    }
+
+    public function setEntryTime(?string $v): void
+    {
+        $v = $v !== null ? trim($v) : null;
+        $this->entryTime = $v !== null && preg_match('/^\d{1,2}:\d{2}$/', $v) === 1 ? $v : null;
+    }
+
+    public function getEstimatedHours(): ?string
+    {
+        return $this->estimatedHours;
+    }
+
+    public function setEstimatedHours(?float $v): void
+    {
+        $this->estimatedHours = $v !== null && $v > 0 ? number_format($v, 2, '.', '') : null;
     }
 
     public function getDeliveredAt(): ?\DateTimeImmutable

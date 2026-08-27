@@ -41,7 +41,9 @@ export interface ServiceOrderSummary {
   plate: string | null
   mileage: number | null
   entryDate: string
+  entryTime?: string | null
   estimatedDate: string | null
+  estimatedHours?: string | null
   deliveredAt: string | null
   mechanicName: string | null
   diagnosis: string | null
@@ -62,7 +64,9 @@ export interface ServiceOrderPayload {
   plate: string | null
   mileage: number | null
   entryDate: string
+  entryTime: string | null
   estimatedDate: string | null
+  estimatedHours: number | null
   mechanicName: string | null
   diagnosis: string | null
   notes: string | null
