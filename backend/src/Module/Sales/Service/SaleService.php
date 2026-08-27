@@ -95,6 +95,28 @@ final class SaleService
         return $this->toArray($this->find($id), true);
     }
 
+    /**
+     * IDs de las unidades de moto que el cliente compró (ventas no anuladas),
+     * más recientes primero. Sirve para autocompletar la recepción en taller.
+     *
+     * @return list<int>
+     */
+    public function customerUnitIds(int $customerId): array
+    {
+        $rows = $this->saleRepository->createQueryBuilder('s')
+            ->select('u.id AS id', 'MAX(s.saleDate) AS lastSale')
+            ->join('s.items', 'i')
+            ->join('i.motorcycleUnit', 'u')
+            ->where('s.customer = :cid')->setParameter('cid', $customerId)
+            ->andWhere("i.itemType = 'MOTORCYCLE_UNIT'")
+            ->andWhere("s.status <> 'ANULADA'")
+            ->groupBy('u.id')
+            ->orderBy('lastSale', 'DESC')
+            ->getQuery()->getScalarResult();
+
+        return array_map(static fn (array $r): int => (int) $r['id'], $rows);
+    }
+
     /** Crea cotización, o venta directa completada si complete=true. */
     public function create(SalePayload $payload): array
     {

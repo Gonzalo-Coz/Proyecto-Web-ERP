@@ -38,6 +38,13 @@ final class SaleController
         ));
     }
 
+    #[Route('/customer-units/{customerId<\d+>}', name: 'sales_customer_units', methods: ['GET'])]
+    #[IsGranted('sales.list.view')]
+    public function customerUnits(int $customerId): JsonResponse
+    {
+        return new JsonResponse($this->saleService->customerUnitIds($customerId));
+    }
+
     #[Route('/{id<\d+>}', name: 'sales_get', methods: ['GET'])]
     #[IsGranted('sales.list.view')]
     public function get(int $id): JsonResponse

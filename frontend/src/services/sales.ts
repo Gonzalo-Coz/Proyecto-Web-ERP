@@ -9,6 +9,10 @@ export const saleService = {
   get(id: number): Promise<SaleSummary> {
     return api.get(`/sales/${id}`).then((r) => r.data)
   },
+  /** IDs de motos que el cliente compró (para autocompletar la recepción de taller). */
+  customerUnits(customerId: number): Promise<number[]> {
+    return api.get(`/sales/customer-units/${customerId}`).then((r) => r.data)
+  },
   create(payload: SalePayload): Promise<SaleSummary> {
     return api.post('/sales', payload).then((r) => r.data)
   },

@@ -8,6 +8,7 @@ import { maintenanceService } from '@/services/maintenance'
 import { printServiceOrder } from '@/utils/serviceOrder'
 import { customerService } from '@/services/masters'
 import { unitService } from '@/services/motorcycles'
+import { saleService } from '@/services/sales'
 import { sparePartService } from '@/services/inventory'
 import { useAuthStore } from '@/stores/auth'
 import type { PageMeta } from '@/types/common'
@@ -204,6 +205,19 @@ function openCreate(): void {
   })
   formError.value = ''
   modalOpen.value = true
+  void onReceptionCustomerChange() // autocompleta la moto del cliente preseleccionado
+}
+
+/** Al elegir el cliente: autoselecciona la moto que compró (editable). */
+async function onReceptionCustomerChange(): Promise<void> {
+  if (!form.customerId) return
+  try {
+    const ids = await saleService.customerUnits(form.customerId)
+    // Solo autocompleta si la unidad existe en la lista cargada.
+    form.motorcycleUnitId = ids.find((id) => units.value.some((u) => u.id === id)) ?? null
+  } catch {
+    /* no bloquear la recepción si falla la consulta */
+  }
 }
 
 async function save(): Promise<void> {
@@ -404,7 +418,7 @@ onMounted(async () => {
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Cliente (titular)" required>
-            <select v-model.number="form.customerId" class="form-input" required>
+            <select v-model.number="form.customerId" class="form-input" required @change="onReceptionCustomerChange">
               <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.documentNumber }})</option>
             </select>
           </FormField>
