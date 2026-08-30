@@ -23,19 +23,15 @@ export interface ServiceOrderSummary {
   customerId: number
   customerName: string
   customerDocument?: string
-  customerPhone?: string | null
-  customerEmail?: string | null
+  contactPhone?: string | null
+  contactEmail?: string | null
   broughtBy?: string | null
   planModel?: string | null
   planKm?: number | null
-  moto?: {
-    brand: string
-    model: string
-    color: string
-    vin: string
-    engineNumber: string | null
-    year: number | null
-  } | null
+  motoBrand?: string | null
+  motoModel?: string | null
+  motoColor?: string | null
+  motoSerial?: string | null
   motorcycleUnitId: number | null
   motorcycleLabel: string | null
   plate: string | null
@@ -59,6 +55,11 @@ export interface ServiceOrderSummary {
 export interface ServiceOrderPayload {
   customerId: number
   broughtBy: string | null
+  motoBrand: string | null
+  motoColor: string | null
+  motoSerial: string | null
+  contactPhone: string | null
+  contactEmail: string | null
   motorcycleUnitId: number | null
   motorcycleDescription: string | null
   plate: string | null

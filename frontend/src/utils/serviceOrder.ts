@@ -12,11 +12,12 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
       ? ''
       : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
 
-  // Datos de la moto: registrada (objeto moto) o externa (descripción libre).
-  const modelo = o.moto?.model ?? (o.motorcycleUnitId ? '' : (o.motorcycleLabel ?? ''))
-  const marca = o.moto?.brand ?? ''
-  const color = o.moto?.color ?? ''
-  const serie = o.moto?.vin ?? ''
+  // Datos de la moto: lo capturado en recepción (ya resuelto por el backend),
+  // con el modelo de la unidad o la descripción libre para motos externas.
+  const modelo = o.motoModel ?? (o.motorcycleUnitId ? '' : (o.motorcycleLabel ?? ''))
+  const marca = o.motoBrand ?? ''
+  const color = o.motoColor ?? ''
+  const serie = o.motoSerial ?? ''
 
   const field = (label: string, value: string, width = 'auto'): string =>
     `<div class="fld" style="flex:1 1 ${width}"><span class="lbl">${label}</span><span class="val">${value || '&nbsp;'}</span></div>`
@@ -27,9 +28,6 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
     'Tapón de radiadores', 'Filtro de aire', 'Batería', 'Llaves',
   ]
   const inv = invItems.map((i) => `<label class="chk"><span class="box"></span>${i}</label>`).join('')
-
-  const damageBox = (label: string): string =>
-    `<div class="dmg"><div class="dmg-l">${label}</div><div class="dmg-b"></div></div>`
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <title>Orden de Servicio ${esc(o.orderNumber)}</title>
@@ -54,8 +52,8 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
   .inv { display:grid; grid-template-columns:repeat(3,1fr); gap:4px 10px; }
   .chk { display:flex; align-items:center; gap:6px; }
   .chk .box { width:12px; height:12px; border:1.5px solid #111; display:inline-block; }
-  .fuel { display:flex; align-items:center; gap:8px; margin-top:6px; }
-  .fuel .bar { flex:1; height:14px; border:1px solid #111; border-radius:8px; background:linear-gradient(90deg,#fca5a5,#fde68a,#86efac); }
+  .fuelscale { display:flex; justify-content:space-between; align-items:center; border:1px solid #111; border-radius:8px; padding:8px 14px; margin-top:4px; }
+  .fuelscale span { font-weight:bold; font-size:14px; }
   .dmgs { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:6px; }
   .dmg-l { text-align:center; font-weight:600; margin-bottom:3px; }
   .dmg-b { border:1px solid #94a3b8; height:120px; border-radius:3px; }
@@ -88,8 +86,8 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
         ${field('Tiempo estimado:', o.estimatedHours ? esc(Number(o.estimatedHours)) + ' horas' : '')}
         ${field('Nombre:', esc(o.customerName) + (o.customerDocument ? ' (' + esc(o.customerDocument) + ')' : ''))}
         ${o.broughtBy ? field('A nombre de / ingresa:', esc(o.broughtBy)) : ''}
-        ${field('Teléfono:', esc(o.customerPhone ?? ''))}
-        ${field('Email:', esc(o.customerEmail ?? ''))}
+        ${field('Teléfono:', esc(o.contactPhone ?? ''))}
+        ${field('Email:', esc(o.contactEmail ?? ''))}
       </div>
     </div>
 
@@ -104,13 +102,9 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
       <div class="inv" style="flex:2">${inv}</div>
       <div class="col">
         <div style="font-weight:600;text-align:center">Nivel de combustible</div>
-        <div class="fuel"><b>E</b><div class="bar"></div><b>F</b></div>
+        <div style="text-align:center;font-size:10px;color:#64748b;margin-bottom:2px">(encerrar el nivel en que llegó)</div>
+        <div class="fuelscale"><span>E</span><span>¼</span><span>½</span><span>¾</span><span>F</span></div>
       </div>
-    </div>
-
-    <div class="band">DAÑOS PREEXISTENTES DEL VEHÍCULO</div>
-    <div class="dmgs">
-      ${damageBox('Lado derecho')}${damageBox('Frente')}${damageBox('Detrás')}${damageBox('Lado izquierdo')}
     </div>
 
     <div class="signs">

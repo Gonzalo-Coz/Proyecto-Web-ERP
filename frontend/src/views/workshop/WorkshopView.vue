@@ -51,6 +51,11 @@ const form = reactive({
   motorcycleUnitId: null as number | null,
   motorcycleDescription: null as string | null,
   plate: null as string | null,
+  motoBrand: null as string | null,
+  motoColor: null as string | null,
+  motoSerial: null as string | null,
+  contactPhone: null as string | null,
+  contactEmail: null as string | null,
   mileage: null as number | null,
   entryDate: new Date().toISOString().slice(0, 10),
   entryTime: null as string | null,
@@ -198,6 +203,11 @@ function openCreate(): void {
     motorcycleUnitId: null,
     motorcycleDescription: null,
     plate: null,
+    motoBrand: null,
+    motoColor: null,
+    motoSerial: null,
+    contactPhone: null,
+    contactEmail: null,
     mileage: null,
     entryDate: new Date().toISOString().slice(0, 10),
     entryTime: new Date().toTimeString().slice(0, 5),
@@ -212,16 +222,38 @@ function openCreate(): void {
   void onReceptionCustomerChange() // autocompleta la moto del cliente preseleccionado
 }
 
-/** Al elegir el cliente: autoselecciona la moto que compró (editable). */
+/** Prellena teléfono/email desde la ficha del cliente (editable). */
+function prefillContact(): void {
+  const c = customers.value.find((x) => x.id === form.customerId)
+  form.contactPhone = c?.phone || c?.mobile || null
+  form.contactEmail = c?.email || null
+}
+
+/** Prellena marca/color/serie desde la unidad seleccionada (editable). */
+function prefillMoto(): void {
+  const u = units.value.find((x) => x.id === form.motorcycleUnitId)
+  if (u) {
+    form.motoBrand = 'YAMAHA'
+    form.motoColor = u.color
+    form.motoSerial = u.vin
+  } else {
+    form.motoBrand = null
+    form.motoColor = null
+    form.motoSerial = null
+  }
+}
+
+/** Al elegir el cliente: autoselecciona la moto que compró y prellena datos (editable). */
 async function onReceptionCustomerChange(): Promise<void> {
+  prefillContact()
   if (!form.customerId) return
   try {
     const ids = await saleService.customerUnits(form.customerId)
-    // Solo autocompleta si la unidad existe en la lista cargada.
     form.motorcycleUnitId = ids.find((id) => units.value.some((u) => u.id === id)) ?? null
   } catch {
     /* no bloquear la recepción si falla la consulta */
   }
+  prefillMoto()
 }
 
 async function save(): Promise<void> {
@@ -431,17 +463,24 @@ onMounted(async () => {
           </FormField>
         </div>
         <FormField label="Unidad vendida por la empresa (expediente digital)">
-          <select v-model.number="form.motorcycleUnitId" class="form-input">
+          <select v-model.number="form.motorcycleUnitId" class="form-input" @change="prefillMoto">
             <option :value="null">— Motocicleta externa —</option>
             <option v-for="u in units" :key="u.id" :value="u.id">{{ u.internalCode }} — {{ u.modelName }} ({{ u.vin }})</option>
           </select>
         </FormField>
-        <div v-if="form.motorcycleUnitId === null" class="grid grid-cols-3 gap-4">
-          <div class="col-span-2">
-            <FormField label="Descripción de la motocicleta" required>
-              <input v-model="form.motorcycleDescription" class="form-input" required maxlength="200" placeholder="Honda CB190R 2022 roja" />
-            </FormField>
-          </div>
+        <FormField v-if="form.motorcycleUnitId === null" label="Descripción de la motocicleta" required>
+          <input v-model="form.motorcycleDescription" class="form-input" required maxlength="200" placeholder="Honda CB190R 2022 roja" />
+        </FormField>
+        <div class="grid grid-cols-4 gap-4">
+          <FormField label="Marca">
+            <input v-model="form.motoBrand" class="form-input" maxlength="60" placeholder="Yamaha" />
+          </FormField>
+          <FormField label="Color">
+            <input v-model="form.motoColor" class="form-input" maxlength="60" />
+          </FormField>
+          <FormField label="N° de serie">
+            <input v-model="form.motoSerial" class="form-input" maxlength="60" />
+          </FormField>
           <FormField label="Placa">
             <input v-model="form.plate" class="form-input uppercase" maxlength="10" />
           </FormField>
@@ -466,6 +505,14 @@ onMounted(async () => {
           </FormField>
           <FormField label="Diagnóstico inicial">
             <input v-model="form.diagnosis" class="form-input" />
+          </FormField>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Teléfono de contacto">
+            <input v-model="form.contactPhone" class="form-input" maxlength="30" />
+          </FormField>
+          <FormField label="Email de contacto">
+            <input v-model="form.contactEmail" type="email" class="form-input" maxlength="120" />
           </FormField>
         </div>
         <FormField label="Observaciones">

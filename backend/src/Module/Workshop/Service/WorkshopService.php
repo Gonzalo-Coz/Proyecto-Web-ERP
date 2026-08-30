@@ -111,6 +111,13 @@ final class WorkshopService
             $order->setMechanicName(isset($data['mechanicName']) ? (string) $data['mechanicName'] : null);
             $order->setDiagnosis(isset($data['diagnosis']) ? (string) $data['diagnosis'] : null);
             $order->setNotes(isset($data['notes']) ? (string) $data['notes'] : null);
+            $order->setReceptionData(
+                isset($data['motoBrand']) ? (string) $data['motoBrand'] : null,
+                isset($data['motoColor']) ? (string) $data['motoColor'] : null,
+                isset($data['motoSerial']) ? (string) $data['motoSerial'] : null,
+                isset($data['contactPhone']) ? (string) $data['contactPhone'] : null,
+                isset($data['contactEmail']) ? (string) $data['contactEmail'] : null,
+            );
 
             $this->entityManager->persist($order);
             $this->entityManager->flush();
@@ -425,18 +432,15 @@ final class WorkshopService
             'customerId' => $o->getCustomer()->getId(),
             'customerName' => $o->getCustomer()->getName(),
             'customerDocument' => $o->getCustomer()->getDocumentNumber(),
-            'customerPhone' => $o->getCustomer()->getPhone() ?: $o->getCustomer()->getMobile(),
-            'customerEmail' => $o->getCustomer()->getEmail(),
             'broughtBy' => $o->getBroughtBy(),
-            // Datos de la moto registrada para la Orden de Servicio imprimible.
-            'moto' => $o->getMotorcycleUnit() !== null ? [
-                'brand' => $o->getMotorcycleUnit()->getModel()->getBrand()->getName(),
-                'model' => $o->getMotorcycleUnit()->getModel()->getModel(),
-                'color' => $o->getMotorcycleUnit()->getColor(),
-                'vin' => $o->getMotorcycleUnit()->getVin(),
-                'engineNumber' => $o->getMotorcycleUnit()->getEngineNumber(),
-                'year' => $o->getMotorcycleUnit()->getManufactureYear() ?? $o->getMotorcycleUnit()->getModel()->getModelYear(),
-            ] : null,
+            // Datos para la Orden de Servicio: lo capturado en recepción manda;
+            // si está vacío, se usa el dato de la unidad registrada / cliente.
+            'contactPhone' => $o->getContactPhone() ?? ($o->getCustomer()->getPhone() ?: $o->getCustomer()->getMobile()),
+            'contactEmail' => $o->getContactEmail() ?? $o->getCustomer()->getEmail(),
+            'motoBrand' => $o->getMotoBrand() ?? $o->getMotorcycleUnit()?->getModel()->getBrand()->getName(),
+            'motoModel' => $o->getMotorcycleUnit()?->getModel()->getModel(),
+            'motoColor' => $o->getMotoColor() ?? $o->getMotorcycleUnit()?->getColor(),
+            'motoSerial' => $o->getMotoSerial() ?? $o->getMotorcycleUnit()?->getVin(),
             'planModel' => $o->getPlanModel(),
             'planKm' => $o->getPlanKm(),
             'motorcycleUnitId' => $o->getMotorcycleUnit()?->getId(),

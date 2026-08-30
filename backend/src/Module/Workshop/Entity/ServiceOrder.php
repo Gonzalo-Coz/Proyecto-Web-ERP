@@ -64,6 +64,22 @@ class ServiceOrder
     #[ORM\Column(nullable: true)]
     private ?int $planKm = null;
 
+    /** Datos capturados en la recepción para la Orden de Servicio (editables). */
+    #[ORM\Column(length: 60, nullable: true)]
+    private ?string $motoBrand = null;
+
+    #[ORM\Column(length: 60, nullable: true)]
+    private ?string $motoColor = null;
+
+    #[ORM\Column(length: 60, nullable: true)]
+    private ?string $motoSerial = null;
+
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $contactPhone = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $contactEmail = null;
+
     #[ORM\Column(nullable: true)]
     private ?int $mileage = null;
 
@@ -185,6 +201,42 @@ class ServiceOrder
     {
         $this->planModel = $model;
         $this->planKm = $km;
+    }
+
+    public function getMotoBrand(): ?string
+    {
+        return $this->motoBrand;
+    }
+
+    public function getMotoColor(): ?string
+    {
+        return $this->motoColor;
+    }
+
+    public function getMotoSerial(): ?string
+    {
+        return $this->motoSerial;
+    }
+
+    public function getContactPhone(): ?string
+    {
+        return $this->contactPhone;
+    }
+
+    public function getContactEmail(): ?string
+    {
+        return $this->contactEmail;
+    }
+
+    /** Datos de recepción (moto y contacto) capturados para la Orden de Servicio. */
+    public function setReceptionData(?string $brand, ?string $color, ?string $serial, ?string $phone, ?string $email): void
+    {
+        $clean = static fn (?string $v): ?string => $v !== null && trim($v) !== '' ? trim($v) : null;
+        $this->motoBrand = $clean($brand);
+        $this->motoColor = $clean($color);
+        $this->motoSerial = $clean($serial);
+        $this->contactPhone = $clean($phone);
+        $this->contactEmail = $clean($email);
     }
 
     public function getMileage(): ?int
