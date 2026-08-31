@@ -69,13 +69,14 @@ final class ReportService
             // Reporte retail Yamaha: venta de motocicletas (formato oficial DATA).
             'motosyamaha' => [
                 'title' => 'Venta de Motos (Formato Yamaha)',
-                'columns' => $this->cols(['DEALER', 'VIN', 'FECHA DE VENTA RETAIL', 'N° DE COMPROBANTE DE PAGO', 'TIPO DE PAGO', 'ENTIDAD FINANCIERA', 'TCEA', 'BONO YMDP', 'BONO DEALER', 'CAMPAÑA', 'MODELO', 'COLOR', 'FECHA DE COMPRA']),
+                'columns' => $this->cols(['DEALER', 'VIN', 'FECHA DE VENTA RETAIL', 'N° DE COMPROBANTE DE PAGO', 'TIPO DE PAGO', 'ENTIDAD FINANCIERA', 'TCEA', 'BONO YMDP', 'BONO DEALER', 'CAMPAÑA', 'MODELO', 'COLOR', 'FECHA DE COMPRA', 'MONEDA', 'MONTO DE VENTA']),
                 'rows' => $this->db->fetchAllNumeric(
                     "SELECT :dealer, u.vin, s.sale_date,
                             (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1),
                             '', '', '', '', '', '',
                             TRIM(CONCAT('MOTOCICLETA ', m.model, ' ', COALESCE(m.version, ''))),
-                            u.color, COALESCE(u.purchase_date, u.entry_date)
+                            u.color, COALESCE(u.purchase_date, u.entry_date),
+                            COALESCE(s.currency, 'PEN'), si.line_total
                      FROM sale_items si
                      JOIN sales s ON s.id = si.sale_id
                      JOIN motorcycle_units u ON u.id = si.motorcycle_unit_id
