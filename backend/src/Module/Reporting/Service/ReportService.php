@@ -16,7 +16,7 @@ final class ReportService
 {
     public const TYPES = [
         'sales', 'purchases', 'cash', 'kardex', 'workshop', 'documents',
-        'customers', 'suppliers', 'motorcycles', 'inventory', 'utilities', 'audit',
+        'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'utilities', 'audit',
         'repuestosyamaha', 'motosyamaha',
     ];
 
@@ -189,6 +189,16 @@ final class ReportService
                             sp.purchase_price, ROUND(sp.stock * COALESCE(sp.purchase_price, 0), 2), sp.location
                      FROM spare_parts sp LEFT JOIN catalog_items c ON c.id = sp.category_id
                      WHERE sp.deleted_at IS NULL
+                     ORDER BY sp.description",
+                ),
+            ],
+            'stock' => [
+                'title' => 'Stock de Repuestos (a la fecha)',
+                'columns' => $this->cols(['Código', 'Cód. Parte', 'Descripción', 'Categoría', 'Stock']),
+                'rows' => $this->db->fetchAllNumeric(
+                    "SELECT sp.internal_code, sp.part_code, sp.description, c.name, sp.stock
+                     FROM spare_parts sp LEFT JOIN catalog_items c ON c.id = sp.category_id
+                     WHERE sp.deleted_at IS NULL AND sp.is_active = true
                      ORDER BY sp.description",
                 ),
             ],

@@ -19,6 +19,7 @@ const REPORT_TYPES = [
   { key: 'suppliers', label: 'Proveedores' },
   { key: 'motorcycles', label: 'Motocicletas' },
   { key: 'inventory', label: 'Inventario Valorizado' },
+  { key: 'stock', label: 'Stock de Repuestos' },
   { key: 'utilities', label: 'Utilidades' },
   { key: 'audit', label: 'Auditoría' },
 ]
