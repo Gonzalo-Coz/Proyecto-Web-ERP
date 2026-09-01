@@ -16,7 +16,7 @@ final class ReportService
 {
     public const TYPES = [
         'sales', 'purchases', 'cash', 'kardex', 'workshop', 'documents',
-        'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'utilities', 'audit',
+        'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'stockmotos', 'utilities', 'audit',
         'repuestosyamaha', 'motosyamaha',
     ];
 
@@ -200,6 +200,19 @@ final class ReportService
                      FROM spare_parts sp LEFT JOIN catalog_items c ON c.id = sp.category_id
                      WHERE sp.deleted_at IS NULL AND sp.is_active = true
                      ORDER BY sp.description",
+                ),
+            ],
+            'stockmotos' => [
+                'title' => 'Stock de Motos (unidades disponibles)',
+                'columns' => $this->cols(['Código', 'Modelo', 'Color', 'Año', 'VIN']),
+                'rows' => $this->db->fetchAllNumeric(
+                    "SELECT u.internal_code, CONCAT(b.name, ' ', m.model, ' ', m.model_year), u.color,
+                            COALESCE(u.manufacture_year, m.model_year), u.vin
+                     FROM motorcycle_units u
+                     JOIN motorcycle_models m ON m.id = u.model_id
+                     JOIN catalog_items b ON b.id = m.brand_id
+                     WHERE u.deleted_at IS NULL AND u.status = 'DISPONIBLE'
+                     ORDER BY b.name, m.model, u.internal_code",
                 ),
             ],
             'utilities' => [
