@@ -119,6 +119,28 @@ final class MaintenancePlanService
     }
 
     /**
+     * Siguiente kilometraje de mantenimiento después de $km, para un modelo.
+     * Devuelve null si no hay plan para ese modelo o ya es el último.
+     */
+    public function nextKmAfter(string $model, int $km): ?int
+    {
+        foreach ($this->all()['models'] as $m) {
+            if (strcasecmp((string) $m['model'], $model) !== 0) {
+                continue;
+            }
+            foreach ($m['kmIntervals'] as $interval) {
+                if ((int) $interval > $km) {
+                    return (int) $interval;
+                }
+            }
+
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
      * Carga (y cachea en memoria) el JSON de planes normalizado.
      *
      * @return array<string, mixed>

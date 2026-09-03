@@ -35,6 +35,7 @@ final class SaleController
             status: $request->query->getString('status', ''),
             customerId: $request->query->getInt('customerId', 0),
             pendingOnly: $request->query->getBoolean('pending', false),
+            channel: $request->query->getString('channel', ''),
         ));
     }
 

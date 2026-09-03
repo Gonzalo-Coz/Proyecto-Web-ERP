@@ -51,6 +51,7 @@ const rows = ref<SaleSummary[]>([])
 const meta = ref<PageMeta | null>(null)
 const loading = ref(false)
 const statusFilter = ref('')
+const channelFilter = ref('') // '' | 'MOSTRADOR' | 'TALLER'
 // Filtro "solo con saldo por cobrar" (desde el dashboard: ?pending=1).
 const pendingOnly = ref(false)
 const query = reactive({ page: 1, perPage: 10, search: '', sort: 'saleDate', direction: 'desc' as const })
@@ -247,7 +248,7 @@ const zoneMode = computed<'LOCAL' | 'AMAZONIA' | 'EXTERIOR'>({
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const result = await saleService.list({ ...query, status: statusFilter.value, pending: pendingOnly.value || undefined })
+    const result = await saleService.list({ ...query, status: statusFilter.value, channel: channelFilter.value || undefined, pending: pendingOnly.value || undefined })
     rows.value = result.data
     meta.value = result.meta
   } finally {
@@ -568,6 +569,11 @@ onMounted(async () => {
             <option value="COTIZACION">Cotizaciones</option>
             <option value="COMPLETADA">Ventas completadas</option>
             <option value="ANULADA">Anuladas / rechazadas</option>
+          </select>
+          <select v-model="channelFilter" class="form-input w-40" @change="load()">
+            <option value="">Todos los canales</option>
+            <option value="MOSTRADOR">Mostrador</option>
+            <option value="TALLER">Taller</option>
           </select>
           <button
             v-if="pendingOnly"

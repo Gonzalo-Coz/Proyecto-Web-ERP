@@ -77,6 +77,10 @@ class Sale
     #[ORM\Column(length: 3, options: ['default' => 'PEN'])]
     private string $currency = 'PEN';
 
+    /** Canal/categoría de la venta: MOSTRADOR (por defecto) o TALLER (generada desde una orden de servicio). */
+    #[ORM\Column(length: 12, options: ['default' => 'MOSTRADOR'])]
+    private string $channel = 'MOSTRADOR';
+
     /** Descuento global sobre el total del comprobante (Adición A1 / 24.1). */
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
     private string $globalDiscount = '0.00';
@@ -213,6 +217,16 @@ class Sale
     public function setCurrency(string $value): void
     {
         $this->currency = strtoupper($value) === 'USD' ? 'USD' : 'PEN';
+    }
+
+    public function getChannel(): string
+    {
+        return $this->channel;
+    }
+
+    public function setChannel(string $value): void
+    {
+        $this->channel = strtoupper($value) === 'TALLER' ? 'TALLER' : 'MOSTRADOR';
     }
 
     public function setTotals(float $subtotal, float $igv, float $total): void

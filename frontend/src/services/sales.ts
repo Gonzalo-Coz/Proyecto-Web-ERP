@@ -3,7 +3,7 @@ import type { ListQuery, Paginated } from '@/types/common'
 import type { SalePayload, SaleSummary } from '@/types/sales'
 
 export const saleService = {
-  list(query: ListQuery & { status?: string; customerId?: number; pending?: boolean }): Promise<Paginated<SaleSummary>> {
+  list(query: ListQuery & { status?: string; customerId?: number; pending?: boolean; channel?: string }): Promise<Paginated<SaleSummary>> {
     return api.get('/sales', { params: query }).then((r) => r.data)
   },
   get(id: number): Promise<SaleSummary> {

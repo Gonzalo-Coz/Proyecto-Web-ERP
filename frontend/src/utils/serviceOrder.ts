@@ -119,3 +119,93 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
   w.document.write(html)
   w.document.close()
 }
+
+/**
+ * Acta de Entrega del vehículo (Fase 3): documento profesional con lo realizado,
+ * el total y el próximo mantenimiento sugerido. Para imprimir o guardar en PDF.
+ */
+export function printServiceDelivery(o: ServiceOrderSummary): void {
+  const esc = (v: unknown): string =>
+    v === null || v === undefined || v === ''
+      ? ''
+      : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
+
+  const items = o.items ?? []
+  const plan = items.filter((i) => i.fromPlan)
+  const extra = items.filter((i) => !i.fromPlan)
+  const money = (n: number): string => `S/ ${n.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const rowsOf = (list: typeof items): string =>
+    list.map((i) => `<tr><td>${i.itemType === 'PART' ? 'Repuesto' : 'Mano de obra'}</td><td>${esc(i.description)}</td><td class="r">${i.quantity}</td><td class="r">${esc(i.unitPrice)}</td><td class="r">${esc(i.lineTotal)}</td></tr>`).join('')
+
+  const moto = [o.motoBrand, o.motoModel, o.motoColor].filter(Boolean).join(' ') || (o.motorcycleLabel ?? '')
+  const nextKm = o.nextMaintenanceKm ? `${o.nextMaintenanceKm.toLocaleString('es-PE')} km` : '[según kilometraje / uso]'
+
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<title>Acta de Entrega ${esc(o.orderNumber)}</title>
+<style>
+  *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px;}
+  .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:8px 14px;display:flex;justify-content:flex-end;}
+  .toolbar button{background:#fff;color:#0f172a;border:0;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer;}
+  .sheet{width:210mm;min-height:297mm;margin:10px auto;padding:16mm 14mm;background:#fff;}
+  h1{font-size:22px;text-align:center;margin:0;}
+  .sub{text-align:center;font-size:12px;color:#555;margin-bottom:2px;}
+  .biz{text-align:center;font-weight:bold;font-size:15px;}
+  .biz2{text-align:center;font-size:11px;color:#555;margin-bottom:8px;}
+  .band{background:#e5e7eb;font-weight:bold;padding:4px 8px;margin:12px 0 6px;}
+  .grid{display:flex;flex-wrap:wrap;gap:2px 24px;}
+  .grid p{margin:2px 0;flex:1 1 45%;}
+  table{width:100%;border-collapse:collapse;margin-top:4px;font-size:11px;}
+  th,td{border:1px solid #cbd5e1;padding:4px 6px;text-align:left;}
+  th{background:#f1f5f9;}
+  td.r,th.r{text-align:right;}
+  .tot{text-align:right;font-size:14px;margin-top:6px;}
+  .next{border:1px solid #0f172a;border-radius:6px;padding:8px 10px;margin-top:12px;font-size:13px;}
+  .signs{display:flex;gap:60px;margin-top:40px;}
+  .sign{flex:1;border-top:1px solid #111;text-align:center;padding-top:4px;}
+  @media print{.toolbar{display:none;}.sheet{margin:0;}@page{size:A4;margin:0;}}
+</style></head>
+<body>
+  <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
+  <div class="sheet">
+    <div class="biz">YAMAHA GLOBAL MOTORS</div>
+    <div class="biz2">Integra Global Motors S.A.C. · RUC 20615585271</div>
+    <h1>ACTA DE ENTREGA DEL VEHÍCULO</h1>
+    <div class="sub">Orden de Servicio N° ${esc(o.orderNumber)}</div>
+
+    <div class="band">DATOS</div>
+    <div class="grid">
+      <p><b>Cliente:</b> ${esc(o.customerName)}${o.customerDocument ? ' (' + esc(o.customerDocument) + ')' : ''}</p>
+      <p><b>Motocicleta:</b> ${esc(moto)}</p>
+      <p><b>Placa:</b> ${esc(o.plate ?? '—')}</p>
+      <p><b>N° de serie:</b> ${esc(o.motoSerial ?? '—')}</p>
+      <p><b>Kilometraje:</b> ${esc(o.mileage ?? '—')}</p>
+      <p><b>Ingreso:</b> ${esc(o.entryDate)}${o.entryTime ? ' ' + esc(o.entryTime) : ''}</p>
+      <p><b>Mecánico:</b> ${esc(o.mechanicName ?? '—')}</p>
+      ${o.planModel ? `<p><b>Plan aplicado:</b> ${esc(o.planModel)} — ${esc(o.planKm ?? '')} km</p>` : ''}
+    </div>
+
+    ${plan.length ? `<div class="band">MANTENIMIENTO PROGRAMADO</div>
+    <table><thead><tr><th>Tipo</th><th>Descripción</th><th class="r">Cant.</th><th class="r">P.Unit</th><th class="r">Total</th></tr></thead><tbody>${rowsOf(plan)}</tbody></table>` : ''}
+
+    ${extra.length ? `<div class="band">TRABAJOS Y REPUESTOS ADICIONALES</div>
+    <table><thead><tr><th>Tipo</th><th>Descripción</th><th class="r">Cant.</th><th class="r">P.Unit</th><th class="r">Total</th></tr></thead><tbody>${rowsOf(extra)}</tbody></table>` : ''}
+
+    <p class="tot"><b>Total del servicio: ${money(Number(o.total))}</b></p>
+
+    <div class="next"><b>Próximo mantenimiento sugerido:</b> a los <b>${nextKm}</b> o según el uso del vehículo. Se recomienda respetar el plan de mantenimiento para conservar la garantía.</div>
+
+    <p style="margin-top:14px;font-size:11px;color:#444">El cliente declara recibir su motocicleta conforme, habiendo verificado los trabajos realizados.</p>
+
+    <div class="signs">
+      <div class="sign">Firma del cliente (conforme)</div>
+      <div class="sign">Firma del responsable / técnico</div>
+    </div>
+  </div>
+</body></html>`
+
+  const w = window.open('', '_blank')
+  if (!w) return
+  w.document.open()
+  w.document.write(html)
+  w.document.close()
+}

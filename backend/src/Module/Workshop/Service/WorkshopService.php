@@ -360,6 +360,9 @@ final class WorkshopService
         ));
 
         $order->setInvoiceSaleId((int) $sale['id']);
+        // Marca la venta como categoría TALLER (no mostrador).
+        $saleEntity = $this->entityManager->find(\App\Module\Sales\Entity\Sale::class, (int) $sale['id']);
+        $saleEntity?->setChannel('TALLER');
         $this->entityManager->flush();
 
         return $this->toArray($order, true);
@@ -443,6 +446,10 @@ final class WorkshopService
             'motoSerial' => $o->getMotoSerial() ?? $o->getMotorcycleUnit()?->getVin(),
             'planModel' => $o->getPlanModel(),
             'planKm' => $o->getPlanKm(),
+            // Próximo mantenimiento sugerido (siguiente km del plan tras el realizado).
+            'nextMaintenanceKm' => ($o->getPlanModel() !== null && $o->getPlanKm() !== null)
+                ? $this->maintenancePlans->nextKmAfter($o->getPlanModel(), $o->getPlanKm())
+                : null,
             'motorcycleUnitId' => $o->getMotorcycleUnit()?->getId(),
             'motorcycleLabel' => $o->getMotorcycleUnit() !== null
                 ? sprintf('%s — VIN %s', $o->getMotorcycleUnit()->getModel()->getFullName(), $o->getMotorcycleUnit()->getVin())

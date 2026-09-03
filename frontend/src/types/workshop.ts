@@ -28,6 +28,7 @@ export interface ServiceOrderSummary {
   broughtBy?: string | null
   planModel?: string | null
   planKm?: number | null
+  nextMaintenanceKm?: number | null
   motoBrand?: string | null
   motoModel?: string | null
   motoColor?: string | null

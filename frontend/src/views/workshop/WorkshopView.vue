@@ -5,7 +5,7 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import FormField from '@/components/ui/FormField.vue'
 import { workshopService } from '@/services/workshop'
 import { maintenanceService } from '@/services/maintenance'
-import { printServiceOrder } from '@/utils/serviceOrder'
+import { printServiceOrder, printServiceDelivery } from '@/utils/serviceOrder'
 import { customerService } from '@/services/masters'
 import { unitService } from '@/services/motorcycles'
 import { saleService } from '@/services/sales'
@@ -373,6 +373,10 @@ function doPrint(): void {
   if (detail.value) printServiceOrder(detail.value)
 }
 
+function doDelivery(): void {
+  if (detail.value) printServiceDelivery(detail.value)
+}
+
 onMounted(async () => {
   // Los datos del formulario se cargan PRIMERO e independientes: si la lista de
   // órdenes falla, el formulario de recepción igual tiene clientes/motos/repuestos.
@@ -545,8 +549,9 @@ onMounted(async () => {
           <p v-if="detail.notes" class="col-span-2">Observaciones: <strong class="text-gray-900">{{ detail.notes }}</strong></p>
         </div>
 
-        <div class="flex justify-end">
-          <button class="btn-secondary" @click="doPrint">🖨 Imprimir Orden de Servicio</button>
+        <div class="flex justify-end gap-2">
+          <button class="btn-secondary" @click="doPrint">🖨 Orden de Servicio</button>
+          <button class="btn-secondary" @click="doDelivery">🖨 Acta de Entrega</button>
         </div>
 
         <!-- Estado -->

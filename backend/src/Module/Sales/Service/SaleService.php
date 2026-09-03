@@ -51,7 +51,7 @@ final class SaleService
     }
 
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */
-    public function list(int $page, int $perPage, string $search, string $sort, string $direction, string $status, int $customerId, bool $pendingOnly = false): array
+    public function list(int $page, int $perPage, string $search, string $sort, string $direction, string $status, int $customerId, bool $pendingOnly = false, string $channel = ''): array
     {
         $page = max(1, $page);
         $perPage = min(100, max(1, $perPage));
@@ -73,6 +73,9 @@ final class SaleService
         }
         if ($customerId > 0) {
             $qb->andWhere('c.id = :cid')->setParameter('cid', $customerId);
+        }
+        if ($channel === 'TALLER' || $channel === 'MOSTRADOR') {
+            $qb->andWhere('v.channel = :ch')->setParameter('ch', $channel);
         }
         // Solo ventas con saldo por cobrar: completadas, con comprobante ACEPTADO
         // (aprobadas) y no pagadas del todo. Coincide con el total del dashboard.
@@ -542,6 +545,7 @@ final class SaleService
             'igvIncluded' => $s->isIgvIncluded(),
             'igvExempt' => $s->isIgvExempt(),
             'currency' => $s->getCurrency(),
+            'channel' => $s->getChannel(),
             'globalDiscount' => $s->getGlobalDiscount(),
             'totalDiscount' => $s->getTotalDiscount(),
             'discountAuthorizedBy' => $s->getDiscountAuthorizedBy(),

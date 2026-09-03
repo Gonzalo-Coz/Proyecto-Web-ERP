@@ -57,6 +57,7 @@ export interface SaleSummary {
   igvIncluded?: boolean
   igvExempt?: boolean
   currency?: 'PEN' | 'USD'
+  channel?: 'MOSTRADOR' | 'TALLER'
   items?: SaleItemDetail[]
   payments?: SalePaymentItem[]
 }
