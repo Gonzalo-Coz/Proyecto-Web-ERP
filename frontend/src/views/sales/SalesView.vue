@@ -613,9 +613,15 @@ onMounted(async () => {
         <div class="grid grid-cols-3 gap-4">
           <FormField label="Cliente" required class="col-span-2">
             <div class="flex gap-2">
-              <select v-model.number="form.customerId" class="form-input" required @change="onCustomerChange">
-                <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.documentNumber }})</option>
-              </select>
+              <div class="flex-1">
+                <SearchableSelect
+                  v-model="form.customerId"
+                  :options="customers"
+                  :option-label="(c) => `${c.name} (${c.documentNumber})`"
+                  placeholder="Escribe nombre, DNI o RUC…"
+                  @change="onCustomerChange"
+                />
+              </div>
               <button
                 v-if="genericCustomerId"
                 type="button"

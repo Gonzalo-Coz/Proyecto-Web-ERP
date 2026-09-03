@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import FormField from '@/components/ui/FormField.vue'
+import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { workshopService } from '@/services/workshop'
 import { maintenanceService } from '@/services/maintenance'
 import { printServiceOrder, printServiceDelivery } from '@/utils/serviceOrder'
@@ -458,9 +459,18 @@ onMounted(async () => {
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Cliente (titular)" required>
-            <select v-model.number="form.customerId" class="form-input" required @change="onReceptionCustomerChange">
-              <option v-for="c in customers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.documentNumber }})</option>
-            </select>
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <SearchableSelect
+                  v-model="form.customerId"
+                  :options="customers"
+                  :option-label="(c) => `${c.name} (${c.documentNumber})`"
+                  placeholder="Escribe nombre, DNI o RUC…"
+                  @change="onReceptionCustomerChange"
+                />
+              </div>
+              <a href="/customers" target="_blank" class="btn-secondary whitespace-nowrap" title="Registrar un cliente nuevo">+ Nuevo cliente</a>
+            </div>
           </FormField>
           <FormField label="Ingresa / a nombre de (opcional)">
             <input v-model="form.broughtBy" class="form-input" maxlength="150" placeholder="Quién trae la moto, si es distinto" />
