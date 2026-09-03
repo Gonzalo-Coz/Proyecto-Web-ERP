@@ -1,5 +1,119 @@
 import type { ServiceOrderSummary } from '@/types/workshop'
 
+const escHtml = (v: unknown): string =>
+  v === null || v === undefined || v === ''
+    ? ''
+    : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
+
+interface MotoHistoryPart { code: string; description: string; quantity: number }
+interface MotoHistoryIngreso { orderNumber: string; date: string; km: number | null; tipo: string; work: string; parts: MotoHistoryPart[] }
+interface MotoHistoryData {
+  company: { tradeName: string; name: string; ruc: string; address: string; logo: string }
+  customer: { name: string; document: string; phone: string | null; email: string | null; address: string | null } | null
+  moto: { brand: string; model: string; color: string; vin: string; year: number | null; plate: string | null }
+  summary: { totalIngresos: number; lastKm: number | null; nextMaintenanceKm: number | null }
+  ingresos: MotoHistoryIngreso[]
+}
+
+/**
+ * Historia clínica de la moto: historial de ingresos a taller SIN precios, con
+ * el detalle de repuestos de los últimos 2 mantenimientos. Imprimible / PDF.
+ */
+export function printMotoHistory(d: MotoHistoryData): void {
+  const esc = escHtml
+  const logoSrc = d.company.logo?.startsWith('http') ? d.company.logo : `${window.location.origin}${d.company.logo || ''}`
+  const km = (n: number | null): string => (n === null || n === undefined ? '—' : Number(n).toLocaleString('es-PE'))
+
+  const ingresoRows = d.ingresos.map((i) =>
+    `<tr><td>${esc(i.date)}</td><td>${esc(i.orderNumber)}</td><td class="r">${km(i.km)}</td><td>${esc(i.tipo)}</td><td>${esc(i.work)}</td></tr>`,
+  ).join('') || '<tr><td colspan="5" style="text-align:center;color:#888">Sin ingresos registrados.</td></tr>'
+
+  const lastTwo = d.ingresos.filter((i) => i.parts.length > 0).slice(-2).reverse()
+  const partsBlocks = lastTwo.map((i) => `
+    <div class="subh">${esc(i.orderNumber)} · ${esc(i.date)} · ${km(i.km)} km</div>
+    <table class="pt"><thead><tr><th style="width:24%">Código</th><th style="width:61%">Repuesto</th><th class="r" style="width:15%">Cant.</th></tr></thead>
+    <tbody>${i.parts.map((p) => `<tr><td>${esc(p.code)}</td><td>${esc(p.description)}</td><td class="r">${p.quantity}</td></tr>`).join('')}</tbody></table>`).join('')
+
+  const c = d.customer
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Historia clínica ${esc(d.moto.vin)}</title>
+<style>
+  *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px}
+  .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:8px 14px;display:flex;justify-content:flex-end}
+  .toolbar button{background:#fff;color:#0f172a;border:0;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer}
+  .sheet{width:210mm;min-height:297mm;margin:10px auto;padding:16mm 14mm;background:#fff}
+  .head{display:flex;align-items:center;gap:14px;border-bottom:0.5px solid #cbd5e1;padding-bottom:10px;margin-bottom:12px}
+  .head img{height:56px;max-width:150px;object-fit:contain}
+  .head .c{flex:1;text-align:center}
+  .biz{font-size:15px;font-weight:bold}.biz2{font-size:11px;color:#555}
+  h1{font-size:18px;margin:4px 0 0}
+  .lbl{font-weight:600;color:#555;font-size:11.5px}
+  .grid{display:grid;gap:2px 20px;font-size:12px;margin-bottom:10px}
+  .g2{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(3,1fr)}
+  .sec{font-weight:bold;font-size:12.5px;margin:12px 0 4px}
+  table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11px}
+  th,td{border:0.5px solid #cbd5e1;padding:5px 6px;text-align:left;word-wrap:break-word}
+  th{background:#f1f5f9}.r{text-align:right}
+  .pt{margin-bottom:8px}.subh{font-size:11.5px;color:#555;margin:6px 0 2px}
+  .next{border:1px solid #0f172a;border-radius:6px;padding:8px 10px;margin-top:12px;font-size:12.5px}
+  .signs{display:flex;gap:60px;margin-top:36px}
+  .sign{flex:1;border-top:1px solid #111;text-align:center;padding-top:4px;font-size:11.5px;color:#555}
+  @media print{.toolbar{display:none}.sheet{margin:0}@page{size:A4;margin:0}}
+</style></head><body>
+  <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
+  <div class="sheet">
+    <div class="head">
+      <img src="${esc(logoSrc)}" onerror="this.style.display='none'" alt="logo">
+      <div class="c">
+        <div class="biz">${esc(d.company.tradeName)}</div>
+        <div class="biz2">${esc(d.company.name)} · RUC ${esc(d.company.ruc)}${d.company.address ? ' · ' + esc(d.company.address) : ''}</div>
+        <h1>Historial de servicios del vehículo</h1>
+      </div>
+      <div style="width:56px"></div>
+    </div>
+
+    <div class="lbl">Datos del cliente</div>
+    <div class="grid g2">
+      <div><span class="lbl">Nombre:</span> ${esc(c?.name ?? '—')}</div>
+      <div><span class="lbl">Documento:</span> ${esc(c?.document ?? '—')}</div>
+      <div><span class="lbl">Teléfono:</span> ${esc(c?.phone ?? '—')}</div>
+      <div><span class="lbl">Email:</span> ${esc(c?.email ?? '—')}</div>
+      <div style="grid-column:1/-1"><span class="lbl">Dirección:</span> ${esc(c?.address ?? '—')}</div>
+    </div>
+
+    <div class="lbl">Datos de la motocicleta</div>
+    <div class="grid g3">
+      <div><span class="lbl">Modelo:</span> ${esc(d.moto.brand)} ${esc(d.moto.model)}</div>
+      <div><span class="lbl">Color:</span> ${esc(d.moto.color)}</div>
+      <div><span class="lbl">Año:</span> ${esc(d.moto.year ?? '—')}</div>
+      <div><span class="lbl">N° serie:</span> ${esc(d.moto.vin)}</div>
+      <div><span class="lbl">Último km:</span> ${km(d.summary.lastKm)}</div>
+      <div><span class="lbl">Ingresos:</span> ${d.summary.totalIngresos}</div>
+    </div>
+
+    <div class="sec">Ingresos a taller</div>
+    <table>
+      <thead><tr><th style="width:14%">Fecha</th><th style="width:15%">N° OT</th><th class="r" style="width:12%">Km</th><th style="width:22%">Tipo</th><th style="width:37%">Trabajo realizado</th></tr></thead>
+      <tbody>${ingresoRows}</tbody>
+    </table>
+
+    ${partsBlocks ? `<div class="sec">Repuestos utilizados — últimos 2 mantenimientos</div>${partsBlocks}` : ''}
+
+    <div class="next"><b>Próximo mantenimiento sugerido:</b> ${d.summary.nextMaintenanceKm ? 'a los <b>' + km(d.summary.nextMaintenanceKm) + ' km</b>' : 'según el kilometraje o el uso'}, o según el uso del vehículo.</div>
+
+    <div class="signs">
+      <div class="sign">Firma del cliente</div>
+      <div class="sign">Responsable de taller</div>
+    </div>
+  </div>
+</body></html>`
+
+  const w = window.open('', '_blank')
+  if (!w) return
+  w.document.open()
+  w.document.write(html)
+  w.document.close()
+}
+
 /**
  * Genera e imprime la "Orden de Servicio" (Fase 1 — recepción de la moto),
  * con el diseño de la plantilla: datos del cliente/moto autocompletados, e

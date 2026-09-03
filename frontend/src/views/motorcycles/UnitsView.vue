@@ -10,6 +10,8 @@ import api from '@/services/api'
 import { modelService, unitService } from '@/services/motorcycles'
 import { supplierService } from '@/services/masters'
 import { purchaseService } from '@/services/purchases'
+import { workshopService } from '@/services/workshop'
+import { printMotoHistory } from '@/utils/serviceOrder'
 import type { SupplierItem } from '@/types/masters'
 import { useAuthStore } from '@/stores/auth'
 import type { PageMeta, TableColumn } from '@/types/common'
@@ -85,6 +87,20 @@ function onModelChange(): void {
 
 const confirmTarget = ref<UnitItem | null>(null)
 const viewTarget = ref<UnitItem | null>(null)
+const historyLoading = ref(false)
+
+async function doMotoHistory(): Promise<void> {
+  if (!viewTarget.value) return
+  historyLoading.value = true
+  try {
+    const data = await workshopService.motoHistory(viewTarget.value.id)
+    printMotoHistory(data)
+  } catch {
+    /* silencioso: si falla, no bloquea la ficha */
+  } finally {
+    historyLoading.value = false
+  }
+}
 const statusTarget = ref<UnitItem | null>(null)
 const newStatus = ref<UnitStatus>('DISPONIBLE')
 
@@ -439,7 +455,10 @@ onMounted(async () => {
         <div><dt class="text-xs font-medium uppercase text-gray-400">Ubicación</dt><dd>{{ viewTarget.location || '—' }}</dd></div>
         <div class="sm:col-span-2"><dt class="text-xs font-medium uppercase text-gray-400">Observaciones</dt><dd>{{ viewTarget.notes || '—' }}</dd></div>
       </dl>
-      <div class="mt-6 flex justify-end">
+      <div class="mt-6 flex justify-between">
+        <button class="btn-secondary" :disabled="historyLoading" @click="doMotoHistory">
+          {{ historyLoading ? 'Generando…' : '🖨 Historial de servicios (PDF)' }}
+        </button>
         <button class="btn-secondary" @click="viewTarget = null">Cerrar</button>
       </div>
     </BaseModal>

@@ -36,7 +36,105 @@ final class WorkshopService
         private readonly StockService $stockService,
         private readonly SaleService $saleService,
         private readonly MaintenancePlanService $maintenancePlans,
+        private readonly \App\Shared\Settings\Service\SettingsService $settings,
     ) {
+    }
+
+    /**
+     * Historia clínica de una moto registrada: todos sus ingresos a taller
+     * (sin precios), con el detalle de repuestos usados por ingreso.
+     *
+     * @return array<string, mixed>
+     */
+    public function motoHistory(int $unitId): array
+    {
+        $unit = $this->unitRepository->find($unitId)
+            ?? throw new NotFoundHttpException('Unidad de moto no encontrada.');
+
+        /** @var ServiceOrder[] $orders */
+        $orders = $this->orderRepository->createQueryBuilder('o')
+            ->where('o.motorcycleUnit = :u')->setParameter('u', $unit)
+            ->andWhere("o.status <> 'ANULADA'")
+            ->orderBy('o.entryDate', 'ASC')->addOrderBy('o.id', 'ASC')
+            ->getQuery()->getResult();
+
+        $ingresos = [];
+        $lastKm = null;
+        $nextKm = null;
+        $lastCustomer = null;
+        foreach ($orders as $o) {
+            $lastCustomer = $o;
+            if ($o->getMileage() !== null) {
+                $lastKm = $o->getMileage();
+            }
+            $hasPlan = $o->getPlanModel() !== null;
+            $hasExtra = false;
+            $parts = [];
+            $labor = [];
+            foreach ($o->getItems() as $it) {
+                if (!$it->isFromPlan()) {
+                    $hasExtra = true;
+                }
+                if ($it->getItemType() === 'PART') {
+                    $parts[] = [
+                        'code' => $it->getSparePart()?->getPartCode() ?? '',
+                        'description' => $it->getDescription(),
+                        'quantity' => $it->getQuantity(),
+                    ];
+                } else {
+                    $labor[] = $it->getDescription();
+                }
+            }
+            $tipo = $hasPlan ? ('Programado'.($hasExtra ? ' + adicional' : '')) : 'Preventivo / correctivo';
+            $work = trim((string) $o->getDiagnosis());
+            if ($work === '') {
+                $work = $hasPlan
+                    ? sprintf('Mantenimiento programado %s - %s km', $o->getPlanModel(), number_format((int) $o->getPlanKm(), 0, '.', ','))
+                    : implode('; ', $labor);
+            }
+            if ($hasPlan && $o->getPlanModel() !== null && $o->getPlanKm() !== null) {
+                $nextKm = $this->maintenancePlans->nextKmAfter($o->getPlanModel(), $o->getPlanKm());
+            }
+            $ingresos[] = [
+                'orderNumber' => $o->getOrderNumber(),
+                'date' => $o->getEntryDate()->format('d/m/Y'),
+                'km' => $o->getMileage(),
+                'tipo' => $tipo,
+                'work' => $work,
+                'parts' => $parts,
+            ];
+        }
+
+        return [
+            'company' => [
+                'tradeName' => $this->settings->get('company.trade_name') ?: 'Yamaha Global Motors',
+                'name' => $this->settings->get('company.name') ?: 'Integra Global Motors S.A.C.',
+                'ruc' => $this->settings->get('company.ruc') ?: '20615585271',
+                'address' => $this->settings->get('company.address') ?? '',
+                'logo' => $this->settings->get('company.logo_full_path') ?: '/brand/logo-full.png',
+            ],
+            'customer' => $lastCustomer !== null ? [
+                'name' => $lastCustomer->getCustomer()->getName(),
+                'document' => $lastCustomer->getCustomer()->getDocumentNumber(),
+                'phone' => $lastCustomer->getContactPhone() ?? ($lastCustomer->getCustomer()->getPhone() ?: $lastCustomer->getCustomer()->getMobile()),
+                'email' => $lastCustomer->getContactEmail() ?? $lastCustomer->getCustomer()->getEmail(),
+                'address' => $lastCustomer->getCustomer()->getAddress(),
+            ] : null,
+            'moto' => [
+                'brand' => $unit->getModel()->getBrand()->getName(),
+                'model' => $unit->getModel()->getModel(),
+                'color' => $unit->getColor(),
+                'vin' => $unit->getVin(),
+                'year' => $unit->getManufactureYear() ?? $unit->getModel()->getModelYear(),
+                'plate' => null,
+            ],
+            'summary' => [
+                'totalIngresos' => count($ingresos),
+                'lastKm' => $lastKm,
+                'nextMaintenanceKm' => $nextKm,
+            ],
+            'ingresos' => $ingresos,
+        ];
     }
 
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */

@@ -33,4 +33,7 @@ export const workshopService = {
   cancel(id: number, reason: string): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/cancel`, { reason }).then((r) => r.data)
   },
+  motoHistory(unitId: number): Promise<any> {
+    return api.get(`/workshop/orders/moto-history/${unitId}`).then((r) => r.data)
+  },
 }

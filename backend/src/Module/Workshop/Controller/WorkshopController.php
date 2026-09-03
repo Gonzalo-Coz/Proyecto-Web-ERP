@@ -81,6 +81,13 @@ final class WorkshopController
         return new JsonResponse($this->workshopService->invoice($id));
     }
 
+    #[Route('/moto-history/{unitId<\d+>}', name: 'workshop_moto_history', methods: ['GET'])]
+    #[IsGranted('workshop.orders.view')]
+    public function motoHistory(int $unitId): JsonResponse
+    {
+        return new JsonResponse($this->workshopService->motoHistory($unitId));
+    }
+
     #[Route('/{id<\d+>}/cancel', name: 'workshop_cancel', methods: ['POST'])]
     #[IsGranted('workshop.orders.edit')]
     public function cancel(int $id, Request $request): JsonResponse
