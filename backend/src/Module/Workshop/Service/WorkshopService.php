@@ -342,19 +342,34 @@ final class WorkshopService
             throw new ConflictHttpException('La orden no tiene trabajos ni repuestos que facturar.');
         }
 
-        // Venta con UNA línea de servicio por el total: los repuestos ya
-        // salieron del inventario vía Kardex TALLER (no se descuentan doble).
-        $subtotal = $order->getTotal();
+        // El comprobante de taller muestra DOS montos: mano de obra y repuestos
+        // (no el detalle ítem por ítem). Los repuestos ya salieron del inventario
+        // vía Kardex TALLER, por eso van como líneas de SERVICIO (no descuentan doble).
+        $laborTotal = 0.0;
+        $partsTotal = 0.0;
+        foreach ($order->getItems() as $it) {
+            if ($it->getItemType() === 'LABOR') {
+                $laborTotal += (float) $it->getLineTotal();
+            } else {
+                $partsTotal += (float) $it->getLineTotal();
+            }
+        }
+
+        $lines = [];
+        if ($laborTotal > 0.0) {
+            $lines[] = ['itemType' => 'SERVICE', 'description' => sprintf('Mano de obra - Servicio de taller %s', $order->getOrderNumber()), 'quantity' => 1, 'unitPrice' => round($laborTotal, 2), 'discount' => 0];
+        }
+        if ($partsTotal > 0.0) {
+            $lines[] = ['itemType' => 'SERVICE', 'description' => sprintf('Repuestos - Servicio de taller %s', $order->getOrderNumber()), 'quantity' => 1, 'unitPrice' => round($partsTotal, 2), 'discount' => 0];
+        }
+        if ($lines === []) {
+            $lines[] = ['itemType' => 'SERVICE', 'description' => sprintf('Servicio de taller %s', $order->getOrderNumber()), 'quantity' => 1, 'unitPrice' => round($order->getTotal(), 2), 'discount' => 0];
+        }
+
         $sale = $this->saleService->create(new SalePayload(
             customerId: $order->getCustomer()->getId(),
             saleDate: (new \DateTimeImmutable('today'))->format('Y-m-d'),
-            items: [[
-                'itemType' => 'SERVICE',
-                'description' => sprintf('Servicio de taller %s', $order->getOrderNumber()),
-                'quantity' => 1,
-                'unitPrice' => round($subtotal, 2),
-                'discount' => 0,
-            ]],
+            items: $lines,
             complete: true,
             notes: sprintf('Generada desde la orden de servicio %s', $order->getOrderNumber()),
         ));

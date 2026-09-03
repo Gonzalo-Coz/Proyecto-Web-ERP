@@ -138,7 +138,7 @@ export function printServiceDelivery(o: ServiceOrderSummary): void {
     list.map((i) => `<tr><td>${i.itemType === 'PART' ? 'Repuesto' : 'Mano de obra'}</td><td>${esc(i.description)}</td><td class="r">${i.quantity}</td><td class="r">${esc(i.unitPrice)}</td><td class="r">${esc(i.lineTotal)}</td></tr>`).join('')
 
   const moto = [o.motoBrand, o.motoModel, o.motoColor].filter(Boolean).join(' ') || (o.motorcycleLabel ?? '')
-  const nextKm = o.nextMaintenanceKm ? `${o.nextMaintenanceKm.toLocaleString('es-PE')} km` : '[según kilometraje / uso]'
+  const nextKm = o.nextMaintenanceKm ? `${o.nextMaintenanceKm.toLocaleString('es-PE')} km` : 'según el kilometraje o el uso del vehículo'
 
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
 <title>Acta de Entrega ${esc(o.orderNumber)}</title>
