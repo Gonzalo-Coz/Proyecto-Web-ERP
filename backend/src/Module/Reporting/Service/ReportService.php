@@ -92,11 +92,12 @@ final class ReportService
             // Reporte único que Yamaha pide: stock y ventas de motos en una sola hoja.
             'stockventasmotos' => [
                 'title' => 'Stock y Ventas de Motos (Formato Yamaha)',
-                'columns' => $this->cols(['DEALER', 'VIN', 'MODELO', 'COLOR', 'ESTADO', 'FECHA DE COMPRA', 'FECHA DE VENTA RETAIL', 'N° DE COMPROBANTE DE PAGO', 'TIPO DE PAGO', 'ENTIDAD FINANCIERA', 'TCEA', 'BONO YMDP', 'BONO DEALER', 'CAMPAÑA', 'MONEDA', 'MONTO DE VENTA']),
+                'columns' => $this->cols(['DEALER', 'VIN', 'MODELO', 'COLOR', 'ESTADO', 'CLIENTE', 'FECHA DE COMPRA', 'FECHA DE VENTA RETAIL', 'N° DE COMPROBANTE DE PAGO', 'TIPO DE PAGO', 'ENTIDAD FINANCIERA', 'TCEA', 'BONO YMDP', 'BONO DEALER', 'CAMPAÑA', 'MONEDA', 'MONTO DE VENTA']),
                 'rows' => $this->db->fetchAllNumeric(
                     "SELECT :dealer, u.vin,
                             TRIM(CONCAT('MOTOCICLETA ', m.model, ' ', COALESCE(m.version, ''))),
-                            u.color, u.status, COALESCE(u.purchase_date, u.entry_date),
+                            u.color, u.status, COALESCE(v.customer_name, ''),
+                            COALESCE(u.purchase_date, u.entry_date),
                             v.sale_date, v.comprobante,
                             COALESCE(v.retail_payment_type, ''), COALESCE(v.retail_financial_entity, ''),
                             COALESCE(v.retail_tcea::text, ''), COALESCE(v.retail_bonus_ymdp::text, ''),
@@ -107,9 +108,9 @@ final class ReportService
                      LEFT JOIN LATERAL (
                         SELECT s.sale_date, s.retail_payment_type, s.retail_financial_entity, s.retail_tcea,
                                s.retail_bonus_ymdp, s.retail_bonus_dealer, s.retail_campaign, s.currency,
-                               si.line_total AS monto,
+                               si.line_total AS monto, cu.name AS customer_name,
                                (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
-                        FROM sale_items si JOIN sales s ON s.id = si.sale_id
+                        FROM sale_items si JOIN sales s ON s.id = si.sale_id JOIN customers cu ON cu.id = s.customer_id
                         WHERE si.motorcycle_unit_id = u.id AND si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA'
                         ORDER BY s.sale_date DESC, s.id DESC LIMIT 1
                      ) v ON true

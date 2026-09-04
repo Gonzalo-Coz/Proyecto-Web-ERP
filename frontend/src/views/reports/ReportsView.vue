@@ -49,19 +49,21 @@ async function generate(): Promise<void> {
   }
 }
 
-/** Exporta el reporte visible a CSV (compatible con Excel). */
-function exportCsv(): void {
+/** Exporta el reporte visible a Excel (.xls que abre directo en Excel). */
+function exportExcel(): void {
   if (!report.value) return
-  const escape = (v: unknown): string => `"${String(v ?? '').replaceAll('"', '""')}"`
-  const lines = [
-    report.value.columns.map((c) => escape(c.label)).join(';'),
-    ...report.value.rows.map((r) => r.map(escape).join(';')),
-  ]
+  const esc = (v: unknown): string =>
+    String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const head = '<tr>' + report.value.columns.map((c) => `<th>${esc(c.label)}</th>`).join('') + '</tr>'
+  const body = report.value.rows.map((r) => '<tr>' + r.map((v) => `<td>${esc(v)}</td>`).join('') + '</tr>').join('')
+  const html =
+    '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head>' +
+    `<body><table border="1">${head}${body}</table></body></html>`
   // BOM para que Excel reconozca UTF-8 (tildes y ñ)
-  const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
-  link.download = `reporte_${filters.type}_${filters.from}_${filters.to}.csv`
+  link.download = `reporte_${filters.type}_${filters.from}_${filters.to}.xls`
   link.click()
   URL.revokeObjectURL(link.href)
 }
@@ -92,9 +94,9 @@ function exportCsv(): void {
           <button
             v-if="report && auth.can('reports.main.export')"
             class="btn-secondary"
-            @click="exportCsv"
+            @click="exportExcel"
           >
-            Exportar CSV
+            Exportar Excel
           </button>
         </div>
       </div>
