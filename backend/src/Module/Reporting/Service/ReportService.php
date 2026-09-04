@@ -73,7 +73,9 @@ final class ReportService
                 'rows' => $this->db->fetchAllNumeric(
                     "SELECT :dealer, u.vin, s.sale_date,
                             (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1),
-                            '', '', '', '', '', '',
+                            COALESCE(s.retail_payment_type, ''), COALESCE(s.retail_financial_entity, ''),
+                            COALESCE(s.retail_tcea::text, ''), COALESCE(s.retail_bonus_ymdp::text, ''),
+                            COALESCE(s.retail_bonus_dealer::text, ''), COALESCE(s.retail_campaign, ''),
                             TRIM(CONCAT('MOTOCICLETA ', m.model, ' ', COALESCE(m.version, ''))),
                             u.color, COALESCE(u.purchase_date, u.entry_date),
                             COALESCE(s.currency, 'PEN'), si.line_total

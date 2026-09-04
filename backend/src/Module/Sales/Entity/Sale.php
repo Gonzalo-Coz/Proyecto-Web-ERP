@@ -81,6 +81,25 @@ class Sale
     #[ORM\Column(length: 12, options: ['default' => 'MOSTRADOR'])]
     private string $channel = 'MOSTRADOR';
 
+    /** Datos para el reporte Yamaha de venta de motos (se llenan al vender una moto). */
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $retailPaymentType = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $retailFinancialEntity = null;
+
+    #[ORM\Column(type: 'decimal', precision: 6, scale: 2, nullable: true)]
+    private ?string $retailTcea = null;
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $retailBonusYmdp = null;
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $retailBonusDealer = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $retailCampaign = null;
+
     /** Descuento global sobre el total del comprobante (Adición A1 / 24.1). */
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2, options: ['default' => '0.00'])]
     private string $globalDiscount = '0.00';
@@ -227,6 +246,53 @@ class Sale
     public function setChannel(string $value): void
     {
         $this->channel = strtoupper($value) === 'TALLER' ? 'TALLER' : 'MOSTRADOR';
+    }
+
+    public function getRetailPaymentType(): ?string
+    {
+        return $this->retailPaymentType;
+    }
+
+    public function getRetailFinancialEntity(): ?string
+    {
+        return $this->retailFinancialEntity;
+    }
+
+    public function getRetailTcea(): ?string
+    {
+        return $this->retailTcea;
+    }
+
+    public function getRetailBonusYmdp(): ?string
+    {
+        return $this->retailBonusYmdp;
+    }
+
+    public function getRetailBonusDealer(): ?string
+    {
+        return $this->retailBonusDealer;
+    }
+
+    public function getRetailCampaign(): ?string
+    {
+        return $this->retailCampaign;
+    }
+
+    /**
+     * Datos del reporte Yamaha (venta de moto). Todos opcionales.
+     *
+     * @param array<string, mixed> $d
+     */
+    public function setRetailData(array $d): void
+    {
+        $str = static fn (mixed $v): ?string => $v !== null && trim((string) $v) !== '' ? trim((string) $v) : null;
+        $num = static fn (mixed $v): ?string => $v !== null && $v !== '' ? number_format((float) $v, 2, '.', '') : null;
+        $this->retailPaymentType = $str($d['paymentType'] ?? null);
+        $this->retailFinancialEntity = $str($d['financialEntity'] ?? null);
+        $this->retailTcea = $num($d['tcea'] ?? null);
+        $this->retailBonusYmdp = $num($d['bonusYmdp'] ?? null);
+        $this->retailBonusDealer = $num($d['bonusDealer'] ?? null);
+        $this->retailCampaign = $str($d['campaign'] ?? null);
     }
 
     public function setTotals(float $subtotal, float $igv, float $total): void

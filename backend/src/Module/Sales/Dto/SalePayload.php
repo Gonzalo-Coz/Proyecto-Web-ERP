@@ -43,6 +43,14 @@ final class SalePayload
         public readonly string $currency = 'PEN',
 
         public readonly ?string $notes = null,
+
+        /**
+         * Datos para el reporte Yamaha de venta de motos (opcionales).
+         *
+         * @var array{paymentType?: string, financialEntity?: string, tcea?: float|string,
+         *            bonusYmdp?: float|string, bonusDealer?: float|string, campaign?: string}
+         */
+        public readonly array $retail = [],
     ) {
     }
 }

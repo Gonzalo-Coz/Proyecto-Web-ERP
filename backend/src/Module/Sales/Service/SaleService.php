@@ -130,6 +130,7 @@ final class SaleService
             $sale = new Sale($customer, $this->username(), new \DateTimeImmutable($payload->saleDate));
             $sale->assignNumber($this->saleRepository->nextSequence());
             $sale->setNotes($payload->notes);
+            $sale->setRetailData($payload->retail);
 
             $this->applyLines($sale, $payload);
 
@@ -333,6 +334,7 @@ final class SaleService
             // 4) Reemplazar líneas (orphanRemoval elimina las viejas) y notas.
             $sale->clearItems();
             $sale->setNotes($payload->notes);
+            $sale->setRetailData($payload->retail);
             $this->applyLines($sale, $payload);
             $this->entityManager->flush();
 
@@ -546,6 +548,14 @@ final class SaleService
             'igvExempt' => $s->isIgvExempt(),
             'currency' => $s->getCurrency(),
             'channel' => $s->getChannel(),
+            'retail' => [
+                'paymentType' => $s->getRetailPaymentType(),
+                'financialEntity' => $s->getRetailFinancialEntity(),
+                'tcea' => $s->getRetailTcea(),
+                'bonusYmdp' => $s->getRetailBonusYmdp(),
+                'bonusDealer' => $s->getRetailBonusDealer(),
+                'campaign' => $s->getRetailCampaign(),
+            ],
             'globalDiscount' => $s->getGlobalDiscount(),
             'totalDiscount' => $s->getTotalDiscount(),
             'discountAuthorizedBy' => $s->getDiscountAuthorizedBy(),

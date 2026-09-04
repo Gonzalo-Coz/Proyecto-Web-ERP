@@ -58,8 +58,18 @@ export interface SaleSummary {
   igvExempt?: boolean
   currency?: 'PEN' | 'USD'
   channel?: 'MOSTRADOR' | 'TALLER'
+  retail?: RetailData
   items?: SaleItemDetail[]
   payments?: SalePaymentItem[]
+}
+
+export interface RetailData {
+  paymentType?: string | null
+  financialEntity?: string | null
+  tcea?: number | string | null
+  bonusYmdp?: number | string | null
+  bonusDealer?: number | string | null
+  campaign?: string | null
 }
 
 export interface SalePayload {
@@ -71,4 +81,5 @@ export interface SalePayload {
   igvIncluded?: boolean
   igvExempt?: boolean
   currency?: 'PEN' | 'USD'
+  retail?: RetailData
 }

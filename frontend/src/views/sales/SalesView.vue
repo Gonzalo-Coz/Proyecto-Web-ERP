@@ -75,8 +75,19 @@ const form = reactive({
   igvIncluded: false,
   igvExempt: true,
   currency: 'PEN' as 'PEN' | 'USD',
+  // Datos del reporte Yamaha (solo aplica cuando la venta incluye una moto).
+  retail: {
+    paymentType: '' as string,
+    financialEntity: '' as string,
+    tcea: null as number | null,
+    bonusYmdp: null as number | null,
+    bonusDealer: null as number | null,
+    campaign: '' as string,
+  },
 })
 const lines = ref<SaleLine[]>([])
+/** La venta incluye al menos una moto → mostrar los datos del reporte Yamaha. */
+const hasMotoLine = computed(() => lines.value.some((l) => l.itemType === 'MOTORCYCLE_UNIT'))
 const genericCustomerId = ref<number | null>(null)
 
 /** Boleta simple: selecciona el cliente "Público General" (venta sin pedir DNI/RUC). */
@@ -391,6 +402,7 @@ function openCreate(complete: boolean): void {
     igvIncluded: false,
     igvExempt: true,
     currency: 'PEN',
+    retail: { paymentType: '', financialEntity: '', tcea: null, bonusYmdp: null, bonusDealer: null, campaign: '' },
   })
   lines.value = []
   selectedPromoId.value = null
@@ -409,6 +421,14 @@ function openEditSale(sale: SaleSummary): void {
     igvIncluded: sale.igvIncluded ?? false,
     igvExempt: sale.igvExempt ?? false,
     currency: sale.currency ?? 'PEN',
+    retail: {
+      paymentType: sale.retail?.paymentType ?? '',
+      financialEntity: sale.retail?.financialEntity ?? '',
+      tcea: sale.retail?.tcea != null ? Number(sale.retail.tcea) : null,
+      bonusYmdp: sale.retail?.bonusYmdp != null ? Number(sale.retail.bonusYmdp) : null,
+      bonusDealer: sale.retail?.bonusDealer != null ? Number(sale.retail.bonusDealer) : null,
+      campaign: sale.retail?.campaign ?? '',
+    },
   })
   lines.value = (sale.items ?? []).map((i) => ({
     itemType: i.itemType,
@@ -765,6 +785,35 @@ onMounted(async () => {
             <p class="text-xs text-gray-400">{{ form.igvExempt ? 'Operación exonerada de IGV (Amazonía)' : form.igvIncluded ? 'Precios con IGV incluido (zona local)' : 'IGV agregado al precio (venta al exterior)' }}</p>
             <p>{{ form.igvExempt ? 'Op. Exonerada' : 'Op. Gravada' }}: <strong>{{ curSym }} {{ subtotal.toFixed(2) }}</strong> · IGV{{ form.igvExempt ? ' (Exon.)' : ' (18%)' }}: <strong>{{ curSym }} {{ igv.toFixed(2) }}</strong></p>
             <p class="text-base">Total a pagar: <strong>{{ curSym }} {{ total.toFixed(2) }}</strong></p>
+          </div>
+        </div>
+
+        <div v-if="hasMotoLine" class="rounded-lg border border-gray-200 bg-gray-50 p-3">
+          <p class="mb-2 text-xs font-semibold uppercase text-gray-500">Datos para el reporte Yamaha (venta de moto)</p>
+          <div class="grid grid-cols-3 gap-3">
+            <FormField label="Tipo de pago">
+              <select v-model="form.retail.paymentType" class="form-input">
+                <option value="">—</option>
+                <option value="CONTADO">Contado</option>
+                <option value="CREDITO">Crédito</option>
+                <option value="FINANCIADO">Financiado</option>
+              </select>
+            </FormField>
+            <FormField label="Entidad financiera">
+              <input v-model="form.retail.financialEntity" class="form-input" maxlength="120" placeholder="Si es financiado" />
+            </FormField>
+            <FormField label="TCEA (%)">
+              <input v-model.number="form.retail.tcea" type="number" step="0.01" min="0" class="form-input" />
+            </FormField>
+            <FormField label="Bono YMDP">
+              <input v-model.number="form.retail.bonusYmdp" type="number" step="0.01" min="0" class="form-input" />
+            </FormField>
+            <FormField label="Bono Dealer">
+              <input v-model.number="form.retail.bonusDealer" type="number" step="0.01" min="0" class="form-input" />
+            </FormField>
+            <FormField label="Campaña">
+              <input v-model="form.retail.campaign" class="form-input" maxlength="120" />
+            </FormField>
           </div>
         </div>
 

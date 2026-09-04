@@ -116,6 +116,11 @@ const ACTION_COLOR: Record<string, string> = {
   E: 'bg-emerald-100 text-emerald-700', L: 'bg-purple-100 text-purple-700',
 }
 
+/** Kilometraje libre (no coincide con un intervalo del plan) → mantenimiento preventivo. */
+const isPreventivoKm = computed(
+  () => planPreview.value !== null && planPreview.value.parts.length === 0 && !planPreview.value.labor,
+)
+
 /** Actividades de la rutina agrupadas por sistema (para la checklist). */
 const planActivityGroups = computed(() => {
   const groups: { system: string; items: MaintenancePlanActivity[] }[] = []
@@ -588,10 +593,20 @@ onMounted(async () => {
             </div>
             <div class="col-span-4">
               <label class="form-label text-xs">Kilometraje</label>
-              <select v-model.number="planForm.km" class="form-input" :disabled="!selectedPlanModel" @change="loadPlanPreview">
-                <option :value="null">— km —</option>
-                <option v-for="k in selectedPlanModel?.kmIntervals ?? []" :key="k" :value="k">{{ k.toLocaleString('es-PE') }} km</option>
-              </select>
+              <input
+                v-model.number="planForm.km"
+                type="number"
+                min="0"
+                step="500"
+                list="km-suggestions"
+                class="form-input"
+                :disabled="!selectedPlanModel"
+                placeholder="km (elige o escribe)"
+                @change="loadPlanPreview"
+              />
+              <datalist id="km-suggestions">
+                <option v-for="k in selectedPlanModel?.kmIntervals ?? []" :key="k" :value="k" />
+              </datalist>
             </div>
             <div class="col-span-3">
               <button class="btn-secondary w-full" :disabled="!planForm.planId || !planForm.km || planLoading" @click="loadPlanPreview">
@@ -600,8 +615,14 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- Vista previa del servicio -->
-          <div v-if="planPreview" class="mt-3 space-y-2">
+          <!-- Kilometraje libre: mantenimiento preventivo (sin kit programado) -->
+          <div v-if="planPreview && isPreventivoKm" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <strong>Mantenimiento preventivo</strong> — el kilometraje {{ planPreview.km.toLocaleString('es-PE') }} no corresponde a un servicio programado.
+            No hay kit ni mano de obra predefinidos; agrega los repuestos y la mano de obra manualmente abajo en “Agregar trabajo o repuesto”.
+          </div>
+
+          <!-- Vista previa del servicio (programado) -->
+          <div v-if="planPreview && !isPreventivoKm" class="mt-3 space-y-2">
             <p class="text-sm text-gray-700">
               Mano de obra:
               <strong :class="planPreview.labor?.free ? 'text-emerald-600' : ''">
