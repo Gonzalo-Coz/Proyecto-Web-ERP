@@ -10,6 +10,7 @@ const REPORT_TYPES = [
   { key: 'sales', label: 'Ventas' },
   { key: 'repuestosyamaha', label: 'Venta de Repuestos (Formato Yamaha)' },
   { key: 'motosyamaha', label: 'Venta de Motos (Formato Yamaha)' },
+  { key: 'stockventasmotos', label: 'Stock y Ventas Motos (Formato Yamaha)' },
   { key: 'purchases', label: 'Compras' },
   { key: 'cash', label: 'Caja' },
   { key: 'kardex', label: 'Kardex' },
