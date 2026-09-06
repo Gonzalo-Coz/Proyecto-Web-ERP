@@ -50,8 +50,31 @@ async function generate(): Promise<void> {
   }
 }
 
-/** Exporta el reporte visible a Excel (.xls que abre directo en Excel). */
+/** Descarga el reporte de Stock y Ventas de Motos en la PLANTILLA oficial Yamaha (.xlsx con diseño y filtros). */
+const downloadingYamaha = ref(false)
+async function downloadYamaha(): Promise<void> {
+  downloadingYamaha.value = true
+  try {
+    const res = await api.get('/reports/stock-ventas-motos.xlsx', { responseType: 'blob' })
+    const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = 'stock_y_ventas_motos.xlsx'
+    link.click()
+    URL.revokeObjectURL(link.href)
+  } catch {
+    errorMsg.value = 'No se pudo generar el formato Yamaha.'
+  } finally {
+    downloadingYamaha.value = false
+  }
+}
+
+/** Exporta el reporte visible a Excel. Stock y Ventas de Motos usa la plantilla oficial Yamaha. */
 function exportExcel(): void {
+  if (filters.type === 'stockventasmotos') {
+    void downloadYamaha()
+    return
+  }
   if (!report.value) return
   const esc = (v: unknown): string =>
     String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -95,9 +118,10 @@ function exportExcel(): void {
           <button
             v-if="report && auth.can('reports.main.export')"
             class="btn-secondary"
+            :disabled="downloadingYamaha"
             @click="exportExcel"
           >
-            Exportar Excel
+            {{ downloadingYamaha ? 'Generando…' : 'Exportar Excel' }}
           </button>
         </div>
       </div>

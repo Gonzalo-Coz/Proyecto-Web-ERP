@@ -8,6 +8,7 @@ use App\Module\Reporting\Service\ReportService;
 use OpenApi\Attributes as OA;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -18,6 +19,20 @@ final class ReportController
 {
     public function __construct(private readonly ReportService $reportService)
     {
+    }
+
+    #[Route('/stock-ventas-motos.xlsx', name: 'reports_stock_ventas_xlsx', methods: ['GET'])]
+    #[IsGranted('reports.main.view')]
+    public function stockVentasXlsx(): Response
+    {
+        $response = new Response(
+            $this->reportService->stockVentasXlsx(),
+            Response::HTTP_OK,
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        );
+        $response->headers->set('Content-Disposition', 'attachment; filename="stock_y_ventas_motos.xlsx"');
+
+        return $response;
     }
 
     #[Route('/{type}', name: 'reports_generate', methods: ['GET'], requirements: ['type' => '[a-z]+'])]

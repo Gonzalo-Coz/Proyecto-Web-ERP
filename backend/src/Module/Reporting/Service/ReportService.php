@@ -303,6 +303,90 @@ final class ReportService
         };
     }
 
+    /**
+     * Exporta Stock y Ventas de Motos usando la PLANTILLA oficial Yamaha
+     * (formato_stock_ventas.xlsx): conserva diseño, encabezados y filtros, y solo
+     * rellena las filas de datos (hoja DATA, columnas C:O desde la fila 4).
+     * Requiere phpoffice/phpspreadsheet.
+     */
+    public function stockVentasXlsx(): string
+    {
+        $dealer = $this->settings->get('company.name') ?: 'INTEGRA GLOBAL MOTORS S.A.C.';
+
+        $rows = $this->db->fetchAllNumeric(
+            "SELECT u.vin, v.sale_date, v.comprobante,
+                    COALESCE(v.retail_payment_type, ''), COALESCE(v.retail_financial_entity, ''),
+                    v.retail_tcea, v.retail_bonus_ymdp, v.retail_bonus_dealer, COALESCE(v.retail_campaign, ''),
+                    TRIM(CONCAT(m.model, ' ', COALESCE(m.version, ''))), u.color, COALESCE(u.purchase_date, u.entry_date)
+             FROM motorcycle_units u
+             JOIN motorcycle_models m ON m.id = u.model_id
+             LEFT JOIN LATERAL (
+                SELECT s.sale_date, s.retail_payment_type, s.retail_financial_entity, s.retail_tcea,
+                       s.retail_bonus_ymdp, s.retail_bonus_dealer, s.retail_campaign,
+                       (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
+                FROM sale_items si JOIN sales s ON s.id = si.sale_id
+                WHERE si.motorcycle_unit_id = u.id AND si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA'
+                ORDER BY s.sale_date DESC, s.id DESC LIMIT 1
+             ) v ON true
+             WHERE u.deleted_at IS NULL AND u.status <> 'BAJA'
+             ORDER BY u.status, m.model, u.internal_code",
+        );
+
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load(__DIR__.'/../Resources/formato_stock_ventas.xlsx');
+        $ws = $spreadsheet->getSheetByName('DATA') ?? $spreadsheet->getActiveSheet();
+        $ws->setCellValue('C1', $dealer);
+
+        // Limpia las filas de ejemplo de la plantilla (desde la 4 en adelante).
+        $last = $ws->getHighestRow();
+        if ($last >= 4) {
+            $ws->removeRow(4, $last - 3);
+        }
+
+        $dmy = static function ($v): string {
+            if ($v === null || $v === '') {
+                return '';
+            }
+            $ts = strtotime((string) $v);
+
+            return $ts !== false ? date('d/m/Y', $ts) : (string) $v;
+        };
+
+        $r = 4;
+        foreach ($rows as $row) {
+            $ws->setCellValue('C'.$r, $dealer);
+            $ws->setCellValue('D'.$r, (string) $row[0]);
+            $ws->setCellValue('E'.$r, $dmy($row[1]));
+            $ws->setCellValue('F'.$r, (string) $row[2]);
+            $ws->setCellValue('G'.$r, (string) $row[3]);
+            $ws->setCellValue('H'.$r, (string) $row[4]);
+            if ($row[5] !== null && $row[5] !== '') {
+                $ws->setCellValue('I'.$r, (float) $row[5]);
+            }
+            if ($row[6] !== null && $row[6] !== '') {
+                $ws->setCellValue('J'.$r, (float) $row[6]);
+            }
+            if ($row[7] !== null && $row[7] !== '') {
+                $ws->setCellValue('K'.$r, (float) $row[7]);
+            }
+            $ws->setCellValue('L'.$r, (string) $row[8]);
+            $ws->setCellValue('M'.$r, (string) $row[9]);
+            $ws->setCellValue('N'.$r, (string) $row[10]);
+            $ws->setCellValue('O'.$r, $dmy($row[11]));
+            ++$r;
+        }
+
+        $ws->setAutoFilter('C3:O'.max(4, $r - 1));
+
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+        $tmp = tempnam(sys_get_temp_dir(), 'ymh');
+        $writer->save($tmp);
+        $bin = (string) file_get_contents($tmp);
+        @unlink($tmp);
+        $spreadsheet->disconnectWorksheets();
+
+        return $bin;
+    }
+
     /** @param list<string> $labels */
     private function cols(array $labels): array
     {
