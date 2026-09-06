@@ -171,6 +171,32 @@ async function load(): Promise<void> {
   }
 }
 
+/** Exporta a Excel la lista ACTUAL (según el filtro: todos / stock bajo / sin stock) con todos los datos para pedidos. */
+const exporting = ref(false)
+async function exportExcel(): Promise<void> {
+  exporting.value = true
+  try {
+    const res = await sparePartService.list({ ...query, page: 1, perPage: 100000, stockFilter: stockFilter.value })
+    const esc = (v: unknown): string => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const suggest = (p: SparePartItem): number => Math.max(0, Math.max(p.maxStock ?? p.minStock, p.minStock) - p.stock)
+    const cols = ['Código', 'Cód. Parte', 'Código de barras', 'Descripción', 'Marca', 'Categoría', 'Stock', 'Mínimo', 'Máximo', 'Sugerido a pedir', 'Costo Unit.', 'Últ. compra', 'Ubicación']
+    const head = '<tr>' + cols.map((c) => `<th>${esc(c)}</th>`).join('') + '</tr>'
+    const body = res.data
+      .map((p) => '<tr>' + [p.internalCode, p.partCode, p.barcode, p.description, p.brandName, p.categoryName, p.stock, p.minStock, p.maxStock, suggest(p), p.purchasePrice, p.lastPurchaseAt, p.location]
+        .map((v) => `<td>${esc(v)}</td>`).join('') + '</tr>').join('')
+    const html = '<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"></head>' + `<body><table border="1">${head}${body}</table></body></html>`
+    const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    const suffix = stockFilter.value === 'out' ? 'sin_stock' : stockFilter.value === 'low' ? 'stock_bajo' : 'todos'
+    link.download = `repuestos_${suffix}.xls`
+    link.click()
+    URL.revokeObjectURL(link.href)
+  } finally {
+    exporting.value = false
+  }
+}
+
 function onTableChange(p: { page: number; search: string; sort: string; direction: 'asc' | 'desc' }): void {
   Object.assign(query, { page: p.page, search: p.search })
   if (p.sort) Object.assign(query, { sort: p.sort, direction: p.direction })
@@ -320,6 +346,9 @@ onMounted(async () => {
       @change="onTableChange"
     >
       <template #toolbar>
+        <button class="btn-secondary" :disabled="exporting" @click="exportExcel">
+          {{ exporting ? 'Exportando…' : 'Exportar Excel' }}
+        </button>
         <button v-if="auth.can('inventory.spare_parts.create')" class="btn-secondary" @click="openImport">
           Importar Excel
         </button>

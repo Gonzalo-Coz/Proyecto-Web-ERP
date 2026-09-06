@@ -16,7 +16,7 @@ final class ReportService
 {
     public const TYPES = [
         'sales', 'purchases', 'cash', 'kardex', 'workshop', 'documents',
-        'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'stockmotos', 'utilities', 'audit',
+        'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'stockmotos', 'reposicion', 'utilities', 'audit',
         'repuestosyamaha', 'motosyamaha', 'stockventasmotos',
     ];
 
@@ -245,6 +245,22 @@ final class ReportService
                      JOIN catalog_items b ON b.id = m.brand_id
                      WHERE u.deleted_at IS NULL AND u.status = 'DISPONIBLE'
                      ORDER BY b.name, m.model, u.internal_code",
+                ),
+            ],
+            // Lista para pedidos: repuestos por reponer (stock bajo o sin stock).
+            'reposicion' => [
+                'title' => 'Repuestos por reponer (para pedido)',
+                'columns' => $this->cols(['Código', 'Cód. Parte', 'Descripción', 'Marca', 'Categoría', 'Stock', 'Mínimo', 'Máximo', 'Sugerido a pedir', 'Costo Unit.', 'Últ. compra', 'Ubicación']),
+                'rows' => $this->db->fetchAllNumeric(
+                    "SELECT sp.internal_code, sp.part_code, sp.description, b.name, c.name,
+                            sp.stock, sp.min_stock, sp.max_stock,
+                            GREATEST(COALESCE(sp.max_stock, sp.min_stock), sp.min_stock) - sp.stock,
+                            sp.purchase_price, sp.last_purchase_at::date, sp.location
+                     FROM spare_parts sp
+                     LEFT JOIN catalog_items b ON b.id = sp.brand_id
+                     LEFT JOIN catalog_items c ON c.id = sp.category_id
+                     WHERE sp.deleted_at IS NULL AND sp.is_active = true AND sp.stock <= sp.min_stock
+                     ORDER BY sp.stock ASC, sp.description",
                 ),
             ],
             'utilities' => [
