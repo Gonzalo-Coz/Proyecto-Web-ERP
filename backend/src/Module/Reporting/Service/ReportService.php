@@ -305,9 +305,18 @@ final class ReportService
 
     /**
      * Exporta Stock y Ventas de Motos usando la PLANTILLA oficial Yamaha
-     * (formato_stock_ventas.xlsx): conserva diseño, encabezados y filtros, y solo
-     * rellena las filas de datos (hoja DATA, columnas C:O desde la fila 4).
-     * Requiere phpoffice/phpspreadsheet.
+     * (formato_stock_ventas.xlsx).
+     *
+     * NO usa PhpSpreadsheet: el round-trip rompe la Tabla de Excel (Tabla1) y sus
+     * filtros y Excel muestra "se recuperó/reparó" perdiendo formatos. En su lugar
+     * se edita el .xlsx como ZIP y solo se tocan 2 piezas:
+     *   - xl/worksheets/sheet1.xml : se conservan las filas 1 (título) y 3
+     *     (encabezados) y se reemplazan las filas de datos por las nuestras
+     *     (VISIBLES, con fechas reales y estilos de la plantilla).
+     *   - xl/tables/table1.xml     : se limpia el filtro de fecha que traía la
+     *     plantilla (que dejaba casi todo oculto) y se ajusta el rango a los datos.
+     * El resto del archivo (estilos, temas, validaciones/desplegables, impresión)
+     * queda intacto byte a byte, así que no hay corrupción.
      */
     public function stockVentasXlsx(): string
     {
@@ -332,56 +341,108 @@ final class ReportService
              ORDER BY u.status, m.model, u.internal_code",
         );
 
-        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load(__DIR__.'/../Resources/formato_stock_ventas.xlsx');
-        $ws = $spreadsheet->getSheetByName('DATA') ?? $spreadsheet->getActiveSheet();
-        $ws->setCellValue('C1', $dealer);
+        // Estilos (s=) reutilizados de la propia plantilla, por columna C..O.
+        // C=9(dealer) D=10(centro) E=5(fecha) F..H=10 I=17(0.00) J..N=10 O=5(fecha).
+        $st = [
+            'C' => 9, 'D' => 10, 'E' => 5, 'F' => 10, 'G' => 10, 'H' => 10,
+            'I' => 17, 'J' => 10, 'K' => 10, 'L' => 10, 'M' => 10, 'N' => 10, 'O' => 5,
+        ];
+        $dateCols = ['E' => true, 'O' => true];
+        $numCols = ['I' => true, 'J' => true, 'K' => true];
+        // Columna del arreglo $row (0..11) para cada letra D..O. C es el dealer.
+        $src = ['D' => 0, 'E' => 1, 'F' => 2, 'G' => 3, 'H' => 4, 'I' => 5, 'J' => 6, 'K' => 7, 'L' => 8, 'M' => 9, 'N' => 10, 'O' => 11];
 
-        // IMPORTANTE: no se borran filas ni se crea un autofiltro nuevo. La plantilla
-        // ya trae su Tabla (Tabla1) con diseño, encabezados y filtros sobre las filas
-        // 4..503. Solo escribimos los datos DENTRO de esas filas; tocar removeRow o
-        // setAutoFilter duplica el filtro y Excel corrompe/"repara" el archivo.
-
-        $dmy = static function ($v): string {
+        $esc = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $epoch = new \DateTimeImmutable('1899-12-30', new \DateTimeZone('UTC'));
+        $serial = static function ($v) use ($epoch): ?int {
             if ($v === null || $v === '') {
-                return '';
+                return null;
             }
-            $ts = strtotime((string) $v);
+            try {
+                $d = new \DateTimeImmutable(substr((string) $v, 0, 10), new \DateTimeZone('UTC'));
+            } catch (\Throwable) {
+                return null;
+            }
 
-            return $ts !== false ? date('d/m/Y', $ts) : (string) $v;
+            return (int) $epoch->diff($d)->format('%a');
         };
 
+        // Construye una celda XML respetando tipo (texto en línea / número / fecha-serial).
+        $cell = function (string $col, int $r, $val) use ($st, $dateCols, $numCols, $esc, $serial): string {
+            $ref = $col.$r;
+            $s = $st[$col];
+            if ($val === null || $val === '') {
+                return sprintf('<c r="%s" s="%d"/>', $ref, $s);
+            }
+            if (isset($dateCols[$col])) {
+                $ser = $serial($val);
+
+                return $ser === null
+                    ? sprintf('<c r="%s" s="%d"/>', $ref, $s)
+                    : sprintf('<c r="%s" s="%d"><v>%d</v></c>', $ref, $s, $ser);
+            }
+            if (isset($numCols[$col])) {
+                return sprintf('<c r="%s" s="%d"><v>%s</v></c>', $ref, $s, (float) $val);
+            }
+
+            return sprintf('<c r="%s" s="%d" t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>', $ref, $s, $esc($val));
+        };
+
+        // Filas de datos (visibles, empezando en la 4).
+        $rowsXml = '';
         $r = 4;
         foreach ($rows as $row) {
-            $ws->setCellValue('C'.$r, $dealer);
-            $ws->setCellValue('D'.$r, (string) $row[0]);
-            $ws->setCellValue('E'.$r, $dmy($row[1]));
-            $ws->setCellValue('F'.$r, (string) $row[2]);
-            $ws->setCellValue('G'.$r, (string) $row[3]);
-            $ws->setCellValue('H'.$r, (string) $row[4]);
-            if ($row[5] !== null && $row[5] !== '') {
-                $ws->setCellValue('I'.$r, (float) $row[5]);
+            $cells = $cell('C', $r, $dealer);
+            foreach ($src as $col => $idx) {
+                $cells .= $cell($col, $r, $row[$idx] ?? null);
             }
-            if ($row[6] !== null && $row[6] !== '') {
-                $ws->setCellValue('J'.$r, (float) $row[6]);
-            }
-            if ($row[7] !== null && $row[7] !== '') {
-                $ws->setCellValue('K'.$r, (float) $row[7]);
-            }
-            $ws->setCellValue('L'.$r, (string) $row[8]);
-            $ws->setCellValue('M'.$r, (string) $row[9]);
-            $ws->setCellValue('N'.$r, (string) $row[10]);
-            $ws->setCellValue('O'.$r, $dmy($row[11]));
+            $rowsXml .= sprintf('<row r="%d" spans="3:15" x14ac:dyDescent="0.35">%s</row>', $r, $cells);
             ++$r;
         }
+        $last = max(4, $r - 1);
 
-        // Sin removeRow ni setAutoFilter: se conserva íntegra la tabla de la plantilla.
+        // --- Copia de trabajo del template y edición vía ZIP ---
+        $tmp = (string) tempnam(sys_get_temp_dir(), 'ymh');
+        copy(__DIR__.'/../Resources/formato_stock_ventas.xlsx', $tmp);
 
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $tmp = tempnam(sys_get_temp_dir(), 'ymh');
-        $writer->save($tmp);
+        $zip = new \ZipArchive();
+        if ($zip->open($tmp) !== true) {
+            @unlink($tmp);
+            throw new \RuntimeException('No se pudo abrir la plantilla Yamaha.');
+        }
+
+        // sheet1.xml: título C1, reemplazo de filas de datos y dimensión.
+        $sheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $sheet = (string) preg_replace(
+            '/<c r="C1"[^>]*>.*?<\/c>/s',
+            sprintf('<c r="C1" s="6" t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>', $esc($dealer)),
+            $sheet,
+            1,
+        );
+        // Conserva todo hasta el cierre de la fila 3 (encabezados) y reemplaza el resto de la sheetData.
+        $sheet = (string) preg_replace(
+            '/(<row r="3".*?<\/row>).*?(<\/sheetData>)/s',
+            '$1'.strtr($rowsXml, ['\\' => '\\\\', '$' => '\\$']).'$2',
+            $sheet,
+            1,
+        );
+        $sheet = (string) preg_replace('/<dimension ref="[^"]*"\/>/', sprintf('<dimension ref="A1:O%d"/>', $last), $sheet, 1);
+        $zip->addFromString('xl/worksheets/sheet1.xml', $sheet);
+
+        // table1.xml: ajusta rango y elimina el filtro de fecha preaplicado.
+        $table = (string) $zip->getFromName('xl/tables/table1.xml');
+        $table = str_replace('ref="C3:O503"', sprintf('ref="C3:O%d"', $last), $table);
+        $table = (string) preg_replace(
+            '/<autoFilter ref="C3:O'.$last.'"[^>]*>.*?<\/autoFilter>/s',
+            sprintf('<autoFilter ref="C3:O%d"/>', $last),
+            $table,
+            1,
+        );
+        $zip->addFromString('xl/tables/table1.xml', $table);
+
+        $zip->close();
         $bin = (string) file_get_contents($tmp);
         @unlink($tmp);
-        $spreadsheet->disconnectWorksheets();
 
         return $bin;
     }
