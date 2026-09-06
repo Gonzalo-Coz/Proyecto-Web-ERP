@@ -372,6 +372,8 @@ final class ReportService
             $ws->setCellValue('M'.$r, (string) $row[9]);
             $ws->setCellValue('N'.$r, (string) $row[10]);
             $ws->setCellValue('O'.$r, $dmy($row[11]));
+            // Alto de fila normal (las filas nuevas tras removeRow quedan muy comprimidas).
+            $ws->getRowDimension($r)->setRowHeight(15);
             ++$r;
         }
 
