@@ -336,11 +336,10 @@ final class ReportService
         $ws = $spreadsheet->getSheetByName('DATA') ?? $spreadsheet->getActiveSheet();
         $ws->setCellValue('C1', $dealer);
 
-        // Limpia las filas de ejemplo de la plantilla (desde la 4 en adelante).
-        $last = $ws->getHighestRow();
-        if ($last >= 4) {
-            $ws->removeRow(4, $last - 3);
-        }
+        // IMPORTANTE: no se borran filas ni se crea un autofiltro nuevo. La plantilla
+        // ya trae su Tabla (Tabla1) con diseño, encabezados y filtros sobre las filas
+        // 4..503. Solo escribimos los datos DENTRO de esas filas; tocar removeRow o
+        // setAutoFilter duplica el filtro y Excel corrompe/"repara" el archivo.
 
         $dmy = static function ($v): string {
             if ($v === null || $v === '') {
@@ -372,12 +371,10 @@ final class ReportService
             $ws->setCellValue('M'.$r, (string) $row[9]);
             $ws->setCellValue('N'.$r, (string) $row[10]);
             $ws->setCellValue('O'.$r, $dmy($row[11]));
-            // Alto de fila normal (las filas nuevas tras removeRow quedan muy comprimidas).
-            $ws->getRowDimension($r)->setRowHeight(15);
             ++$r;
         }
 
-        $ws->setAutoFilter('C3:O'.max(4, $r - 1));
+        // Sin removeRow ni setAutoFilter: se conserva íntegra la tabla de la plantilla.
 
         $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
         $tmp = tempnam(sys_get_temp_dir(), 'ymh');
