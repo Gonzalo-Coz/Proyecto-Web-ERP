@@ -460,7 +460,7 @@ onMounted(async () => {
     </div>
 
     <!-- Recepción -->
-    <BaseModal :open="modalOpen" title="Recepción de motocicleta" @close="modalOpen = false">
+    <BaseModal :open="modalOpen" title="Recepción de motocicleta" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="grid grid-cols-2 gap-4">
           <FormField label="Cliente (titular)" required>

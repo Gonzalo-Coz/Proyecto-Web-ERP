@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -32,6 +32,9 @@ const filters = reactive({
   from: new Date().toISOString().slice(0, 8) + '01',
   to: new Date().toISOString().slice(0, 10),
 })
+
+/** Reportes que son una "foto" del estado actual (stock): no usan rango de fechas. */
+const usesDateRange = computed(() => filters.type !== 'stockventasmotos')
 
 const report = ref<{ title: string; columns: { label: string }[]; rows: unknown[][] } | null>(null)
 const loading = ref(false)
@@ -103,11 +106,11 @@ function exportExcel(): void {
             <option v-for="t in REPORT_TYPES" :key="t.key" :value="t.key">{{ t.label }}</option>
           </select>
         </div>
-        <div>
+        <div v-if="usesDateRange">
           <label class="form-label">Desde</label>
           <input v-model="filters.from" type="date" class="form-input" />
         </div>
-        <div>
+        <div v-if="usesDateRange">
           <label class="form-label">Hasta</label>
           <input v-model="filters.to" type="date" class="form-input" />
         </div>
@@ -130,7 +133,7 @@ function exportExcel(): void {
 
     <div v-if="report" class="card p-0">
       <h2 class="border-b border-gray-200 p-4 text-sm font-semibold text-gray-700">
-        {{ report.title }} — {{ filters.from }} al {{ filters.to }} ({{ report.rows.length }} registros)
+        {{ report.title }}<template v-if="usesDateRange"> — {{ filters.from }} al {{ filters.to }}</template> ({{ report.rows.length }} registros)
       </h2>
       <div class="overflow-x-auto">
         <table class="w-full text-left text-sm">
@@ -153,7 +156,7 @@ function exportExcel(): void {
       </div>
     </div>
     <p v-else-if="!loading" class="py-8 text-center text-sm text-gray-400">
-      Selecciona un reporte y un rango de fechas, luego pulsa Generar.
+      {{ usesDateRange ? 'Selecciona un reporte y un rango de fechas, luego pulsa Generar.' : 'Pulsa Generar para ver el reporte de stock actual.' }}
     </p>
   </DefaultLayout>
 </template>

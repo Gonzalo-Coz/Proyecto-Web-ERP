@@ -208,7 +208,7 @@ onMounted(() => {
         <FormField label="Venta completada" required>
           <select v-model.number="issueForm.saleId" class="form-input">
             <option v-for="s in filteredSales" :key="s.id" :value="s.id">
-              {{ s.saleNumber }} — {{ s.customerName }} (S/ {{ s.total }})
+              {{ s.saleNumber }} — {{ s.customerName }} ({{ s.currency === 'USD' ? 'US$' : 'S/' }} {{ s.total }})
             </option>
           </select>
           <p v-if="filteredSales.length === 0" class="mt-1 text-xs text-amber-600">
