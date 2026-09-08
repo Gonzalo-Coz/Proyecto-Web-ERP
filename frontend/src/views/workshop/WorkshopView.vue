@@ -6,7 +6,7 @@ import FormField from '@/components/ui/FormField.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { workshopService } from '@/services/workshop'
 import { maintenanceService } from '@/services/maintenance'
-import { printServiceOrder, printServiceDelivery } from '@/utils/serviceOrder'
+import { printServiceOrder, printServiceDelivery, printMotoHistory } from '@/utils/serviceOrder'
 import { customerService } from '@/services/masters'
 import { unitService } from '@/services/motorcycles'
 import { saleService } from '@/services/sales'
@@ -235,6 +235,11 @@ function prefillContact(): void {
   form.contactEmail = c?.email || null
 }
 
+/** Aviso bajo el selector de cliente: cuántas motos compró y cuál se autoseleccionó. */
+const receptionHint = ref('')
+/** true mientras se consulta/abre la historia clínica (evita doble clic). */
+const historyLoading = ref(false)
+
 /** Prellena marca/color/serie desde la unidad seleccionada (editable). */
 function prefillMoto(): void {
   const u = units.value.find((x) => x.id === form.motorcycleUnitId)
@@ -252,14 +257,44 @@ function prefillMoto(): void {
 /** Al elegir el cliente: autoselecciona la moto que compró y prellena datos (editable). */
 async function onReceptionCustomerChange(): Promise<void> {
   prefillContact()
-  if (!form.customerId) return
+  receptionHint.value = ''
+  form.motorcycleUnitId = null
+  if (!form.customerId) {
+    prefillMoto()
+    return
+  }
   try {
     const ids = await saleService.customerUnits(form.customerId)
-    form.motorcycleUnitId = ids.find((id) => units.value.some((u) => u.id === id)) ?? null
+    const owned = ids.filter((id) => units.value.some((u) => u.id === id))
+    form.motorcycleUnitId = owned[0] ?? null
+    if (owned.length === 1) {
+      receptionHint.value = 'Se encontró la moto que compró este cliente y se autocompletó abajo.'
+    } else if (owned.length > 1) {
+      receptionHint.value = `Este cliente compró ${owned.length} motos. Se seleccionó la más reciente; puedes cambiarla abajo.`
+    } else {
+      receptionHint.value = 'Este cliente no tiene motos compradas registradas. Ingresa la moto como externa.'
+    }
   } catch {
     /* no bloquear la recepción si falla la consulta */
   }
   prefillMoto()
+}
+
+/** Abre la historia clínica (PDF) de una unidad. Reutilizada en recepción y en el detalle. */
+async function openHistory(unitId: number | null | undefined): Promise<void> {
+  if (!unitId || historyLoading.value) return
+  historyLoading.value = true
+  // Se abre la ventana YA (dentro del clic) para que el navegador no la bloquee
+  // al terminar la consulta; luego se rellena con el documento.
+  const w = window.open('', '_blank')
+  if (w) w.document.write('<p style="font-family:Arial;padding:20px">Generando historia clínica…</p>')
+  try {
+    printMotoHistory(await workshopService.motoHistory(unitId), w)
+  } catch {
+    w?.close()
+  } finally {
+    historyLoading.value = false
+  }
 }
 
 async function save(): Promise<void> {
@@ -476,16 +511,29 @@ onMounted(async () => {
               </div>
               <a href="/customers" target="_blank" class="btn-secondary whitespace-nowrap" title="Registrar un cliente nuevo">+ Nuevo cliente</a>
             </div>
+            <p v-if="receptionHint" class="mt-1 text-xs" :class="form.motorcycleUnitId ? 'text-emerald-700' : 'text-gray-500'">{{ receptionHint }}</p>
           </FormField>
           <FormField label="Ingresa / a nombre de (opcional)">
             <input v-model="form.broughtBy" class="form-input" maxlength="150" placeholder="Quién trae la moto, si es distinto" />
           </FormField>
         </div>
         <FormField label="Unidad vendida por la empresa (expediente digital)">
-          <select v-model.number="form.motorcycleUnitId" class="form-input" @change="prefillMoto">
-            <option :value="null">— Motocicleta externa —</option>
-            <option v-for="u in units" :key="u.id" :value="u.id">{{ u.internalCode }} — {{ u.modelName }} ({{ u.vin }})</option>
-          </select>
+          <div class="flex gap-2">
+            <select v-model.number="form.motorcycleUnitId" class="form-input flex-1" @change="prefillMoto">
+              <option :value="null">— Motocicleta externa —</option>
+              <option v-for="u in units" :key="u.id" :value="u.id">{{ u.internalCode }} — {{ u.modelName }} ({{ u.vin }})</option>
+            </select>
+            <button
+              v-if="form.motorcycleUnitId"
+              type="button"
+              class="btn-secondary whitespace-nowrap"
+              :disabled="historyLoading"
+              title="Ver el historial de servicios de esta moto (PDF)"
+              @click="openHistory(form.motorcycleUnitId)"
+            >
+              {{ historyLoading ? 'Abriendo…' : '📋 Historia clínica' }}
+            </button>
+          </div>
         </FormField>
         <FormField v-if="form.motorcycleUnitId === null" label="Descripción de la motocicleta" required>
           <input v-model="form.motorcycleDescription" class="form-input" required maxlength="200" placeholder="Honda CB190R 2022 roja" />
@@ -564,7 +612,15 @@ onMounted(async () => {
           <p v-if="detail.notes" class="col-span-2">Observaciones: <strong class="text-gray-900">{{ detail.notes }}</strong></p>
         </div>
 
-        <div class="flex justify-end gap-2">
+        <div class="flex flex-wrap justify-end gap-2">
+          <button
+            v-if="detail.motorcycleUnitId"
+            class="btn-secondary"
+            :disabled="historyLoading"
+            @click="openHistory(detail.motorcycleUnitId)"
+          >
+            {{ historyLoading ? 'Abriendo…' : '📋 Historia clínica' }}
+          </button>
           <button class="btn-secondary" @click="doPrint">🖨 Orden de Servicio</button>
           <button class="btn-secondary" @click="doDelivery">🖨 Acta de Entrega</button>
         </div>

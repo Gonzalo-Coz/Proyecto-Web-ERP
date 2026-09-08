@@ -19,7 +19,7 @@ interface MotoHistoryData {
  * Historia clínica de la moto: historial de ingresos a taller SIN precios, con
  * el detalle de repuestos de los últimos 2 mantenimientos. Imprimible / PDF.
  */
-export function printMotoHistory(d: MotoHistoryData): void {
+export function printMotoHistory(d: MotoHistoryData, win?: Window | null): void {
   const esc = escHtml
   const logoSrc = d.company.logo?.startsWith('http') ? d.company.logo : `${window.location.origin}${d.company.logo || ''}`
   const km = (n: number | null): string => (n === null || n === undefined ? '—' : Number(n).toLocaleString('es-PE'))
@@ -107,7 +107,9 @@ export function printMotoHistory(d: MotoHistoryData): void {
   </div>
 </body></html>`
 
-  const w = window.open('', '_blank')
+  // Se acepta una ventana ya abierta (en el gesto de clic) para no ser bloqueada
+  // por el navegador tras el await de la consulta; si no, se abre aquí.
+  const w = win ?? window.open('', '_blank')
   if (!w) return
   w.document.open()
   w.document.write(html)

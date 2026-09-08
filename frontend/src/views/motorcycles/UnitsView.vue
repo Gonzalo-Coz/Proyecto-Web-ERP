@@ -92,11 +92,14 @@ const historyLoading = ref(false)
 async function doMotoHistory(): Promise<void> {
   if (!viewTarget.value) return
   historyLoading.value = true
+  // Abrir la ventana dentro del clic evita que el navegador la bloquee tras el await.
+  const w = window.open('', '_blank')
+  if (w) w.document.write('<p style="font-family:Arial;padding:20px">Generando historia clínica…</p>')
   try {
     const data = await workshopService.motoHistory(viewTarget.value.id)
-    printMotoHistory(data)
+    printMotoHistory(data, w)
   } catch {
-    /* silencioso: si falla, no bloquea la ficha */
+    w?.close()
   } finally {
     historyLoading.value = false
   }

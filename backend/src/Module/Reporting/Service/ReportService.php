@@ -35,13 +35,20 @@ final class ReportService
         $params = ['from' => $from, 'to' => $to];
 
         return match ($type) {
+            // Solo ventas "comprobadas": COMPLETADA + comprobante ACEPTADO por SUNAT
+            // (mismo criterio que el dashboard). Excluye cotizaciones, reservas,
+            // anuladas y ventas aún sin comprobante aceptado.
             'sales' => [
-                'title' => 'Reporte de Ventas',
-                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Productos', 'Vendedor', 'Estado', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo']),
+                'title' => 'Reporte de Ventas (con comprobante aceptado)',
+                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Comprobante', 'Productos', 'Vendedor', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT s.sale_number, s.sale_date, c.name, {$this->saleProductsSql('s.id')}, s.seller, s.status, s.subtotal, s.igv, s.total, s.paid_amount, (s.total - s.paid_amount)
+                    "SELECT s.sale_number, s.sale_date, c.name,
+                            (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id AND ed.status = 'ACEPTADO' ORDER BY ed.id DESC LIMIT 1),
+                            {$this->saleProductsSql('s.id')}, s.seller, s.subtotal, s.igv, s.total, s.paid_amount, (s.total - s.paid_amount)
                      FROM sales s JOIN customers c ON c.id = s.customer_id
-                     WHERE s.sale_date BETWEEN :from AND :to
+                     WHERE s.status = 'COMPLETADA'
+                       AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')
+                       AND s.sale_date BETWEEN :from AND :to
                      ORDER BY s.sale_date, s.id", $params,
                 ),
             ],
