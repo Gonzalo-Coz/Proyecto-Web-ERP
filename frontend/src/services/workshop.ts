@@ -27,8 +27,8 @@ export const workshopService = {
   changeStatus(id: number, status: OrderStatus): Promise<ServiceOrderSummary> {
     return api.patch(`/workshop/orders/${id}/status`, { status }).then((r) => r.data)
   },
-  invoice(id: number): Promise<ServiceOrderSummary> {
-    return api.post(`/workshop/orders/${id}/invoice`).then((r) => r.data)
+  invoice(id: number, taxZone: 'AMAZONIA' | 'LOCAL' = 'AMAZONIA'): Promise<ServiceOrderSummary> {
+    return api.post(`/workshop/orders/${id}/invoice`, { taxZone }).then((r) => r.data)
   },
   cancel(id: number, reason: string): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/cancel`, { reason }).then((r) => r.data)

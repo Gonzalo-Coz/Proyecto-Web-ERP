@@ -4,6 +4,7 @@ import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import FormField from '@/components/ui/FormField.vue'
 import SearchableSelect from '@/components/ui/SearchableSelect.vue'
+import UbigeoSelect from '@/components/ui/UbigeoSelect.vue'
 import { workshopService } from '@/services/workshop'
 import { maintenanceService } from '@/services/maintenance'
 import { printServiceOrder, printServiceDelivery, printMotoHistory } from '@/utils/serviceOrder'
@@ -11,15 +12,18 @@ import { customerService } from '@/services/masters'
 import { unitService } from '@/services/motorcycles'
 import { saleService } from '@/services/sales'
 import { sparePartService } from '@/services/inventory'
+import { lookupService } from '@/services/lookup'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import type { PageMeta } from '@/types/common'
-import type { CustomerItem } from '@/types/masters'
+import { DOCUMENT_TYPES, type CustomerItem } from '@/types/masters'
 import type { UnitItem } from '@/types/motorcycles'
 import type { SparePartItem } from '@/types/inventory'
 import { ORDER_STATUSES, type OrderStatus, type ServiceOrderItem, type ServiceOrderSummary } from '@/types/workshop'
 import type { MaintenancePlanActivity, MaintenancePlanModel, MaintenancePlanServiceDetail } from '@/types/maintenance'
 
 const auth = useAuthStore()
+const toast = useToast()
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
   RECIBIDA: 'bg-gray-200 text-gray-700',
@@ -280,6 +284,94 @@ async function onReceptionCustomerChange(): Promise<void> {
   prefillMoto()
 }
 
+// --- Nuevo cliente en línea (mismo patrón ágil que Ventas: sin salir de la recepción) ---
+const customerModalOpen = ref(false)
+const newCustSaving = ref(false)
+const newCustLookingUp = ref(false)
+const newCustError = ref('')
+const newCustEmpty = {
+  documentType: 'DNI' as (typeof DOCUMENT_TYPES)[number],
+  documentNumber: '',
+  name: '',
+  tradeName: null as string | null,
+  address: null as string | null,
+  district: null as string | null,
+  province: null as string | null,
+  department: null as string | null,
+  phone: null as string | null,
+  mobile: null as string | null,
+  email: null as string | null,
+  isActive: true,
+}
+const newCust = reactive({ ...newCustEmpty })
+
+function openNewCustomer(): void {
+  Object.assign(newCust, newCustEmpty)
+  newCustError.value = ''
+  customerModalOpen.value = true
+}
+
+/** Autocompleta nombre/dirección consultando el DNI o RUC en línea. */
+async function lookupNewCustomer(): Promise<void> {
+  const doc = newCust.documentNumber.trim()
+  if (newCust.documentType !== 'DNI' && newCust.documentType !== 'RUC') {
+    toast.info('La consulta automática solo aplica a DNI y RUC.')
+    return
+  }
+  newCustLookingUp.value = true
+  try {
+    if (newCust.documentType === 'DNI') {
+      newCust.name = (await lookupService.dni(doc)).nombreCompleto
+    } else {
+      const c = await lookupService.ruc(doc)
+      newCust.name = c.razonSocial
+      newCust.tradeName = c.nombreComercial ?? newCust.tradeName
+      newCust.address = c.direccion ?? newCust.address
+      newCust.district = c.distrito ?? newCust.district
+      newCust.province = c.provincia ?? newCust.province
+      newCust.department = c.departamento ?? newCust.department
+    }
+    toast.success('Datos cargados.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.message ?? 'No se pudo consultar el documento.')
+  } finally {
+    newCustLookingUp.value = false
+  }
+}
+
+/** Crea el cliente y lo deja seleccionado en la recepción (con su autorelleno de moto). */
+async function saveNewCustomer(): Promise<void> {
+  newCustSaving.value = true
+  newCustError.value = ''
+  try {
+    const created = await customerService.create({
+      documentType: newCust.documentType,
+      documentNumber: newCust.documentNumber.trim(),
+      name: newCust.name.trim(),
+      tradeName: newCust.tradeName,
+      address: newCust.address,
+      district: newCust.district,
+      province: newCust.province,
+      department: newCust.department,
+      phone: newCust.phone,
+      mobile: newCust.mobile,
+      email: newCust.email,
+      priceListId: null,
+      customerTypeId: null,
+      isActive: true,
+    })
+    customers.value.unshift(created)
+    form.customerId = created.id
+    customerModalOpen.value = false
+    await onReceptionCustomerChange()
+    toast.success('Cliente creado y seleccionado.')
+  } catch (e: any) {
+    newCustError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo crear el cliente.'
+  } finally {
+    newCustSaving.value = false
+  }
+}
+
 /** Abre la historia clínica (PDF) de una unidad. Reutilizada en recepción y en el detalle. */
 async function openHistory(unitId: number | null | undefined): Promise<void> {
   if (!unitId || historyLoading.value) return
@@ -383,11 +475,14 @@ async function doChangeStatus(): Promise<void> {
   }
 }
 
+/** Zona tributaria para facturar el servicio. Amazonía (exonerado) por defecto (Tingo María). */
+const invoiceZone = ref<'AMAZONIA' | 'LOCAL'>('AMAZONIA')
+
 async function doInvoice(): Promise<void> {
   if (!detail.value) return
   detailError.value = ''
   try {
-    detail.value = await workshopService.invoice(detail.value.id)
+    detail.value = await workshopService.invoice(detail.value.id, invoiceZone.value)
     await load(meta.value?.page ?? 1)
   } catch (e: any) {
     detailError.value = e.response?.data?.detail ?? 'No se pudo facturar la orden.'
@@ -509,7 +604,7 @@ onMounted(async () => {
                   @change="onReceptionCustomerChange"
                 />
               </div>
-              <a href="/customers" target="_blank" class="btn-secondary whitespace-nowrap" title="Registrar un cliente nuevo">+ Nuevo cliente</a>
+              <button type="button" class="btn-secondary whitespace-nowrap" title="Registrar un cliente nuevo" @click="openNewCustomer">+ Nuevo cliente</button>
             </div>
             <p v-if="receptionHint" class="mt-1 text-xs" :class="form.motorcycleUnitId ? 'text-emerald-700' : 'text-gray-500'">{{ receptionHint }}</p>
           </FormField>
@@ -589,6 +684,63 @@ onMounted(async () => {
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" class="btn-secondary" @click="modalOpen = false">Cancelar</button>
           <button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Guardando…' : 'Crear orden' }}</button>
+        </div>
+      </form>
+    </BaseModal>
+
+    <!-- Nuevo cliente (en línea, sin salir de la recepción) -->
+    <BaseModal :open="customerModalOpen" title="Nuevo cliente" @close="customerModalOpen = false">
+      <form class="space-y-4" @submit.prevent="saveNewCustomer">
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Tipo de Documento" required>
+            <select v-model="newCust.documentType" class="form-input" required>
+              <option v-for="t in DOCUMENT_TYPES" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </FormField>
+          <FormField label="Número de Documento" required>
+            <div class="flex gap-2">
+              <input v-model="newCust.documentNumber" class="form-input" required maxlength="20" />
+              <button
+                type="button"
+                class="btn-secondary whitespace-nowrap"
+                :disabled="newCustLookingUp || !newCust.documentNumber"
+                :title="`Consultar ${newCust.documentType} en línea`"
+                @click="lookupNewCustomer"
+              >
+                {{ newCustLookingUp ? '…' : 'Buscar' }}
+              </button>
+            </div>
+          </FormField>
+        </div>
+        <FormField :label="newCust.documentType === 'RUC' ? 'Razón Social' : 'Nombres y Apellidos'" required>
+          <input v-model="newCust.name" class="form-input" required maxlength="200" />
+        </FormField>
+        <FormField label="Nombre Comercial">
+          <input v-model="newCust.tradeName" class="form-input" maxlength="150" />
+        </FormField>
+        <FormField label="Dirección">
+          <input v-model="newCust.address" class="form-input" maxlength="200" />
+        </FormField>
+        <UbigeoSelect
+          v-model:department="newCust.department"
+          v-model:province="newCust.province"
+          v-model:district="newCust.district"
+        />
+        <div class="grid grid-cols-2 gap-4">
+          <FormField label="Teléfono">
+            <input v-model="newCust.phone" class="form-input" maxlength="20" />
+          </FormField>
+          <FormField label="Correo">
+            <input v-model="newCust.email" type="email" class="form-input" maxlength="150" />
+          </FormField>
+        </div>
+        <p v-if="newCustError" class="text-sm text-red-600">{{ newCustError }}</p>
+        <p class="text-xs text-gray-500">Se guardará en tu lista de clientes y quedará seleccionado en la recepción.</p>
+        <div class="flex justify-end gap-3 pt-2">
+          <button type="button" class="btn-secondary" @click="customerModalOpen = false">Cancelar</button>
+          <button type="submit" class="btn-primary" :disabled="newCustSaving">
+            {{ newCustSaving ? 'Guardando…' : 'Crear y seleccionar' }}
+          </button>
         </div>
       </form>
     </BaseModal>
@@ -860,13 +1012,14 @@ onMounted(async () => {
             <span v-if="detail.invoiceSaleId" class="rounded-full bg-green-100 px-3 py-1 text-xs text-green-800">
               Facturada (venta #{{ detail.invoiceSaleId }})
             </span>
-            <button
-              v-if="auth.can('workshop.orders.approve') && !detail.invoiceSaleId && orderEditable && (detail.items?.length ?? 0) > 0"
-              class="btn-primary"
-              @click="doInvoice"
-            >
-              Facturar orden
-            </button>
+            <template v-if="auth.can('workshop.orders.approve') && !detail.invoiceSaleId && orderEditable && (detail.items?.length ?? 0) > 0">
+              <label class="text-xs text-gray-500" title="Tingo María es zona Amazonía: por defecto se exonera el IGV.">IGV:</label>
+              <select v-model="invoiceZone" class="form-input !w-auto !py-1 !text-sm">
+                <option value="AMAZONIA">Exonerado (Amazonía)</option>
+                <option value="LOCAL">Incluido (18%)</option>
+              </select>
+              <button class="btn-primary" @click="doInvoice">Facturar orden</button>
+            </template>
           </div>
         </div>
       </div>

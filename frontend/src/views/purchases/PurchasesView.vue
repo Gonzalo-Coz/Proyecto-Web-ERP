@@ -154,7 +154,15 @@ async function confirmImport(): Promise<void> {
     toast.success('Factura importada: stock y unidades registrados.')
     await load()
   } catch (e: any) {
-    importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo confirmar la importación.'
+    const d = e.response?.data
+    importError.value =
+      d?.detail ||
+      d?.message ||
+      d?.title ||
+      (typeof d === 'string' && d.trim() ? d.slice(0, 300) : '') ||
+      (e.response
+        ? `No se pudo importar (error ${e.response.status}). Revisa que la factura no esté ya registrada.`
+        : 'No se pudo conectar con el servidor. Revisa tu conexión e inténtalo de nuevo.')
   } finally {
     importing.value = false
   }

@@ -182,7 +182,7 @@ onMounted(() => {
             <td class="px-4 py-3">{{ d.issueDate }}</td>
             <td class="px-4 py-3">{{ d.customerName }}</td>
             <td class="px-4 py-3 text-gray-500">{{ d.saleNumber }}</td>
-            <td class="px-4 py-3 text-right">S/ {{ d.total }}</td>
+            <td class="px-4 py-3 text-right">{{ d.currency === 'USD' ? 'US$' : 'S/' }} {{ d.total }}</td>
             <td class="px-4 py-3">
               <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium" :class="STATUS_COLORS[d.status]">{{ d.status }}</span>
             </td>
@@ -241,7 +241,7 @@ onMounted(() => {
           <p>Venta origen: <strong class="text-gray-900">{{ detail.saleNumber }}</strong></p>
         </div>
         <p class="text-right">
-          Subtotal: S/ {{ detail.subtotal }} · IGV: S/ {{ detail.igv }} · <strong>Total: S/ {{ detail.total }}</strong>
+          Subtotal: {{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.subtotal }} · IGV: {{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.igv }} · <strong>Total: {{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.total }}</strong>
         </p>
         <div class="rounded-lg bg-gray-50 p-3 text-xs">
           <p><span class="font-semibold">Estado SUNAT:</span> {{ detail.status }}</p>

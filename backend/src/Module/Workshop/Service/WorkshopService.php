@@ -429,8 +429,13 @@ final class WorkshopService
         return $this->toArray($order, true);
     }
 
-    /** Factura la orden: genera una venta de servicio COMPLETADA (§12/§14). */
-    public function invoice(int $orderId): array
+    /**
+     * Factura la orden: genera una venta de servicio COMPLETADA (§12/§14).
+     *
+     * @param string $taxZone 'AMAZONIA' (exonerado de IGV, por defecto — Tingo María)
+     *                        o 'LOCAL' (gravado, IGV incluido en el precio).
+     */
+    public function invoice(int $orderId, string $taxZone = 'AMAZONIA'): array
     {
         $order = $this->find($orderId);
         if ($order->getInvoiceSaleId() !== null) {
@@ -464,11 +469,17 @@ final class WorkshopService
             $lines[] = ['itemType' => 'SERVICE', 'description' => sprintf('Servicio de taller %s', $order->getOrderNumber()), 'quantity' => 1, 'unitPrice' => round($order->getTotal(), 2), 'discount' => 0];
         }
 
+        // Zona tributaria: Amazonía (Tingo María) = exonerado de IGV por defecto;
+        // Local = gravado con IGV incluido en el precio.
+        $exempt = $taxZone !== 'LOCAL';
+
         $sale = $this->saleService->create(new SalePayload(
             customerId: $order->getCustomer()->getId(),
             saleDate: (new \DateTimeImmutable('today'))->format('Y-m-d'),
             items: $lines,
             complete: true,
+            igvIncluded: !$exempt,
+            igvExempt: $exempt,
             notes: sprintf('Generada desde la orden de servicio %s', $order->getOrderNumber()),
         ));
 

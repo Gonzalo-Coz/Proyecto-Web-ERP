@@ -301,6 +301,7 @@ final class InvoiceService
             'subtotal' => $d->getSubtotal(),
             'igv' => $d->getIgv(),
             'total' => $d->getTotal(),
+            'currency' => $d->getSale()->getCurrency(),
             'status' => $d->getStatus(),
             'errorMessage' => $d->getErrorMessage(),
         ];
@@ -316,7 +317,6 @@ final class InvoiceService
             $data['customerAddress'] = $d->getCustomerAddress();
             $data['igvRate'] = $this->settings->igvRate() * 100;
             $data['igvExempt'] = $d->getSale()->isIgvExempt();
-            $data['currency'] = $d->getSale()->getCurrency();
             $data['observations'] = $d->getSale()->getNotes();
             $data['company'] = $this->companyData();
             $data['items'] = array_map(static fn (SaleItem $i): array => [

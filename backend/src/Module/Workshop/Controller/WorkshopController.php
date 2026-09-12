@@ -76,9 +76,12 @@ final class WorkshopController
 
     #[Route('/{id<\d+>}/invoice', name: 'workshop_invoice', methods: ['POST'])]
     #[IsGranted('workshop.orders.approve')]
-    public function invoice(int $id): JsonResponse
+    public function invoice(int $id, Request $request): JsonResponse
     {
-        return new JsonResponse($this->workshopService->invoice($id));
+        $body = $request->getContent() !== '' ? (array) json_decode($request->getContent(), true) : [];
+        $taxZone = (string) ($body['taxZone'] ?? 'AMAZONIA');
+
+        return new JsonResponse($this->workshopService->invoice($id, $taxZone));
     }
 
     #[Route('/moto-history/{unitId<\d+>}', name: 'workshop_moto_history', methods: ['GET'])]
