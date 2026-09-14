@@ -122,11 +122,12 @@ export function printMotoHistory(d: MotoHistoryData, win?: Window | null): void 
  * inventario, testigos, combustible, daños y firmas en blanco para llenar a
  * mano. Se abre en una ventana lista para imprimir o guardar como PDF.
  */
-export function printServiceOrder(o: ServiceOrderSummary): void {
+export function printServiceOrder(o: ServiceOrderSummary, logo?: string): void {
   const esc = (v: unknown): string =>
     v === null || v === undefined || v === ''
       ? ''
       : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
+  const logoImg = logo ? `<img class="logo" src="${esc(logo)}" onerror="this.style.display='none'" alt="logo">` : ''
 
   // Datos de la moto: lo capturado en recepción (ya resuelto por el backend),
   // con el modelo de la unidad o la descripción libre para motos externas.
@@ -153,12 +154,16 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
   .toolbar { position:sticky; top:0; background:#0f172a; color:#fff; padding:8px 14px; display:flex; gap:10px; justify-content:flex-end; }
   .toolbar button { background:#fff; color:#0f172a; border:0; border-radius:6px; padding:6px 14px; font-weight:600; cursor:pointer; }
   .sheet { width:210mm; min-height:297mm; margin:10px auto; padding:14mm 12mm; background:#fff; }
-  .head { display:flex; justify-content:space-between; align-items:flex-start; }
-  .head h1 { font-size:26px; margin:0; text-align:center; flex:1; }
-  .head .sub { text-align:center; font-weight:bold; font-size:13px; margin-top:2px; }
-  .folio { text-align:right; font-weight:bold; font-size:13px; }
-  .folio .n { border-bottom:2px solid #111; min-width:130px; display:inline-block; font-size:16px; padding:2px 4px; text-align:center; }
-  .band { background:#e5e7eb; text-align:center; font-weight:bold; padding:4px; margin:10px 0 6px; letter-spacing:.5px; }
+  .head { display:flex; justify-content:space-between; align-items:center; gap:14px; border-bottom:3px solid #E30613; padding-bottom:10px; }
+  .head .logo { height:62px; max-width:160px; object-fit:contain; }
+  .head-c { flex:1; text-align:center; }
+  .biz { font-size:17px; font-weight:bold; letter-spacing:.3px; }
+  .biz2 { font-size:10.5px; color:#555; }
+  .head h1 { font-size:20px; margin:4px 0 0; text-align:center; }
+  .head .sub { text-align:center; font-weight:600; font-size:11.5px; color:#444; }
+  .folio { text-align:right; font-weight:bold; font-size:12px; white-space:nowrap; }
+  .folio .n { border:1.5px solid #111; border-radius:4px; min-width:120px; display:inline-block; font-size:15px; padding:3px 6px; text-align:center; margin-top:3px; }
+  .band { background:#111827; color:#fff; text-align:center; font-weight:bold; padding:5px; margin:12px 0 6px; letter-spacing:.5px; border-radius:3px; font-size:11.5px; }
   .row { display:flex; gap:14px; flex-wrap:wrap; }
   .col { flex:1; }
   .fld { display:flex; gap:4px; align-items:flex-end; margin:5px 0; }
@@ -181,7 +186,10 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
   <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
   <div class="sheet">
     <div class="head">
-      <div style="flex:1">
+      ${logoImg}
+      <div class="head-c">
+        <div class="biz">YAMAHA GLOBAL MOTORS</div>
+        <div class="biz2">Integra Global Motors S.A.C. · RUC 20615585271</div>
         <h1>Orden de Servicio</h1>
         <div class="sub">Mantenimiento y Reparación de Motocicletas</div>
       </div>
@@ -240,11 +248,12 @@ export function printServiceOrder(o: ServiceOrderSummary): void {
  * Acta de Entrega del vehículo (Fase 3): documento profesional con lo realizado,
  * el total y el próximo mantenimiento sugerido. Para imprimir o guardar en PDF.
  */
-export function printServiceDelivery(o: ServiceOrderSummary): void {
+export function printServiceDelivery(o: ServiceOrderSummary, logo?: string): void {
   const esc = (v: unknown): string =>
     v === null || v === undefined || v === ''
       ? ''
       : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
+  const logoImg = logo ? `<img class="logo" src="${esc(logo)}" onerror="this.style.display='none'" alt="logo">` : ''
 
   const items = o.items ?? []
   const plan = items.filter((i) => i.fromPlan)
@@ -263,11 +272,14 @@ export function printServiceDelivery(o: ServiceOrderSummary): void {
   .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:8px 14px;display:flex;justify-content:flex-end;}
   .toolbar button{background:#fff;color:#0f172a;border:0;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer;}
   .sheet{width:210mm;min-height:297mm;margin:10px auto;padding:16mm 14mm;background:#fff;}
-  h1{font-size:22px;text-align:center;margin:0;}
-  .sub{text-align:center;font-size:12px;color:#555;margin-bottom:2px;}
-  .biz{text-align:center;font-weight:bold;font-size:15px;}
-  .biz2{text-align:center;font-size:11px;color:#555;margin-bottom:8px;}
-  .band{background:#e5e7eb;font-weight:bold;padding:4px 8px;margin:12px 0 6px;}
+  .dhead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #E30613;padding-bottom:10px;margin-bottom:10px;}
+  .dhead .logo{height:60px;max-width:150px;object-fit:contain;}
+  .dhead .c{flex:1;text-align:center;}
+  h1{font-size:20px;text-align:center;margin:6px 0 0;}
+  .sub{text-align:center;font-size:11.5px;color:#555;margin-bottom:2px;}
+  .biz{text-align:center;font-weight:bold;font-size:16px;}
+  .biz2{text-align:center;font-size:10.5px;color:#555;}
+  .band{background:#111827;color:#fff;font-weight:bold;padding:5px 8px;margin:12px 0 6px;border-radius:3px;letter-spacing:.4px;}
   .grid{display:flex;flex-wrap:wrap;gap:2px 24px;}
   .grid p{margin:2px 0;flex:1 1 45%;}
   table{width:100%;border-collapse:collapse;margin-top:4px;font-size:11px;}
@@ -283,10 +295,15 @@ export function printServiceDelivery(o: ServiceOrderSummary): void {
 <body>
   <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
   <div class="sheet">
-    <div class="biz">YAMAHA GLOBAL MOTORS</div>
-    <div class="biz2">Integra Global Motors S.A.C. · RUC 20615585271</div>
-    <h1>ACTA DE ENTREGA DEL VEHÍCULO</h1>
-    <div class="sub">Orden de Servicio N° ${esc(o.orderNumber)}</div>
+    <div class="dhead">
+      ${logoImg}
+      <div class="c">
+        <div class="biz">YAMAHA GLOBAL MOTORS</div>
+        <div class="biz2">Integra Global Motors S.A.C. · RUC 20615585271</div>
+        <h1>ACTA DE ENTREGA DEL VEHÍCULO</h1>
+        <div class="sub">Orden de Servicio N° ${esc(o.orderNumber)}</div>
+      </div>
+    </div>
 
     <div class="band">DATOS</div>
     <div class="grid">

@@ -299,16 +299,29 @@ final class WorkshopService
             $selected = array_map('intval', $data['sparePartIds']);
         }
 
-        return $this->entityManager->wrapInTransaction(function () use ($order, $plan, $selected): array {
+        // Precios editados por el usuario al cargar el plan (opcionales).
+        $laborOverride = isset($data['laborPrice']) && $data['laborPrice'] !== null && $data['laborPrice'] !== ''
+            ? round((float) $data['laborPrice'], 2) : null;
+        $partPrices = [];
+        if (isset($data['partPrices']) && is_array($data['partPrices'])) {
+            foreach ($data['partPrices'] as $spId => $price) {
+                if ($price !== null && $price !== '') {
+                    $partPrices[(int) $spId] = round((float) $price, 2);
+                }
+            }
+        }
+
+        return $this->entityManager->wrapInTransaction(function () use ($order, $plan, $selected, $laborOverride, $partPrices): array {
             $warnings = [];
 
             // Deja registrado el plan aplicado para que quede visible al revisar la orden.
             $order->setPlan((string) $plan['model'], (int) $plan['km']);
 
-            // 1) Mano de obra del plan (una línea LABOR). Si el plan no trae costo
-            //    (modelo sin tarifa), se agrega en 0 para que el mecánico lo defina.
-            $laborCost = isset($plan['labor']['cost']) ? (float) $plan['labor']['cost'] : 0.0;
+            // 1) Mano de obra (una línea LABOR). El precio editado manda; si no llega,
+            //    se usa el del plan (o 0 si es gratuito / el modelo no trae tarifa).
             $laborFree = !empty($plan['labor']['free']); // primeros 3 servicios: gratuitos
+            $laborPrice = $laborOverride
+                ?? ($laborFree ? 0.0 : round((float) ($plan['labor']['cost'] ?? 0), 2));
             $laborItem = new ServiceOrderItem(
                 $order,
                 'LABOR',
@@ -316,10 +329,10 @@ final class WorkshopService
                     'Mantenimiento %s - %s km (mano de obra%s)',
                     $plan['model'],
                     number_format((int) $plan['km'], 0, '.', ','),
-                    $laborFree ? ', gratuito' : '',
+                    ($laborFree && $laborPrice <= 0.0) ? ', gratuito' : '',
                 ),
                 1,
-                $laborFree ? 0.0 : round($laborCost, 2),
+                $laborPrice,
             );
             $laborItem->setFromPlan(true);
             $order->addItem($laborItem);
@@ -355,7 +368,9 @@ final class WorkshopService
                     null,
                 );
 
-                $item = new ServiceOrderItem($order, 'PART', $part->getDescription(), $qty, (float) ($part->getSalePrice() ?? 0));
+                // Precio editado del repuesto si el usuario lo cambió; si no, su precio de venta.
+                $unitPrice = $partPrices[(int) $p['sparePartId']] ?? (float) ($part->getSalePrice() ?? 0);
+                $item = new ServiceOrderItem($order, 'PART', $part->getDescription(), $qty, $unitPrice);
                 $item->setSparePart($part);
                 $item->setFromPlan(true);
                 $order->addItem($item);

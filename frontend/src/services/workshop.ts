@@ -21,8 +21,15 @@ export const workshopService = {
   removeItem(id: number, itemId: number): Promise<ServiceOrderSummary> {
     return api.delete(`/workshop/orders/${id}/items/${itemId}`).then((r) => r.data)
   },
-  applyPlan(id: number, planId: number, km: number, sparePartIds?: number[]): Promise<ServiceOrderSummary> {
-    return api.post(`/workshop/orders/${id}/maintenance-plan`, { planId, km, sparePartIds }).then((r) => r.data)
+  applyPlan(
+    id: number,
+    planId: number,
+    km: number,
+    sparePartIds?: number[],
+    laborPrice?: number,
+    partPrices?: Record<number, number>,
+  ): Promise<ServiceOrderSummary> {
+    return api.post(`/workshop/orders/${id}/maintenance-plan`, { planId, km, sparePartIds, laborPrice, partPrices }).then((r) => r.data)
   },
   changeStatus(id: number, status: OrderStatus): Promise<ServiceOrderSummary> {
     return api.patch(`/workshop/orders/${id}/status`, { status }).then((r) => r.data)

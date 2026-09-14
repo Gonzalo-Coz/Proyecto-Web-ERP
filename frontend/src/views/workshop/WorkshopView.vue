@@ -13,6 +13,7 @@ import { unitService } from '@/services/motorcycles'
 import { saleService } from '@/services/sales'
 import { sparePartService } from '@/services/inventory'
 import { lookupService } from '@/services/lookup'
+import { companyService, mediaUrl } from '@/services/company'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta } from '@/types/common'
@@ -96,6 +97,9 @@ const planLoading = ref(false)
 const planApplied = ref(false)
 // Selección de repuestos del kit a cargar (por código). Los no disponibles no se pueden marcar.
 const planPartSel = reactive<Record<string, boolean>>({})
+// Precios editables antes de cargar el plan: mano de obra y precio por repuesto (por código).
+const planLaborPrice = ref(0)
+const planPartPrice = reactive<Record<string, number>>({})
 
 /** Un repuesto está disponible si está en inventario y tiene stock suficiente. */
 function partAvailable(p: { inInventory: boolean; stock: number | null; quantity: number }): boolean {
@@ -158,6 +162,10 @@ async function loadPlanPreview(): Promise<void> {
     // Marca por defecto los repuestos disponibles; los que faltan quedan sin marcar.
     Object.keys(planPartSel).forEach((k) => delete planPartSel[k])
     for (const p of svc.parts) planPartSel[p.code] = partAvailable(p)
+    // Precios por defecto (editables): mano de obra del plan y precio de venta de cada repuesto.
+    planLaborPrice.value = svc.labor?.free ? 0 : Number(svc.labor?.cost ?? 0)
+    Object.keys(planPartPrice).forEach((k) => delete planPartPrice[k])
+    for (const p of svc.parts) planPartPrice[p.code] = Number(p.salePrice ?? 0)
   } catch {
     detailError.value = 'No se pudo cargar el plan.'
   } finally {
@@ -175,10 +183,13 @@ async function applyPlan(): Promise<void> {
   planLoading.value = true
   try {
     // Solo se cargan los repuestos disponibles que el mecánico dejó marcados.
-    const selectedIds = (planPreview.value?.parts ?? [])
+    const chosen = (planPreview.value?.parts ?? [])
       .filter((p) => partAvailable(p) && planPartSel[p.code] && p.sparePartId != null)
-      .map((p) => p.sparePartId as number)
-    const res = await workshopService.applyPlan(orderId, planId, km, selectedIds)
+    const selectedIds = chosen.map((p) => p.sparePartId as number)
+    // Precios editados: mano de obra y precio por repuesto (por id de repuesto).
+    const partPrices: Record<number, number> = {}
+    for (const p of chosen) partPrices[p.sparePartId as number] = Number(planPartPrice[p.code] ?? p.salePrice ?? 0)
+    const res = await workshopService.applyPlan(orderId, planId, km, selectedIds, planLaborPrice.value, partPrices)
     planWarnings.value = res.planWarnings ?? []
     detail.value = res
     planApplied.value = true // se mantiene la checklist visible como guía
@@ -410,13 +421,24 @@ async function openDetail(row: ServiceOrderSummary): Promise<void> {
   newStatus.value = detail.value.status
   detailError.value = ''
   draftItems.value = [blankDraft()]
-  // Reinicia el cargador de plan de mantenimiento para esta orden.
-  planForm.planId = null
-  planForm.km = null
-  planPreview.value = null
   planWarnings.value = []
+  planPreview.value = null
   planApplied.value = false
   Object.keys(planPartSel).forEach((k) => delete planPartSel[k])
+
+  // Si la orden YA tiene un plan cargado, se reconstruye la rutina/checklist para
+  // que el mecánico vea qué se debe hacer (queda como guía, ya aplicada).
+  const d = detail.value
+  const appliedPlanId = d.planModel ? (planModels.value.find((m) => m.model === d.planModel)?.id ?? null) : null
+  if (appliedPlanId && d.planKm) {
+    planForm.planId = appliedPlanId
+    planForm.km = d.planKm
+    await loadPlanPreview()
+    planApplied.value = true // ya aplicado: checklist visible como guía, sin volver a cargar
+  } else {
+    planForm.planId = null
+    planForm.km = null
+  }
 }
 
 function addDraftRow(): void {
@@ -505,12 +527,15 @@ async function doCancel(): Promise<void> {
 /** La orden se puede editar si no está entregada ni anulada. */
 const orderEditable = computed(() => detail.value != null && !detail.value.deliveredAt && detail.value.status !== 'ANULADA')
 
+/** Logo de la empresa (URL absoluta) para los documentos imprimibles. */
+const companyLogo = ref('')
+
 function doPrint(): void {
-  if (detail.value) printServiceOrder(detail.value)
+  if (detail.value) printServiceOrder(detail.value, companyLogo.value)
 }
 
 function doDelivery(): void {
-  if (detail.value) printServiceDelivery(detail.value)
+  if (detail.value) printServiceDelivery(detail.value, companyLogo.value)
 }
 
 onMounted(async () => {
@@ -528,6 +553,12 @@ onMounted(async () => {
   try {
     planModels.value = await maintenanceService.models()
   } catch { planModels.value = [] }
+  try {
+    // Logo para los documentos (Orden, Acta). URL absoluta para que cargue en la ventana de impresión.
+    const info = await companyService.publicInfo()
+    const path = mediaUrl(info.logoFullPath)
+    companyLogo.value = path ? (path.startsWith('http') ? path : window.location.origin + path) : ''
+  } catch { companyLogo.value = '' }
   load().catch(() => undefined)
 })
 </script>
@@ -831,14 +862,20 @@ onMounted(async () => {
 
           <!-- Vista previa del servicio (programado) -->
           <div v-if="planPreview && !isPreventivoKm" class="mt-3 space-y-2">
-            <p class="text-sm text-gray-700">
-              Mano de obra:
-              <strong :class="planPreview.labor?.free ? 'text-emerald-600' : ''">
-                {{ planPreview.labor?.free ? 'Gratuito (mantenimiento incluido)' : planPreview.labor?.cost != null ? `S/ ${planPreview.labor.cost.toFixed(2)}` : 'definir manualmente' }}
-              </strong>
-              <span v-if="planPreview.labor?.hours != null" class="text-xs text-gray-400"> · {{ planPreview.labor.hours }} h</span>
-              <span class="text-xs text-gray-400"> · {{ planPreview.activities.length }} actividades de revisión</span>
-            </p>
+            <div class="flex flex-wrap items-center gap-2 text-sm text-gray-700">
+              <span>Mano de obra: S/</span>
+              <input
+                v-model.number="planLaborPrice"
+                type="number"
+                step="0.01"
+                min="0"
+                :disabled="planApplied"
+                class="form-input !w-28 !py-1 !text-sm"
+              />
+              <span v-if="planPreview.labor?.free && Number(planLaborPrice) === 0" class="text-xs font-medium text-emerald-600">Gratuito (incluido)</span>
+              <span v-if="planPreview.labor?.hours != null" class="text-xs text-gray-400">· {{ planPreview.labor.hours }} h</span>
+              <span class="text-xs text-gray-400">· {{ planPreview.activities.length }} actividades de revisión</span>
+            </div>
 
             <!-- Checklist de la rutina: qué se hace en cada punto según la leyenda -->
             <div v-if="planActivityGroups.length" class="rounded-lg border border-gray-200 bg-white p-3">
@@ -881,7 +918,18 @@ onMounted(async () => {
                     {{ p.description }} <span :class="partAvailable(p) ? 'text-gray-400' : 'text-red-400'">({{ p.code }})</span>
                   </td>
                   <td class="py-1 text-right">{{ p.quantity }}</td>
-                  <td class="py-1 text-right">{{ p.inInventory ? `S/ ${Number(p.salePrice ?? 0).toFixed(2)}` : '—' }}</td>
+                  <td class="py-1 text-right">
+                    <input
+                      v-if="p.inInventory"
+                      v-model.number="planPartPrice[p.code]"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      :disabled="planApplied"
+                      class="form-input !w-24 !py-0.5 !text-right !text-xs"
+                    />
+                    <span v-else>—</span>
+                  </td>
                   <td class="py-1 text-right font-medium">
                     {{ !p.inInventory ? 'sin ficha' : (p.stock ?? 0) < p.quantity ? `stock ${p.stock}` : p.stock }}
                   </td>
