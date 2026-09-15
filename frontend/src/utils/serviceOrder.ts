@@ -64,7 +64,7 @@ async function presentDoc(html: string, filename: string, win?: Window | null): 
     const blob: Blob = await (window as any)
       .html2pdf()
       .set({
-        margin: 0,
+        margin: [4, 4, 4, 4],
         filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
@@ -74,7 +74,10 @@ async function presentDoc(html: string, filename: string, win?: Window | null): 
           windowWidth: 820,
           onclone: (clonedDoc: Document) => {
             const st = clonedDoc.createElement('style')
-            st.textContent = css
+            // El CSS del documento + overrides para el PDF: sin el margen "auto"
+            // (que corría la hoja) y sin forzar alto de página completa (que empujaba
+            // a una 2da hoja); el margen de página lo da la opción `margin` de arriba.
+            st.textContent = css + ' .toolbar{display:none!important} .sheet{margin:0!important;min-height:auto!important;box-shadow:none!important}'
             clonedDoc.head.appendChild(st)
           },
         },
