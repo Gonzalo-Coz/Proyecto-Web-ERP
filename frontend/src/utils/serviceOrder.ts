@@ -5,6 +5,86 @@ const escHtml = (v: unknown): string =>
     ? ''
     : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
 
+// Carga html2pdf (html2canvas + jsPDF) desde CDN una sola vez.
+let html2pdfLoading: Promise<void> | null = null
+function loadHtml2pdf(): Promise<void> {
+  if ((window as any).html2pdf) return Promise.resolve()
+  if (html2pdfLoading) return html2pdfLoading
+  html2pdfLoading = new Promise<void>((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+    s.onload = () => resolve()
+    s.onerror = () => reject(new Error('No se pudo cargar el generador de PDF.'))
+    document.head.appendChild(s)
+  })
+  return html2pdfLoading
+}
+
+async function waitImages(doc: Document): Promise<void> {
+  await Promise.all(
+    Array.from(doc.images).map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise<void>((r) => {
+            img.onload = () => r()
+            img.onerror = () => r()
+          }),
+    ),
+  )
+}
+
+/**
+ * Convierte el HTML del documento (una hoja A4) en un PDF real y lo abre en el
+ * visor del navegador (con su botón de descarga). Si el generador no está
+ * disponible (p. ej. CSP bloquea el CDN), cae a la página imprimible.
+ * @param win ventana ya abierta en el clic (evita bloqueo de pop-ups tras el await)
+ */
+async function presentDoc(html: string, filename: string, win?: Window | null): Promise<void> {
+  const w = win ?? window.open('', '_blank')
+  if (w) w.document.write('<!doctype html><meta charset="utf-8"><p style="font-family:Arial;padding:24px;color:#334">Generando PDF…</p>')
+  try {
+    await loadHtml2pdf()
+    const frame = document.createElement('iframe')
+    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;'
+    document.body.appendChild(frame)
+    const idoc = frame.contentDocument as Document
+    idoc.open()
+    idoc.write(html.replace(/<div class="toolbar">[\s\S]*?<\/div>/, ''))
+    idoc.close()
+    await new Promise((r) => setTimeout(r, 250))
+    await waitImages(idoc)
+    const target = (idoc.querySelector('.sheet') as HTMLElement) ?? idoc.body
+    const blob: Blob = await (window as any)
+      .html2pdf()
+      .set({
+        margin: 0,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(target)
+      .outputPdf('blob')
+    document.body.removeChild(frame)
+    const url = URL.createObjectURL(blob)
+    if (w) w.location.href = url
+    else window.open(url, '_blank')
+  } catch {
+    // Fallback: página imprimible con el botón "Imprimir / Guardar PDF".
+    if (w) {
+      w.document.open()
+      w.document.write(html)
+      w.document.close()
+    } else {
+      const fw = window.open('', '_blank')
+      if (fw) {
+        fw.document.write(html)
+        fw.document.close()
+      }
+    }
+  }
+}
+
 interface MotoHistoryPart { code: string; description: string; quantity: number }
 interface MotoHistoryIngreso { orderNumber: string; date: string; km: number | null; tipo: string; work: string; parts: MotoHistoryPart[] }
 interface MotoHistoryData {
@@ -107,13 +187,7 @@ export function printMotoHistory(d: MotoHistoryData, win?: Window | null): void 
   </div>
 </body></html>`
 
-  // Se acepta una ventana ya abierta (en el gesto de clic) para no ser bloqueada
-  // por el navegador tras el await de la consulta; si no, se abre aquí.
-  const w = win ?? window.open('', '_blank')
-  if (!w) return
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
+  void presentDoc(html, `historia-clinica-${(d.moto.vin || 'moto').replace(/[^\w-]/g, '')}.pdf`, win)
 }
 
 /**
@@ -237,11 +311,7 @@ export function printServiceOrder(o: ServiceOrderSummary, logo?: string): void {
   </div>
 </body></html>`
 
-  const w = window.open('', '_blank')
-  if (!w) return
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
+  void presentDoc(html, `orden-servicio-${esc(o.orderNumber).replace(/[^\w-]/g, '')}.pdf`)
 }
 
 /**
@@ -336,9 +406,5 @@ export function printServiceDelivery(o: ServiceOrderSummary, logo?: string): voi
   </div>
 </body></html>`
 
-  const w = window.open('', '_blank')
-  if (!w) return
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
+  void presentDoc(html, `acta-entrega-${esc(o.orderNumber).replace(/[^\w-]/g, '')}.pdf`)
 }
