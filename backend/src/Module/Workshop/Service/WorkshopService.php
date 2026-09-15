@@ -180,6 +180,19 @@ final class WorkshopService
         $unitId = isset($data['motorcycleUnitId']) && $data['motorcycleUnitId'] !== null ? (int) $data['motorcycleUnitId'] : null;
         $description = trim((string) ($data['motorcycleDescription'] ?? ''));
 
+        // Enganche automático: si no se eligió unidad pero la serie/VIN capturada
+        // coincide con una moto registrada, se liga sola (así la historia clínica
+        // queda disponible aunque la recepción se haya hecho como "externa").
+        if ($unitId === null) {
+            $serial = trim((string) ($data['motoSerial'] ?? ''));
+            if ($serial !== '') {
+                $match = $this->unitRepository->findOneBy(['vin' => $serial]);
+                if ($match !== null) {
+                    $unitId = (int) $match->getId();
+                }
+            }
+        }
+
         if ($unitId === null && $description === '') {
             throw new UnprocessableEntityHttpException('Indica la unidad vendida por la empresa o la descripción de la motocicleta externa.');
         }
