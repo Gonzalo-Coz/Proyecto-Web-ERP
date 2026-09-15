@@ -286,10 +286,15 @@ export function printServiceDelivery(o: ServiceOrderSummary, logo?: string): voi
   .band{background:#111827;color:#fff;font-weight:bold;padding:5px 8px;margin:12px 0 6px;border-radius:3px;letter-spacing:.4px;}
   .grid{display:flex;flex-wrap:wrap;gap:2px 24px;}
   .grid p{margin:2px 0;flex:1 1 45%;}
-  table{width:100%;border-collapse:collapse;margin-top:4px;font-size:11px;}
-  th,td{border:1px solid #cbd5e1;padding:4px 6px;text-align:left;}
+  table{width:100%;border-collapse:collapse;margin-top:4px;font-size:11px;table-layout:fixed;}
+  th,td{border:1px solid #cbd5e1;padding:3px 7px;text-align:left;word-wrap:break-word;overflow-wrap:anywhere;}
   th{background:#f1f5f9;}
   td.r,th.r{text-align:right;}
+  /* Anchos fijos: las dos tablas quedan alineadas y las columnas de números compactas. */
+  th:nth-child(1),td:nth-child(1){width:120px;}
+  th:nth-child(3),td:nth-child(3){width:56px;}
+  th:nth-child(4),td:nth-child(4){width:90px;}
+  th:nth-child(5),td:nth-child(5){width:100px;}
   .tot{text-align:right;font-size:14px;margin-top:6px;}
   .next{border:1px solid #0f172a;border-radius:6px;padding:8px 10px;margin-top:12px;font-size:13px;}
   .signs{display:flex;gap:60px;margin-top:40px;}
