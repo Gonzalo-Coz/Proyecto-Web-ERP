@@ -365,6 +365,8 @@ function css(format: PrintFormat): string {
     .a4-items { width: 100%; border-collapse: collapse; margin-top: 12px; }
     .a4-items th { background: #eef2f7; border: 1px solid #cbd5e1; padding: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: .3px; }
     .a4-items td { border: 1px solid #e2e8f0; padding: 6px; font-size: 11px; vertical-align: top; }
+    .a4-items tr, .a4-items thead, .a4-obs, .a4-tot, .a4-bank tr { page-break-inside: avoid; }
+    .a4-items thead { display: table-header-group; }
     .a4-obs { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; margin-top: 8px; font-size: 11px; min-height: 40px; }
     .a4-bottom { display: flex; justify-content: space-between; gap: 16px; margin-top: 12px; align-items: flex-start; }
     .a4-left { flex: 1; }
@@ -592,9 +594,10 @@ export async function openComprobantePdf(doc: InvoiceDocument, format: PrintForm
         : { unit: 'mm', format: 'a4', orientation: 'portrait' }
 
     const opt = {
-      margin: 0,
+      margin: format === 'ticket' ? 0 : [6, 6, 6, 6],
       filename: `${doc.fullNumber}${format === 'ticket' ? '-ticket' : ''}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
+      pagebreak: { mode: ['css', 'legacy'] },
       html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
       jsPDF,
     }

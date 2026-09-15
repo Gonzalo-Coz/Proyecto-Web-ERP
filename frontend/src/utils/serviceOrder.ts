@@ -5,108 +5,18 @@ const escHtml = (v: unknown): string =>
     ? ''
     : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
 
-// Carga html2pdf (html2canvas + jsPDF) desde CDN una sola vez.
-let html2pdfLoading: Promise<void> | null = null
-function loadHtml2pdf(): Promise<void> {
-  if ((window as any).html2pdf) return Promise.resolve()
-  if (html2pdfLoading) return html2pdfLoading
-  html2pdfLoading = new Promise<void>((resolve, reject) => {
-    const s = document.createElement('script')
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
-    s.onload = () => resolve()
-    s.onerror = () => reject(new Error('No se pudo cargar el generador de PDF.'))
-    document.head.appendChild(s)
-  })
-  return html2pdfLoading
-}
-
-async function waitImages(doc: Document): Promise<void> {
-  await Promise.all(
-    Array.from(doc.images).map((img) =>
-      img.complete
-        ? Promise.resolve()
-        : new Promise<void>((r) => {
-            img.onload = () => r()
-            img.onerror = () => r()
-          }),
-    ),
-  )
-}
-
 /**
- * Convierte el HTML del documento (una hoja A4) en un PDF real y lo abre en el
- * visor del navegador (con su botón de descarga). Si el generador no está
- * disponible (p. ej. CSP bloquea el CDN), cae a la página imprimible.
- * @param win ventana ya abierta en el clic (evita bloqueo de pop-ups tras el await)
+ * Abre el documento en una ventana como hoja A4 lista para ver, imprimir o
+ * guardar como PDF. El propio CSS define @page size:A4, así que el navegador lo
+ * genera en A4 sin recortes ni descuadres. Simple y confiable.
+ * @param win ventana ya abierta en el clic (evita bloqueo de pop-ups)
  */
-async function presentDoc(html: string, filename: string, win?: Window | null): Promise<void> {
+function presentDoc(html: string, _filename: string, win?: Window | null): void {
   const w = win ?? window.open('', '_blank')
-  if (w) w.document.write('<!doctype html><meta charset="utf-8"><p style="font-family:Arial;padding:24px;color:#334">Generando PDF…</p>')
-  let container: HTMLDivElement | null = null
-  try {
-    await loadHtml2pdf()
-    // Se extrae el CSS y el cuerpo del documento. El contenido se monta en el
-    // documento PRINCIPAL (fuera de pantalla) para que el generador lea bien la
-    // geometría; el CSS se inyecta SOLO en la copia que captura html2canvas
-    // (opción onclone), así el diseño se aplica sin ensuciar los estilos de la app.
-    const css = (html.match(/<style>([\s\S]*?)<\/style>/) ?? [, ''])[1] as string
-    let body = (html.match(/<body>([\s\S]*?)<\/body>/) ?? [, html])[1] as string
-    body = body.replace(/<div class="toolbar">[\s\S]*?<\/div>/, '')
-
-    container = document.createElement('div')
-    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;background:#ffffff;'
-    container.innerHTML = body
-    document.body.appendChild(container)
-    await waitImages(document)
-    await new Promise((r) => setTimeout(r, 60))
-
-    const target = (container.querySelector('.sheet') as HTMLElement) ?? container
-    const blob: Blob = await (window as any)
-      .html2pdf()
-      .set({
-        margin: [8, 8, 8, 8],
-        filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        pagebreak: { mode: ['css', 'legacy'] },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          windowWidth: 900,
-          scrollX: 0,
-          scrollY: 0,
-          onclone: (clonedDoc: Document) => {
-            const st = clonedDoc.createElement('style')
-            // El CSS del documento + overrides para el PDF: sin el margen "auto"
-            // (que corría la hoja) y sin forzar alto de página completa (que empujaba
-            // a una 2da hoja); el margen de página lo da la opción `margin` de arriba.
-            st.textContent = css + ' .toolbar{display:none!important} .sheet{margin:0!important;min-height:auto!important;box-shadow:none!important}'
-            clonedDoc.head.appendChild(st)
-          },
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      })
-      .from(target)
-      .outputPdf('blob')
-    if (container.parentNode) container.parentNode.removeChild(container)
-    const url = URL.createObjectURL(blob)
-    if (w) w.location.href = url
-    else window.open(url, '_blank')
-  } catch {
-    if (container && container.parentNode) container.parentNode.removeChild(container)
-    // Fallback: página imprimible con el botón "Imprimir / Guardar PDF".
-    if (w) {
-      w.document.open()
-      w.document.write(html)
-      w.document.close()
-    } else {
-      const fw = window.open('', '_blank')
-      if (fw) {
-        fw.document.write(html)
-        fw.document.close()
-      }
-    }
-  }
+  if (!w) return
+  w.document.open()
+  w.document.write(html)
+  w.document.close()
 }
 
 interface MotoHistoryPart { code: string; description: string; quantity: number }
@@ -251,7 +161,7 @@ export function printServiceOrder(o: ServiceOrderSummary, logo?: string): void {
   body { font-family: Arial, Helvetica, sans-serif; color:#111; margin:0; font-size:12px; }
   .toolbar { position:sticky; top:0; background:#0f172a; color:#fff; padding:8px 14px; display:flex; gap:10px; justify-content:flex-end; }
   .toolbar button { background:#fff; color:#0f172a; border:0; border-radius:6px; padding:6px 14px; font-weight:600; cursor:pointer; }
-  .sheet { width:210mm; min-height:297mm; margin:10px auto; padding:14mm 12mm; background:#fff; }
+  .sheet { width:297mm; min-height:210mm; margin:10px auto; padding:12mm 14mm; background:#fff; }
   .head { display:flex; justify-content:space-between; align-items:center; gap:14px; border-bottom:3px solid #E30613; padding-bottom:10px; }
   .head .logo { height:62px; max-width:160px; object-fit:contain; }
   .head-c { flex:1; text-align:center; }
@@ -278,7 +188,7 @@ export function printServiceOrder(o: ServiceOrderSummary, logo?: string): void {
   .dmg-b { border:1px solid #94a3b8; height:120px; border-radius:3px; }
   .signs { display:flex; gap:60px; margin-top:26px; }
   .sign { flex:1; border-top:1px solid #111; text-align:center; padding-top:4px; }
-  @media print { .toolbar { display:none; } .sheet { margin:0; } @page { size:A4; margin:0; } }
+  @media print { .toolbar { display:none; } .sheet { margin:0; } @page { size:A4 landscape; margin:0; } }
 </style></head>
 <body>
   <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
@@ -365,7 +275,7 @@ export function printServiceDelivery(o: ServiceOrderSummary, logo?: string): voi
   *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px;}
   .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:8px 14px;display:flex;justify-content:flex-end;}
   .toolbar button{background:#fff;color:#0f172a;border:0;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer;}
-  .sheet{width:210mm;min-height:297mm;margin:10px auto;padding:16mm 14mm;background:#fff;}
+  .sheet{width:297mm;min-height:210mm;margin:10px auto;padding:12mm 16mm;background:#fff;}
   .dhead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #E30613;padding-bottom:10px;margin-bottom:10px;}
   .dhead .logo{height:60px;max-width:150px;object-fit:contain;}
   .dhead .c{flex:1;text-align:center;}
@@ -384,7 +294,7 @@ export function printServiceDelivery(o: ServiceOrderSummary, logo?: string): voi
   .next{border:1px solid #0f172a;border-radius:6px;padding:8px 10px;margin-top:12px;font-size:13px;}
   .signs{display:flex;gap:60px;margin-top:40px;}
   .sign{flex:1;border-top:1px solid #111;text-align:center;padding-top:4px;}
-  @media print{.toolbar{display:none;}.sheet{margin:0;}@page{size:A4;margin:0;}}
+  @media print{.toolbar{display:none;}.sheet{margin:0;}@page{size:A4 landscape;margin:0;}}
 </style></head>
 <body>
   <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
