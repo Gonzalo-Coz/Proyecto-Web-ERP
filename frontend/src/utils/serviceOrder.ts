@@ -64,14 +64,17 @@ async function presentDoc(html: string, filename: string, win?: Window | null): 
     const blob: Blob = await (window as any)
       .html2pdf()
       .set({
-        margin: [4, 4, 4, 4],
+        margin: [8, 8, 8, 8],
         filename,
         image: { type: 'jpeg', quality: 0.98 },
+        pagebreak: { mode: ['css', 'legacy'] },
         html2canvas: {
           scale: 2,
           useCORS: true,
           backgroundColor: '#ffffff',
-          windowWidth: 820,
+          windowWidth: 900,
+          scrollX: 0,
+          scrollY: 0,
           onclone: (clonedDoc: Document) => {
             const st = clonedDoc.createElement('style')
             // El CSS del documento + overrides para el PDF: sin el margen "auto"
