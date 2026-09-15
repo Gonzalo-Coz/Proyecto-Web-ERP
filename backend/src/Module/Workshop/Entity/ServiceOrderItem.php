@@ -113,4 +113,12 @@ class ServiceOrderItem
     {
         return $this->lineTotal;
     }
+
+    /** Actualiza cantidad y precio unitario, recalculando el total de la línea. */
+    public function updateAmounts(int $quantity, float $unitPrice): void
+    {
+        $this->quantity = $quantity;
+        $this->unitPrice = number_format($unitPrice, 2, '.', '');
+        $this->lineTotal = number_format($quantity * $unitPrice, 2, '.', '');
+    }
 }

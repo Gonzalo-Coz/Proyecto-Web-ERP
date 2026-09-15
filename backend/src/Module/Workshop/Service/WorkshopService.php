@@ -434,6 +434,47 @@ final class WorkshopService
         });
     }
 
+    /** Edita cantidad/precio de una línea ya cargada; ajusta stock si cambia la cantidad de un repuesto. */
+    public function updateItem(int $orderId, int $itemId, array $data): array
+    {
+        $order = $this->find($orderId);
+        $this->assertEditable($order);
+
+        $item = null;
+        foreach ($order->getItems() as $candidate) {
+            if ($candidate->getId() === $itemId) {
+                $item = $candidate;
+                break;
+            }
+        }
+        if ($item === null) {
+            throw new NotFoundHttpException('Línea no encontrada en la orden.');
+        }
+
+        $newQty = isset($data['quantity']) ? max(1, (int) $data['quantity']) : $item->getQuantity();
+        $newPrice = isset($data['unitPrice']) ? max(0.0, (float) $data['unitPrice']) : (float) $item->getUnitPrice();
+
+        return $this->entityManager->wrapInTransaction(function () use ($order, $item, $newQty, $newPrice): array {
+            // Si es repuesto y cambia la cantidad, ajusta el inventario por la diferencia.
+            if ($item->getItemType() === 'PART' && $item->getSparePart() !== null) {
+                $delta = $newQty - $item->getQuantity();
+                $part = $item->getSparePart();
+                if ($delta > 0) {
+                    if ($part->getStock() < $delta) {
+                        throw new ConflictHttpException(sprintf('Stock insuficiente de %s (disponible %d).', $part->getInternalCode(), $part->getStock()));
+                    }
+                    $this->stockService->registerMovement($part, 'TALLER', -$delta, null, sprintf('TALLER %s (ajuste)', $order->getOrderNumber()), null);
+                } elseif ($delta < 0) {
+                    $this->stockService->registerMovement($part, 'DEVOLUCION', -$delta, null, sprintf('TALLER %s (ajuste)', $order->getOrderNumber()), null);
+                }
+            }
+            $item->updateAmounts($newQty, $newPrice);
+            $this->entityManager->flush();
+
+            return $this->toArray($order, true);
+        });
+    }
+
     public function changeStatus(int $orderId, string $status): array
     {
         $order = $this->find($orderId);

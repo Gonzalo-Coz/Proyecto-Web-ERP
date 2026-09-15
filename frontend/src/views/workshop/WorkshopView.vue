@@ -85,6 +85,12 @@ interface DraftItem {
 function blankDraft(): DraftItem {
   return { itemType: 'LABOR', sparePartId: spareParts.value[0]?.id ?? null, description: '', quantity: 1, unitPrice: 0 }
 }
+/** Al elegir un repuesto (o cambiar a tipo Repuesto), jala su precio de venta (editable). */
+function onDraftPartChange(d: DraftItem): void {
+  if (d.itemType !== 'PART') return
+  const p = spareParts.value.find((x) => x.id === d.sparePartId)
+  if (p) d.unitPrice = Number(p.salePrice ?? 0)
+}
 const draftItems = ref<DraftItem[]>([blankDraft()])
 const newStatus = ref<OrderStatus>('RECIBIDA')
 
@@ -483,6 +489,22 @@ async function doRemoveItem(itemId: number): Promise<void> {
     await load(meta.value?.page ?? 1)
   } catch (e: any) {
     detailError.value = e.response?.data?.detail ?? 'No se pudo retirar la línea.'
+  }
+}
+
+/** Edita cantidad o precio de una línea ya cargada (P.Unit / Cant. editables). */
+async function doUpdateItem(item: ServiceOrderItem, patch: { quantity?: number; unitPrice?: number }): Promise<void> {
+  if (!detail.value) return
+  const qty = patch.quantity ?? item.quantity
+  const price = patch.unitPrice ?? Number(item.unitPrice)
+  // No dispara la llamada si no cambió nada.
+  if (qty === item.quantity && price === Number(item.unitPrice)) return
+  detailError.value = ''
+  try {
+    detail.value = await workshopService.updateItem(detail.value.id, item.id, { quantity: qty, unitPrice: price })
+    await load(meta.value?.page ?? 1)
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo actualizar la línea.'
   }
 }
 
@@ -970,8 +992,29 @@ onMounted(async () => {
               <tr v-for="i in planItems" :key="i.id" class="border-t border-gray-100">
                 <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
                 <td class="py-1">{{ i.description }}</td>
-                <td class="py-1 text-right">{{ i.quantity }}</td>
-                <td class="py-1 text-right">{{ i.unitPrice }}</td>
+                <td class="py-1 text-right">
+                  <input
+                    v-if="auth.can('workshop.orders.edit') && orderEditable"
+                    type="number"
+                    min="1"
+                    class="form-input !w-16 !py-0.5 !text-right !text-xs"
+                    :value="i.quantity"
+                    @change="doUpdateItem(i, { quantity: Number(($event.target as HTMLInputElement).value) })"
+                  />
+                  <span v-else>{{ i.quantity }}</span>
+                </td>
+                <td class="py-1 text-right">
+                  <input
+                    v-if="auth.can('workshop.orders.edit') && orderEditable"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-input !w-20 !py-0.5 !text-right !text-xs"
+                    :value="i.unitPrice"
+                    @change="doUpdateItem(i, { unitPrice: Number(($event.target as HTMLInputElement).value) })"
+                  />
+                  <span v-else>{{ i.unitPrice }}</span>
+                </td>
                 <td class="py-1 text-right">{{ i.lineTotal }}</td>
                 <td class="py-1 text-right">
                   <button v-if="auth.can('workshop.orders.edit') && orderEditable" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
@@ -992,8 +1035,29 @@ onMounted(async () => {
               <tr v-for="i in extraItems" :key="i.id" class="border-t border-gray-100">
                 <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
                 <td class="py-1">{{ i.description }}</td>
-                <td class="py-1 text-right">{{ i.quantity }}</td>
-                <td class="py-1 text-right">{{ i.unitPrice }}</td>
+                <td class="py-1 text-right">
+                  <input
+                    v-if="auth.can('workshop.orders.edit') && orderEditable"
+                    type="number"
+                    min="1"
+                    class="form-input !w-16 !py-0.5 !text-right !text-xs"
+                    :value="i.quantity"
+                    @change="doUpdateItem(i, { quantity: Number(($event.target as HTMLInputElement).value) })"
+                  />
+                  <span v-else>{{ i.quantity }}</span>
+                </td>
+                <td class="py-1 text-right">
+                  <input
+                    v-if="auth.can('workshop.orders.edit') && orderEditable"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-input !w-20 !py-0.5 !text-right !text-xs"
+                    :value="i.unitPrice"
+                    @change="doUpdateItem(i, { unitPrice: Number(($event.target as HTMLInputElement).value) })"
+                  />
+                  <span v-else>{{ i.unitPrice }}</span>
+                </td>
                 <td class="py-1 text-right">{{ i.lineTotal }}</td>
                 <td class="py-1 text-right">
                   <button v-if="auth.can('workshop.orders.edit') && orderEditable" class="text-xs text-red-600 hover:underline" @click="doRemoveItem(i.id)">Retirar</button>
@@ -1012,16 +1076,21 @@ onMounted(async () => {
           <div v-for="(d, i) in draftItems" :key="i" class="mb-2 grid grid-cols-12 items-end gap-2">
             <div class="col-span-2">
               <label v-if="i === 0" class="form-label text-xs">Tipo</label>
-              <select v-model="d.itemType" class="form-input">
+              <select v-model="d.itemType" class="form-input" @change="onDraftPartChange(d)">
                 <option value="LABOR">Mano de obra</option>
                 <option value="PART">Repuesto</option>
               </select>
             </div>
             <div class="col-span-5">
               <label v-if="i === 0" class="form-label text-xs">{{ d.itemType === 'PART' ? 'Repuesto (descuenta stock)' : 'Descripción' }}</label>
-              <select v-if="d.itemType === 'PART'" v-model.number="d.sparePartId" class="form-input">
-                <option v-for="p in spareParts" :key="p.id" :value="p.id">{{ p.internalCode }} · {{ p.partCode }} — {{ p.description }} (stock {{ p.stock }})</option>
-              </select>
+              <SearchableSelect
+                v-if="d.itemType === 'PART'"
+                v-model="d.sparePartId"
+                :options="spareParts"
+                :option-label="(p) => `${p.internalCode} · ${p.partCode} — ${p.description} (stock ${p.stock})`"
+                placeholder="Escribe código o nombre del repuesto…"
+                @change="onDraftPartChange(d)"
+              />
               <input v-else v-model="d.description" class="form-input" placeholder="Cambio de aceite y filtro" />
             </div>
             <div class="col-span-2">

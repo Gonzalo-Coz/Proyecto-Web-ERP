@@ -67,6 +67,13 @@ final class WorkshopController
         return new JsonResponse($this->workshopService->removeItem($id, $itemId));
     }
 
+    #[Route('/{id<\d+>}/items/{itemId<\d+>}', name: 'workshop_update_item', methods: ['PATCH'])]
+    #[IsGranted('workshop.orders.edit')]
+    public function updateItem(int $id, int $itemId, Request $request): JsonResponse
+    {
+        return new JsonResponse($this->workshopService->updateItem($id, $itemId, $request->toArray()));
+    }
+
     #[Route('/{id<\d+>}/status', name: 'workshop_status', methods: ['PATCH'])]
     #[IsGranted('workshop.orders.edit')]
     public function changeStatus(int $id, Request $request): JsonResponse

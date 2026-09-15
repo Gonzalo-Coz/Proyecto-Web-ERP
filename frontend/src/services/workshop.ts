@@ -21,6 +21,9 @@ export const workshopService = {
   removeItem(id: number, itemId: number): Promise<ServiceOrderSummary> {
     return api.delete(`/workshop/orders/${id}/items/${itemId}`).then((r) => r.data)
   },
+  updateItem(id: number, itemId: number, data: { quantity?: number; unitPrice?: number }): Promise<ServiceOrderSummary> {
+    return api.patch(`/workshop/orders/${id}/items/${itemId}`, data).then((r) => r.data)
+  },
   applyPlan(
     id: number,
     planId: number,
