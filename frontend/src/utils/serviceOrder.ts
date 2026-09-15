@@ -42,34 +42,52 @@ async function waitImages(doc: Document): Promise<void> {
 async function presentDoc(html: string, filename: string, win?: Window | null): Promise<void> {
   const w = win ?? window.open('', '_blank')
   if (w) w.document.write('<!doctype html><meta charset="utf-8"><p style="font-family:Arial;padding:24px;color:#334">Generando PDF…</p>')
+  let container: HTMLDivElement | null = null
   try {
     await loadHtml2pdf()
-    const frame = document.createElement('iframe')
-    frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;height:297mm;border:0;'
-    document.body.appendChild(frame)
-    const idoc = frame.contentDocument as Document
-    idoc.open()
-    idoc.write(html.replace(/<div class="toolbar">[\s\S]*?<\/div>/, ''))
-    idoc.close()
-    await new Promise((r) => setTimeout(r, 250))
-    await waitImages(idoc)
-    const target = (idoc.querySelector('.sheet') as HTMLElement) ?? idoc.body
+    // Se extrae el CSS y el cuerpo del documento. El contenido se monta en el
+    // documento PRINCIPAL (fuera de pantalla) para que el generador lea bien la
+    // geometría; el CSS se inyecta SOLO en la copia que captura html2canvas
+    // (opción onclone), así el diseño se aplica sin ensuciar los estilos de la app.
+    const css = (html.match(/<style>([\s\S]*?)<\/style>/) ?? [, ''])[1] as string
+    let body = (html.match(/<body>([\s\S]*?)<\/body>/) ?? [, html])[1] as string
+    body = body.replace(/<div class="toolbar">[\s\S]*?<\/div>/, '')
+
+    container = document.createElement('div')
+    container.style.cssText = 'position:fixed;left:-10000px;top:0;width:210mm;background:#ffffff;'
+    container.innerHTML = body
+    document.body.appendChild(container)
+    await waitImages(document)
+    await new Promise((r) => setTimeout(r, 60))
+
+    const target = (container.querySelector('.sheet') as HTMLElement) ?? container
     const blob: Blob = await (window as any)
       .html2pdf()
       .set({
         margin: 0,
         filename,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          windowWidth: 820,
+          onclone: (clonedDoc: Document) => {
+            const st = clonedDoc.createElement('style')
+            st.textContent = css
+            clonedDoc.head.appendChild(st)
+          },
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       })
       .from(target)
       .outputPdf('blob')
-    document.body.removeChild(frame)
+    if (container.parentNode) container.parentNode.removeChild(container)
     const url = URL.createObjectURL(blob)
     if (w) w.location.href = url
     else window.open(url, '_blank')
   } catch {
+    if (container && container.parentNode) container.parentNode.removeChild(container)
     // Fallback: página imprimible con el botón "Imprimir / Guardar PDF".
     if (w) {
       w.document.open()
