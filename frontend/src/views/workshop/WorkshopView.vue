@@ -283,7 +283,7 @@ function prefillMoto(): void {
 function onExternalModelChange(): void {
   const m = models.value.find((x) => x.id === externalModelId.value)
   if (m) {
-    form.motorcycleDescription = m.fullName
+    form.motorcycleDescription = `${m.model} ${m.modelYear}`
     form.motoBrand = m.brandName
   }
 }
@@ -720,7 +720,7 @@ onMounted(async () => {
           <SearchableSelect
             v-model="externalModelId"
             :options="models"
-            :option-label="(m) => m.fullName"
+            :option-label="(m) => `${m.model} · ${m.modelYear}`"
             placeholder="Escribe el modelo (ej. XTZ150, T115, FZ)…"
             @change="onExternalModelChange"
           />
