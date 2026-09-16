@@ -9,7 +9,7 @@ import { workshopService } from '@/services/workshop'
 import { maintenanceService } from '@/services/maintenance'
 import { printServiceOrder, printServiceDelivery, printMotoHistory } from '@/utils/serviceOrder'
 import { customerService } from '@/services/masters'
-import { unitService } from '@/services/motorcycles'
+import { unitService, modelService } from '@/services/motorcycles'
 import { saleService } from '@/services/sales'
 import { sparePartService } from '@/services/inventory'
 import { lookupService } from '@/services/lookup'
@@ -18,7 +18,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta } from '@/types/common'
 import { DOCUMENT_TYPES, type CustomerItem } from '@/types/masters'
-import type { UnitItem } from '@/types/motorcycles'
+import type { UnitItem, ModelItem } from '@/types/motorcycles'
 import type { SparePartItem } from '@/types/inventory'
 import { ORDER_STATUSES, type OrderStatus, type ServiceOrderItem, type ServiceOrderSummary } from '@/types/workshop'
 import type { MaintenancePlanActivity, MaintenancePlanModel, MaintenancePlanServiceDetail } from '@/types/maintenance'
@@ -46,6 +46,9 @@ let debounce: ReturnType<typeof setTimeout> | undefined
 
 const customers = ref<CustomerItem[]>([])
 const units = ref<UnitItem[]>([])
+const models = ref<ModelItem[]>([])
+/** Modelo elegido del catálogo para una moto externa (solo UI; jala modelo + marca). */
+const externalModelId = ref<number | null>(null)
 const spareParts = ref<SparePartItem[]>([])
 
 const modalOpen = ref(false)
@@ -244,6 +247,7 @@ function openCreate(): void {
     diagnosis: null,
     notes: null,
   })
+  externalModelId.value = null
   formError.value = ''
   modalOpen.value = true
   void onReceptionCustomerChange() // autocompleta la moto del cliente preseleccionado
@@ -272,6 +276,15 @@ function prefillMoto(): void {
     form.motoBrand = null
     form.motoColor = null
     form.motoSerial = null
+  }
+}
+
+/** Moto externa: al elegir un modelo del catálogo, jala el modelo y la marca (el resto se llena a mano). */
+function onExternalModelChange(): void {
+  const m = models.value.find((x) => x.id === externalModelId.value)
+  if (m) {
+    form.motorcycleDescription = m.fullName
+    form.motoBrand = m.brandName
   }
 }
 
@@ -585,6 +598,9 @@ onMounted(async () => {
     units.value = (await unitService.list({ page: 1, perPage: 100, search: '', sort: 'internalCode', direction: 'asc' })).data.filter((u) => u.status !== 'BAJA')
   } catch { units.value = [] }
   try {
+    models.value = (await modelService.list({ page: 1, perPage: 200, search: '', sort: 'model', direction: 'asc' })).data.filter((m) => m.isActive)
+  } catch { models.value = [] }
+  try {
     spareParts.value = (await sparePartService.list({ page: 1, perPage: 100, search: '', sort: 'description', direction: 'asc' })).data.filter((p) => p.isActive)
   } catch { spareParts.value = [] }
   try {
@@ -700,8 +716,17 @@ onMounted(async () => {
             </button>
           </div>
         </FormField>
+        <FormField v-if="form.motorcycleUnitId === null" label="Modelo (elige del catálogo — jala el modelo y la marca)">
+          <SearchableSelect
+            v-model="externalModelId"
+            :options="models"
+            :option-label="(m) => m.fullName"
+            placeholder="Escribe el modelo (ej. XTZ150, T115, FZ)…"
+            @change="onExternalModelChange"
+          />
+        </FormField>
         <FormField v-if="form.motorcycleUnitId === null" label="Descripción de la motocicleta" required>
-          <input v-model="form.motorcycleDescription" class="form-input" required maxlength="200" placeholder="Honda CB190R 2022 roja" />
+          <input v-model="form.motorcycleDescription" class="form-input" required maxlength="200" placeholder="Se llena al elegir el modelo; puedes ajustarla" />
         </FormField>
         <div class="grid grid-cols-4 gap-4">
           <FormField label="Marca">
