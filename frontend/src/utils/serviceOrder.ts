@@ -5,18 +5,69 @@ const escHtml = (v: unknown): string =>
     ? ''
     : String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string)
 
+/** Carga un script externo una sola vez. */
+function loadScript(src: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) return resolve()
+    const s = document.createElement('script')
+    s.src = src
+    s.onload = () => resolve()
+    s.onerror = () => reject(new Error('No se pudo cargar ' + src))
+    document.head.appendChild(s)
+  })
+}
+
 /**
- * Abre el documento en una ventana como hoja A4 lista para ver, imprimir o
- * guardar como PDF. El propio CSS define @page size:A4, así que el navegador lo
- * genera en A4 sin recortes ni descuadres. Simple y confiable.
+ * Genera el documento como PDF real y lo abre en el visor del navegador (mismo
+ * mecanismo que boletas/facturas): renderiza el HTML+CSS en el documento y lo
+ * convierte con html2pdf. Detecta orientación horizontal desde el @page.
  * @param win ventana ya abierta en el clic (evita bloqueo de pop-ups)
  */
-function presentDoc(html: string, _filename: string, win?: Window | null): void {
+async function presentDoc(html: string, filename: string, win?: Window | null): Promise<void> {
   const w = win ?? window.open('', '_blank')
-  if (!w) return
-  w.document.open()
-  w.document.write(html)
-  w.document.close()
+  if (w) w.document.write('<!doctype html><html lang="es"><head><meta charset="utf-8"></head><body style="font-family:Arial,Helvetica,sans-serif;padding:28px;color:#334155">Generando el PDF…</body></html>')
+
+  const css = (html.match(/<style>([\s\S]*?)<\/style>/) ?? [, ''])[1] as string
+  let bodyHtml = (html.match(/<body>([\s\S]*?)<\/body>/) ?? [, html])[1] as string
+  bodyHtml = bodyHtml.replace(/<div class="toolbar">[\s\S]*?<\/div>/, '')
+
+  const wrap = document.createElement('div')
+  wrap.style.cssText = 'position:fixed;left:-99999px;top:0;'
+  const styleEl = document.createElement('style')
+  styleEl.textContent = css
+  const content = document.createElement('div')
+  content.innerHTML = bodyHtml
+  wrap.appendChild(styleEl)
+  wrap.appendChild(content)
+  document.body.appendChild(wrap)
+
+  try {
+    await loadScript('https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.2/dist/html2pdf.bundle.min.js')
+    // Espera a que cargue el logo antes de convertir.
+    await new Promise((r) => setTimeout(r, 500))
+    const el = (content.querySelector('.sheet') as HTMLElement) ?? (content.firstElementChild as HTMLElement)
+    const landscape = /size\s*:\s*a4\s+landscape/i.test(css)
+    const opt = {
+      margin: 0,
+      filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      pagebreak: { mode: ['css', 'legacy'] },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' },
+    }
+    const url: string = await (window as any).html2pdf().set(opt).from(el).output('bloburl')
+    if (w) w.location.href = url
+    else window.open(url, '_blank')
+  } catch {
+    // Fallback: página imprimible con el botón "Imprimir / Guardar PDF".
+    if (w) {
+      w.document.open()
+      w.document.write(html)
+      w.document.close()
+    }
+  } finally {
+    document.body.removeChild(wrap)
+  }
 }
 
 interface MotoHistoryPart { code: string; description: string; quantity: number }
