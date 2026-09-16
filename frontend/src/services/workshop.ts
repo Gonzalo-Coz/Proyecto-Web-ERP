@@ -46,4 +46,7 @@ export const workshopService = {
   motoHistory(unitId: number): Promise<any> {
     return api.get(`/workshop/orders/moto-history/${unitId}`).then((r) => r.data)
   },
+  orderHistory(orderId: number): Promise<any> {
+    return api.get(`/workshop/orders/${orderId}/history`).then((r) => r.data)
+  },
 }

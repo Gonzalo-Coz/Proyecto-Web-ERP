@@ -389,6 +389,21 @@ async function saveNewCustomer(): Promise<void> {
   }
 }
 
+/** Abre la historia clínica (PDF) desde una ORDEN (sirve para motos registradas y externas). */
+async function openOrderHistory(orderId: number | null | undefined): Promise<void> {
+  if (!orderId || historyLoading.value) return
+  historyLoading.value = true
+  const w = window.open('', '_blank')
+  if (w) w.document.write('<p style="font-family:Arial;padding:20px">Generando historia clínica…</p>')
+  try {
+    printMotoHistory(await workshopService.orderHistory(orderId), w)
+  } catch {
+    w?.close()
+  } finally {
+    historyLoading.value = false
+  }
+}
+
 /** Abre la historia clínica (PDF) de una unidad. Reutilizada en recepción y en el detalle. */
 async function openHistory(unitId: number | null | undefined): Promise<void> {
   if (!unitId || historyLoading.value) return
@@ -576,11 +591,13 @@ onMounted(async () => {
     planModels.value = await maintenanceService.models()
   } catch { planModels.value = [] }
   try {
-    // Logo para los documentos (Orden, Acta). URL absoluta para que cargue en la ventana de impresión.
+    // Logo para los documentos (Orden, Acta). URL absoluta; si no hay logo subido,
+    // usa el logo por defecto de la tienda (igual que la historia clínica).
     const info = await companyService.publicInfo()
+    const abs = (p: string): string => (p.startsWith('http') ? p : window.location.origin + (p.startsWith('/') ? p : '/' + p))
     const path = mediaUrl(info.logoFullPath)
-    companyLogo.value = path ? (path.startsWith('http') ? path : window.location.origin + path) : ''
-  } catch { companyLogo.value = '' }
+    companyLogo.value = path ? abs(path) : abs('/brand/logo-full.png')
+  } catch { companyLogo.value = window.location.origin + '/brand/logo-full.png' }
   load().catch(() => undefined)
 })
 </script>
@@ -819,10 +836,9 @@ onMounted(async () => {
 
         <div class="flex flex-wrap justify-end gap-2">
           <button
-            v-if="detail.motorcycleUnitId"
             class="btn-secondary"
             :disabled="historyLoading"
-            @click="openHistory(detail.motorcycleUnitId)"
+            @click="openOrderHistory(detail.id)"
           >
             {{ historyLoading ? 'Abriendo…' : '📋 Historia clínica' }}
           </button>

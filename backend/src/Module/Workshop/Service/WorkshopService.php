@@ -137,6 +137,106 @@ final class WorkshopService
         ];
     }
 
+    /**
+     * Historia clínica a partir de una ORDEN (para verla desde el detalle de la
+     * orden, en recepción o entrega). Si la orden está ligada a una unidad
+     * registrada, usa el historial por unidad; si es una moto externa, agrupa las
+     * órdenes por placa o por serie para reconstruir su historial igualmente.
+     */
+    public function motoHistoryForOrder(int $orderId): array
+    {
+        $order = $this->find($orderId);
+        $unit = $order->getMotorcycleUnit();
+        if ($unit !== null) {
+            return $this->motoHistory((int) $unit->getId());
+        }
+
+        // Moto externa: agrupa por placa; si no hay, por serie; si no, solo esta orden.
+        $qb = $this->orderRepository->createQueryBuilder('o')
+            ->andWhere("o.status <> 'ANULADA'")
+            ->orderBy('o.entryDate', 'ASC')->addOrderBy('o.id', 'ASC');
+        $plate = trim((string) ($order->getPlate() ?? ''));
+        $serial = trim((string) ($order->getMotoSerial() ?? ''));
+        if ($plate !== '') {
+            $qb->andWhere('LOWER(o.plate) = LOWER(:v)')->setParameter('v', $plate);
+        } elseif ($serial !== '') {
+            $qb->andWhere('LOWER(o.motoSerial) = LOWER(:v)')->setParameter('v', $serial);
+        } else {
+            $qb->andWhere('o.id = :id')->setParameter('id', $orderId);
+        }
+        /** @var ServiceOrder[] $orders */
+        $orders = $qb->getQuery()->getResult();
+
+        $ingresos = [];
+        $lastKm = null;
+        $nextKm = null;
+        $lastCustomer = null;
+        foreach ($orders as $o) {
+            $lastCustomer = $o;
+            if ($o->getMileage() !== null) {
+                $lastKm = $o->getMileage();
+            }
+            $hasPlan = $o->getPlanModel() !== null;
+            $hasExtra = false;
+            $parts = [];
+            $labor = [];
+            foreach ($o->getItems() as $it) {
+                if (!$it->isFromPlan()) {
+                    $hasExtra = true;
+                }
+                if ($it->getItemType() === 'PART') {
+                    $parts[] = ['code' => $it->getSparePart()?->getPartCode() ?? '', 'description' => $it->getDescription(), 'quantity' => $it->getQuantity()];
+                } else {
+                    $labor[] = $it->getDescription();
+                }
+            }
+            $tipo = $hasPlan ? ('Programado'.($hasExtra ? ' + adicional' : '')) : 'Preventivo / correctivo';
+            $work = trim((string) $o->getDiagnosis());
+            if ($work === '') {
+                $work = $hasPlan
+                    ? sprintf('Mantenimiento programado %s - %s km', $o->getPlanModel(), number_format((int) $o->getPlanKm(), 0, '.', ','))
+                    : implode('; ', $labor);
+            }
+            if ($hasPlan && $o->getPlanModel() !== null && $o->getPlanKm() !== null) {
+                $nextKm = $this->maintenancePlans->nextKmAfter($o->getPlanModel(), $o->getPlanKm());
+            }
+            $ingresos[] = ['orderNumber' => $o->getOrderNumber(), 'date' => $o->getEntryDate()->format('d/m/Y'), 'km' => $o->getMileage(), 'tipo' => $tipo, 'work' => $work, 'parts' => $parts];
+        }
+
+        $c = ($lastCustomer ?? $order)->getCustomer();
+
+        return [
+            'company' => [
+                'tradeName' => $this->settings->get('company.trade_name') ?: 'Yamaha Global Motors',
+                'name' => $this->settings->get('company.name') ?: 'Integra Global Motors S.A.C.',
+                'ruc' => $this->settings->get('company.ruc') ?: '20615585271',
+                'address' => $this->settings->get('company.address') ?? '',
+                'logo' => $this->settings->get('company.logo_full_path') ?: '/brand/logo-full.png',
+            ],
+            'customer' => [
+                'name' => $c->getName(),
+                'document' => $c->getDocumentNumber(),
+                'phone' => $order->getContactPhone() ?? ($c->getPhone() ?: $c->getMobile()),
+                'email' => $order->getContactEmail() ?? $c->getEmail(),
+                'address' => $c->getAddress(),
+            ],
+            'moto' => [
+                'brand' => $order->getMotoBrand() ?? '',
+                'model' => (string) ($order->getMotorcycleDescription() ?? ''),
+                'color' => $order->getMotoColor() ?? '',
+                'vin' => $order->getMotoSerial() ?? '',
+                'year' => null,
+                'plate' => $order->getPlate(),
+            ],
+            'summary' => [
+                'totalIngresos' => count($ingresos),
+                'lastKm' => $lastKm,
+                'nextMaintenanceKm' => $nextKm,
+            ],
+            'ingresos' => $ingresos,
+        ];
+    }
+
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */
     public function list(int $page, int $perPage, string $search, string $status): array
     {
