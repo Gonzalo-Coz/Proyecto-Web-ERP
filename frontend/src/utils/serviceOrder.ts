@@ -105,7 +105,7 @@ export function printMotoHistory(d: MotoHistoryData, win?: Window | null): void 
   *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px}
   .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:8px 14px;display:flex;justify-content:flex-end}
   .toolbar button{background:#fff;color:#0f172a;border:0;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer}
-  .sheet{width:210mm;min-height:297mm;margin:10px auto;padding:16mm 14mm;background:#fff}
+  .sheet{width:210mm;min-height:auto;margin:10px auto;padding:16mm 14mm;background:#fff}
   .head{display:flex;align-items:center;gap:14px;border-bottom:0.5px solid #cbd5e1;padding-bottom:10px;margin-bottom:12px}
   .head img{height:56px;max-width:150px;object-fit:contain}
   .head .c{flex:1;text-align:center}
@@ -212,7 +212,7 @@ export function printServiceOrder(o: ServiceOrderSummary, logo?: string): void {
   body { font-family: Arial, Helvetica, sans-serif; color:#111; margin:0; font-size:12px; }
   .toolbar { position:sticky; top:0; background:#0f172a; color:#fff; padding:8px 14px; display:flex; gap:10px; justify-content:flex-end; }
   .toolbar button { background:#fff; color:#0f172a; border:0; border-radius:6px; padding:6px 14px; font-weight:600; cursor:pointer; }
-  .sheet { width:297mm; min-height:210mm; margin:10px auto; padding:12mm 14mm; background:#fff; }
+  .sheet { width:210mm; min-height:auto; margin:10px auto; padding:12mm 14mm; background:#fff; }
   .head { display:flex; justify-content:space-between; align-items:center; gap:14px; border-bottom:3px solid #E30613; padding-bottom:10px; }
   .head .logo { height:62px; max-width:160px; object-fit:contain; }
   .head-c { flex:1; text-align:center; }
@@ -239,7 +239,7 @@ export function printServiceOrder(o: ServiceOrderSummary, logo?: string): void {
   .dmg-b { border:1px solid #94a3b8; height:120px; border-radius:3px; }
   .signs { display:flex; gap:60px; margin-top:26px; }
   .sign { flex:1; border-top:1px solid #111; text-align:center; padding-top:4px; }
-  @media print { .toolbar { display:none; } .sheet { margin:0; } @page { size:A4 landscape; margin:0; } }
+  @media print { .toolbar { display:none; } .sheet { margin:0; } @page { size:A4; margin:0; } }
 </style></head>
 <body>
   <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
@@ -326,7 +326,7 @@ export function printServiceDelivery(o: ServiceOrderSummary, logo?: string): voi
   *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px;}
   .toolbar{position:sticky;top:0;background:#0f172a;color:#fff;padding:8px 14px;display:flex;justify-content:flex-end;}
   .toolbar button{background:#fff;color:#0f172a;border:0;border-radius:6px;padding:6px 14px;font-weight:600;cursor:pointer;}
-  .sheet{width:297mm;min-height:210mm;margin:10px auto;padding:12mm 16mm;background:#fff;}
+  .sheet{width:210mm;min-height:auto;margin:10px auto;padding:12mm 16mm;background:#fff;}
   .dhead{display:flex;align-items:center;gap:14px;border-bottom:3px solid #E30613;padding-bottom:10px;margin-bottom:10px;}
   .dhead .logo{height:60px;max-width:150px;object-fit:contain;}
   .dhead .c{flex:1;text-align:center;}
@@ -350,7 +350,7 @@ export function printServiceDelivery(o: ServiceOrderSummary, logo?: string): voi
   .next{border:1px solid #0f172a;border-radius:6px;padding:8px 10px;margin-top:12px;font-size:13px;}
   .signs{display:flex;gap:60px;margin-top:40px;}
   .sign{flex:1;border-top:1px solid #111;text-align:center;padding-top:4px;}
-  @media print{.toolbar{display:none;}.sheet{margin:0;}@page{size:A4 landscape;margin:0;}}
+  @media print{.toolbar{display:none;}.sheet{margin:0;}@page{size:A4;margin:0;}}
 </style></head>
 <body>
   <div class="toolbar"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
