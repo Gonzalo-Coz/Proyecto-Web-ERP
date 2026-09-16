@@ -147,10 +147,12 @@ export function printMotoHistory(d: MotoHistoryData, win?: Window | null): void 
 
     <div class="lbl">Datos de la motocicleta</div>
     <div class="grid g3">
-      <div><span class="lbl">Modelo:</span> ${esc(d.moto.brand)} ${esc(d.moto.model)}</div>
-      <div><span class="lbl">Color:</span> ${esc(d.moto.color)}</div>
+      <div><span class="lbl">Marca:</span> ${esc(d.moto.brand) || '—'}</div>
+      <div><span class="lbl">Modelo:</span> ${esc(d.moto.model) || '—'}</div>
       <div><span class="lbl">Año:</span> ${esc(d.moto.year ?? '—')}</div>
-      <div><span class="lbl">N° serie:</span> ${esc(d.moto.vin)}</div>
+      <div><span class="lbl">Color:</span> ${esc(d.moto.color) || '—'}</div>
+      <div><span class="lbl">Placa:</span> ${esc(d.moto.plate ?? '—')}</div>
+      <div><span class="lbl">N° serie:</span> ${esc(d.moto.vin) || '—'}</div>
       <div><span class="lbl">Último km:</span> ${km(d.summary.lastKm)}</div>
       <div><span class="lbl">Ingresos:</span> ${d.summary.totalIngresos}</div>
     </div>

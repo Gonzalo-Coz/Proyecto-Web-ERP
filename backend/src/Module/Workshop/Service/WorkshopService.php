@@ -126,7 +126,7 @@ final class WorkshopService
                 'color' => $unit->getColor(),
                 'vin' => $unit->getVin(),
                 'year' => $unit->getManufactureYear() ?? $unit->getModel()->getModelYear(),
-                'plate' => null,
+                'plate' => $lastCustomer?->getPlate(),
             ],
             'summary' => [
                 'totalIngresos' => count($ingresos),
