@@ -477,7 +477,13 @@ async function save(): Promise<void> {
     modalOpen.value = false
     await load()
   } catch (e: any) {
-    formError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo registrar.'
+    const d = e.response?.data
+    formError.value =
+      d?.detail ||
+      d?.message ||
+      d?.title ||
+      (typeof d === 'string' && d.trim() ? d.slice(0, 300) : '') ||
+      (e.response ? `No se pudo registrar (error ${e.response.status}). Revisa el stock de los repuestos.` : 'No se pudo conectar con el servidor.')
   } finally {
     saving.value = false
   }

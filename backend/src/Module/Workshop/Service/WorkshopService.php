@@ -614,25 +614,20 @@ final class WorkshopService
             throw new ConflictHttpException('La orden no tiene trabajos ni repuestos que facturar.');
         }
 
-        // El comprobante de taller muestra DOS montos: mano de obra y repuestos
-        // (no el detalle ítem por ítem). Los repuestos ya salieron del inventario
-        // vía Kardex TALLER, por eso van como líneas de SERVICIO (no descuentan doble).
-        $laborTotal = 0.0;
-        $partsTotal = 0.0;
-        foreach ($order->getItems() as $it) {
-            if ($it->getItemType() === 'LABOR') {
-                $laborTotal += (float) $it->getLineTotal();
-            } else {
-                $partsTotal += (float) $it->getLineTotal();
-            }
-        }
-
+        // El comprobante de taller DETALLA cada ítem (mano de obra y repuestos) en
+        // su propia línea, para que se especifique directo en la factura/boleta.
+        // Todos van como líneas de SERVICIO: los repuestos ya salieron del inventario
+        // vía Kardex TALLER, así que no deben descontar stock otra vez.
         $lines = [];
-        if ($laborTotal > 0.0) {
-            $lines[] = ['itemType' => 'SERVICE', 'description' => sprintf('Mano de obra - Servicio de taller %s', $order->getOrderNumber()), 'quantity' => 1, 'unitPrice' => round($laborTotal, 2), 'discount' => 0];
-        }
-        if ($partsTotal > 0.0) {
-            $lines[] = ['itemType' => 'SERVICE', 'description' => sprintf('Repuestos - Servicio de taller %s', $order->getOrderNumber()), 'quantity' => 1, 'unitPrice' => round($partsTotal, 2), 'discount' => 0];
+        foreach ($order->getItems() as $it) {
+            $prefix = $it->getItemType() === 'PART' ? 'Repuesto: ' : 'Mano de obra: ';
+            $lines[] = [
+                'itemType' => 'SERVICE',
+                'description' => $prefix.$it->getDescription(),
+                'quantity' => $it->getQuantity(),
+                'unitPrice' => round((float) $it->getUnitPrice(), 2),
+                'discount' => 0,
+            ];
         }
         if ($lines === []) {
             $lines[] = ['itemType' => 'SERVICE', 'description' => sprintf('Servicio de taller %s', $order->getOrderNumber()), 'quantity' => 1, 'unitPrice' => round($order->getTotal(), 2), 'discount' => 0];
