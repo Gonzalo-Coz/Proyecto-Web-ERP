@@ -1129,7 +1129,8 @@ onMounted(async () => {
                 v-model="d.sparePartId"
                 :options="spareParts"
                 :option-label="(p) => `${p.internalCode} · ${p.partCode} — ${p.description} (stock ${p.stock})`"
-                placeholder="Escribe código o nombre del repuesto…"
+                :option-search="(p) => `${p.categoryName ?? ''} ${p.brandName ?? ''}`"
+                placeholder="Escribe código, nombre o categoría (ej. KIT DE ARRASTRE)…"
                 @change="onDraftPartChange(d)"
               />
               <input v-else v-model="d.description" class="form-input" placeholder="Cambio de aceite y filtro" />

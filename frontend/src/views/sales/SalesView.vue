@@ -722,7 +722,8 @@ onMounted(async () => {
                 v-model="line.sparePartId"
                 :options="spareParts"
                 :option-label="(p) => `${p.internalCode} · ${p.partCode} — ${p.description} (stock ${p.stock})`"
-                placeholder="Escribe código interno, código de repuesto o nombre…"
+                :option-search="(p) => `${p.categoryName ?? ''} ${p.brandName ?? ''}`"
+                placeholder="Escribe código, nombre o categoría (ej. KIT DE ARRASTRE)…"
                 @change="onLineProductChange(line)"
               />
               <SearchableSelect

@@ -10,6 +10,8 @@ const props = withDefaults(
     modelValue: number | null
     options: any[]
     optionLabel: (o: any) => string
+    /** Texto adicional por el que también se puede buscar (ej. categoría, marca). */
+    optionSearch?: (o: any) => string
     valueKey?: string
     placeholder?: string
     disabled?: boolean
@@ -33,8 +35,9 @@ const selectedLabel = computed(() => {
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()
-  const list = q === '' ? props.options : props.options.filter((o) => props.optionLabel(o).toLowerCase().includes(q))
-  return list.slice(0, 50)
+  if (q === '') return props.options.slice(0, 50)
+  const text = (o: any): string => (props.optionLabel(o) + ' ' + (props.optionSearch ? props.optionSearch(o) : '')).toLowerCase()
+  return props.options.filter((o) => text(o).includes(q)).slice(0, 50)
 })
 
 function onFocus(): void {
