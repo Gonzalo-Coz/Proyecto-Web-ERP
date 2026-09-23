@@ -8,7 +8,7 @@ const auth = useAuthStore()
 
 const REPORT_TYPES = [
   { key: 'sales', label: 'Ventas' },
-  { key: 'repuestosyamaha', label: 'Venta de Repuestos (Formato Yamaha)' },
+  { key: 'repuestosyamaha', label: 'Venta de Repuestos' },
   { key: 'motosyamaha', label: 'Venta de Motos (Formato Yamaha)' },
   { key: 'stockventasmotos', label: 'Stock y Ventas Motos (Formato Yamaha)' },
   { key: 'purchases', label: 'Compras' },

@@ -52,19 +52,23 @@ final class ReportService
                      ORDER BY s.sale_date, s.id", $params,
                 ),
             ],
-            // Reporte retail que Yamaha exige al dealer: venta de repuestos (por línea).
+            // Reporte de venta de repuestos (por línea). Solo ventas comprobadas
+            // (COMPLETADA + comprobante ACEPTADO). Operaciones exoneradas: el precio
+            // NO lleva IGV, por eso la columna no lo menciona. Un solo descuento (monto).
             'repuestosyamaha' => [
-                'title' => 'Venta de Repuestos (Formato Yamaha)',
-                'columns' => $this->cols(['Bloque', 'CL/RUC', 'Local', 'Código', 'Descripción', 'Cantidad Vendida', '% Descto', 'Descuento', 'Precio Venta (con IGV)', 'Monto total', 'Origen', 'Fecha Ope']),
+                'title' => 'Venta de Repuestos',
+                'columns' => $this->cols(['CL/RUC', 'Local', 'Código', 'Descripción', 'Cantidad', 'Precio Unit. (S/)', 'Descuento (S/)', 'Monto Total (S/)', 'Origen', 'Comprobante', 'Fecha']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT 'Venta', :ruc, :local, sp.part_code, si.description, si.quantity,
-                            COALESCE(si.discount_percent, 0), si.discount, si.unit_price, si.line_total,
+                    "SELECT :ruc, :local, sp.part_code, si.description, si.quantity,
+                            si.unit_price, COALESCE(si.discount, 0), si.line_total,
                             CASE WHEN EXISTS (SELECT 1 FROM service_orders so WHERE so.invoice_sale_id = s.id) THEN 'Taller' ELSE 'Mostrador' END,
+                            (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id AND ed.status = 'ACEPTADO' ORDER BY ed.id DESC LIMIT 1),
                             s.sale_date
                      FROM sale_items si
                      JOIN sales s ON s.id = si.sale_id
                      JOIN spare_parts sp ON sp.id = si.spare_part_id
                      WHERE si.item_type = 'SPARE_PART' AND s.status = 'COMPLETADA'
+                       AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')
                        AND s.sale_date BETWEEN :from AND :to
                      ORDER BY s.sale_date, s.id",
                     array_merge($params, [
