@@ -306,8 +306,10 @@ function css(format: PrintFormat): string {
       .doc.a4 { background: #fff; width: 210mm; min-height: 296mm; padding: 14mm; box-shadow: 0 2px 14px rgba(0,0,0,.5); margin: 0 auto; display: flex; flex-direction: column; }
     }
     @media print {
-      html, body { height: 100%; background: #fff; padding: 0; }
-      .doc.a4 { box-shadow: none; width: auto; min-height: 290mm; padding: 12mm; display: flex; flex-direction: column; }
+      html, body { background: #fff; padding: 0; margin: 0; }
+      /* Sin alto mínimo forzado: la boleta ocupa solo lo que mide su contenido
+         (evita la 2da hoja en blanco al imprimir). */
+      .doc.a4 { box-shadow: none; width: auto; min-height: auto; padding: 12mm; display: flex; flex-direction: column; }
     }`
       : ''
 

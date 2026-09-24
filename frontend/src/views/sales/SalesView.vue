@@ -383,9 +383,15 @@ function currentCustomerDiscount(): number {
 function onCustomerChange(): void {
   const pct = currentCustomerDiscount()
   lines.value.forEach((l) => {
-    void resolveLinePrice(l, true)
-    l.discountMode = 'PERCENT'
-    l.discountPercent = pct
+    // No pisa los precios ya ingresados; solo rellena los que estén en 0.
+    void resolveLinePrice(l, false)
+    // Aplica el descuento por tipo de cliente SOLO si la línea no tiene un
+    // descuento propio, para no borrar lo que el usuario ya haya puesto.
+    const hasOwnDiscount = (l.discountMode === 'AMOUNT' ? (l.discountAmount || 0) : (l.discountPercent || 0)) > 0
+    if (pct > 0 && !hasOwnDiscount) {
+      l.discountMode = 'PERCENT'
+      l.discountPercent = pct
+    }
   })
   selectedPromoId.value = null
 }
