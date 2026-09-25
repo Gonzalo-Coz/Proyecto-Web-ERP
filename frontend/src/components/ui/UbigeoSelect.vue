@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { ubigeoService } from '@/services/ubigeo'
 import type { UbigeoItem } from '@/types/ubigeo'
 
@@ -26,9 +26,14 @@ const depId = ref('')
 const provId = ref('')
 const distId = ref('')
 
-/** Normaliza para comparar nombres (ignora acentos y mayúsculas). */
+/** Normaliza para comparar nombres (ignora acentos, mayúsculas y separadores). */
 const norm = (s: string): string =>
-  s.normalize('NFD').replace(/\p{Diacritic}/gu, '').trim().toLowerCase()
+  s
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+    .toLowerCase()
 
 async function loadProvinces(): Promise<void> {
   provinces.value = depId.value ? await ubigeoService.provinces(depId.value) : []
@@ -56,22 +61,39 @@ function onDistrict(): void {
   emit('update:district', districts.value.find((d) => d.id === distId.value)?.name ?? null)
 }
 
-onMounted(async () => {
-  departments.value = await ubigeoService.departments()
-  if (!props.department) return
-  const dep = departments.value.find((d) => norm(d.name) === norm(props.department!))
-  if (!dep) return
-  depId.value = dep.id
-  await loadProvinces()
-  if (!props.province) return
-  const prov = provinces.value.find((p) => norm(p.name) === norm(props.province!))
-  if (!prov) return
-  provId.value = prov.id
-  await loadDistricts()
-  if (!props.district) return
-  const dist = districts.value.find((d) => norm(d.name) === norm(props.district!))
-  if (dist) distId.value = dist.id
+/**
+ * Empareja los nombres recibidos (props) con las opciones y selecciona en
+ * cascada departamento → provincia → distrito. Se usa al montar Y cada vez que
+ * cambian los props (ej. cuando una consulta RUC autocompleta esos campos).
+ * No emite: solo ajusta la selección interna, así no genera bucles.
+ */
+async function syncFromProps(): Promise<void> {
+  if (departments.value.length === 0) {
+    departments.value = await ubigeoService.departments()
+  }
+  const dep = props.department ? departments.value.find((d) => norm(d.name) === norm(props.department!)) : undefined
+  depId.value = dep?.id ?? ''
+  provinces.value = dep ? await ubigeoService.provinces(dep.id) : []
+
+  const prov = props.province ? provinces.value.find((p) => norm(p.name) === norm(props.province!)) : undefined
+  provId.value = prov?.id ?? ''
+  districts.value = prov ? await ubigeoService.districts(prov.id) : []
+
+  const dist = props.district ? districts.value.find((d) => norm(d.name) === norm(props.district!)) : undefined
+  distId.value = dist?.id ?? ''
+}
+
+onMounted(() => {
+  void syncFromProps()
 })
+
+// Reacciona cuando el RUC (u otra fuente) rellena/cambia el ubigeo después del montaje.
+watch(
+  () => `${props.department ?? ''}|${props.province ?? ''}|${props.district ?? ''}`,
+  () => {
+    void syncFromProps()
+  },
+)
 </script>
 
 <template>
