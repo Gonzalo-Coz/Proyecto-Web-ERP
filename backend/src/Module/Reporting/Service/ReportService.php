@@ -18,6 +18,7 @@ final class ReportService
         'sales', 'purchases', 'cash', 'kardex', 'workshop', 'documents',
         'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'stockmotos', 'reposicion', 'utilities', 'audit',
         'repuestosyamaha', 'motosyamaha', 'stockventasmotos',
+        'comprasrepuestos', 'comprasmotos',
     ];
 
     public function __construct(
@@ -40,9 +41,10 @@ final class ReportService
             // anuladas y ventas aún sin comprobante aceptado.
             'sales' => [
                 'title' => 'Reporte de Ventas (con comprobante aceptado)',
-                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Comprobante', 'Productos', 'Vendedor', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo']),
+                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Teléfono', 'Comprobante', 'Productos', 'Vendedor', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo']),
                 'rows' => $this->db->fetchAllNumeric(
                     "SELECT s.sale_number, s.sale_date, c.name,
+                            COALESCE(NULLIF(c.phone, ''), c.mobile),
                             (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id AND ed.status = 'ACEPTADO' ORDER BY ed.id DESC LIMIT 1),
                             {$this->saleProductsSql('s.id')}, s.seller, s.subtotal, s.igv, s.total, s.paid_amount, (s.total - s.paid_amount)
                      FROM sales s JOIN customers c ON c.id = s.customer_id
@@ -57,15 +59,17 @@ final class ReportService
             // NO lleva IGV, por eso la columna no lo menciona. Un solo descuento (monto).
             'repuestosyamaha' => [
                 'title' => 'Venta de Repuestos',
-                'columns' => $this->cols(['CL/RUC', 'Local', 'Código', 'Descripción', 'Cantidad', 'Precio Unit. (S/)', 'Descuento (S/)', 'Monto Total (S/)', 'Origen', 'Comprobante', 'Fecha']),
+                'columns' => $this->cols(['CL/RUC', 'Local', 'Cliente', 'Teléfono', 'Código', 'Descripción', 'Cantidad', 'Precio Unit. (S/)', 'Descuento (S/)', 'Monto Total (S/)', 'Origen', 'Comprobante', 'Fecha']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT :ruc, :local, sp.part_code, si.description, si.quantity,
+                    "SELECT :ruc, :local, c.name, COALESCE(NULLIF(c.phone, ''), c.mobile),
+                            sp.part_code, si.description, si.quantity,
                             si.unit_price, COALESCE(si.discount, 0), si.line_total,
                             CASE WHEN EXISTS (SELECT 1 FROM service_orders so WHERE so.invoice_sale_id = s.id) THEN 'Taller' ELSE 'Mostrador' END,
                             (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id AND ed.status = 'ACEPTADO' ORDER BY ed.id DESC LIMIT 1),
                             s.sale_date
                      FROM sale_items si
                      JOIN sales s ON s.id = si.sale_id
+                     JOIN customers c ON c.id = s.customer_id
                      JOIN spare_parts sp ON sp.id = si.spare_part_id
                      WHERE si.item_type = 'SPARE_PART' AND s.status = 'COMPLETADA'
                        AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')
@@ -139,6 +143,40 @@ final class ReportService
                             p.status, p.subtotal, p.igv, p.total
                      FROM purchases p JOIN suppliers sp ON sp.id = p.supplier_id
                      WHERE p.purchase_date BETWEEN :from AND :to
+                     ORDER BY p.purchase_date, p.id", $params,
+                ),
+            ],
+            // Detalle de compras de REPUESTOS (una fila por repuesto comprado).
+            'comprasrepuestos' => [
+                'title' => 'Compras de Repuestos (detalle)',
+                'columns' => $this->cols(['N° Compra', 'Fecha', 'Proveedor', 'Cód. Interno', 'Cód. Parte', 'Descripción', 'Cantidad', 'Costo Unit. (S/)', 'Total (S/)', 'Estado']),
+                'rows' => $this->db->fetchAllNumeric(
+                    "SELECT p.purchase_number, p.purchase_date, sp.business_name,
+                            spart.internal_code, spart.part_code, pi.description, pi.quantity, pi.unit_price, pi.line_total, p.status
+                     FROM purchase_items pi
+                     JOIN purchases p ON p.id = pi.purchase_id
+                     JOIN suppliers sp ON sp.id = p.supplier_id
+                     JOIN spare_parts spart ON spart.id = pi.spare_part_id
+                     WHERE pi.item_type = 'SPARE_PART'
+                       AND p.purchase_date BETWEEN :from AND :to
+                     ORDER BY p.purchase_date, p.id", $params,
+                ),
+            ],
+            // Detalle de compras de MOTOS (una fila por unidad comprada).
+            'comprasmotos' => [
+                'title' => 'Compras de Motos (detalle)',
+                'columns' => $this->cols(['N° Compra', 'Fecha', 'Proveedor', 'Cód. Interno', 'Modelo', 'VIN', 'Color', 'Cantidad', 'Costo Unit.', 'Total', 'Moneda', 'Estado']),
+                'rows' => $this->db->fetchAllNumeric(
+                    "SELECT p.purchase_number, p.purchase_date, sp.business_name,
+                            u.internal_code, TRIM(CONCAT(m.model, ' ', COALESCE(m.version, ''))), u.vin, u.color,
+                            pi.quantity, pi.unit_price, pi.line_total, COALESCE(p.currency, 'PEN'), p.status
+                     FROM purchase_items pi
+                     JOIN purchases p ON p.id = pi.purchase_id
+                     JOIN suppliers sp ON sp.id = p.supplier_id
+                     JOIN motorcycle_units u ON u.id = pi.motorcycle_unit_id
+                     JOIN motorcycle_models m ON m.id = u.model_id
+                     WHERE pi.item_type = 'MOTORCYCLE_UNIT'
+                       AND p.purchase_date BETWEEN :from AND :to
                      ORDER BY p.purchase_date, p.id", $params,
                 ),
             ],

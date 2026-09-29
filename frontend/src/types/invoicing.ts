@@ -24,6 +24,7 @@ export interface InvoiceDocument {
   // Detalle enriquecido para impresión
   discountTotal?: string
   customerAddress?: string | null
+  customerPhone?: string | null
   igvRate?: number
   igvExempt?: boolean
   currency?: 'PEN' | 'USD'

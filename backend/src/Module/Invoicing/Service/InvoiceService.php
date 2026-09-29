@@ -315,6 +315,9 @@ final class InvoiceService
             $data['xmlUrl'] = $d->getXmlUrl();
             $data['cdrUrl'] = $d->getCdrUrl();
             $data['customerAddress'] = $d->getCustomerAddress();
+            // Teléfono del cliente (de su ficha) para mostrarlo en el comprobante.
+            $customer = $d->getSale()->getCustomer();
+            $data['customerPhone'] = $customer->getPhone() ?: $customer->getMobile();
             $data['igvRate'] = $this->settings->igvRate() * 100;
             $data['igvExempt'] = $d->getSale()->isIgvExempt();
             $data['observations'] = $d->getSale()->getNotes();

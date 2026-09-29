@@ -138,6 +138,7 @@ function ticketBody(doc: InvoiceDocument): string {
         <div><b>Cliente:</b> ${esc(doc.customerName)}</div>
         <div><b>Documento:</b> ${esc(doc.customerDocument)}</div>
         ${doc.customerAddress ? `<div><b>Dirección:</b> ${esc(doc.customerAddress)}</div>` : ''}
+        ${doc.customerPhone ? `<div><b>Teléfono:</b> ${esc(doc.customerPhone)}</div>` : ''}
         <div><b>Fecha de emisión:</b> ${esc(doc.issueDate)}</div>
         <div><b>Moneda:</b> ${doc.currency === 'USD' ? 'Dólares' : 'Soles'}</div>
         <div><b>Forma de pago:</b> Contado</div>
@@ -211,6 +212,7 @@ function a4Body(doc: InvoiceDocument): string {
             <div><b>Cliente:</b> ${esc(doc.customerName)}</div>
             <div><b>Documento:</b> ${esc(doc.customerDocument)}</div>
             ${doc.customerAddress ? `<div><b>Dirección:</b> ${esc(doc.customerAddress)}</div>` : ''}
+            ${doc.customerPhone ? `<div><b>Teléfono:</b> ${esc(doc.customerPhone)}</div>` : ''}
           </div>
         </div>
         <div class="a4-panel">
