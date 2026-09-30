@@ -414,6 +414,7 @@ export function openSaleProforma(sale: any, label = 'PROFORMA / VISTA PREVIA'): 
     errorMessage: null,
     discountTotal: sale.totalDiscount,
     customerAddress: sale.customerAddress ?? null,
+    customerPhone: sale.customerPhone ?? null,
     igvRate: sale.igvRate ?? 18,
     igvExempt: sale.igvExempt,
     currency: sale.currency,

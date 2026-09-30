@@ -314,9 +314,11 @@ final class InvoiceService
             $data['pdfUrl'] = $d->getPdfUrl();
             $data['xmlUrl'] = $d->getXmlUrl();
             $data['cdrUrl'] = $d->getCdrUrl();
-            $data['customerAddress'] = $d->getCustomerAddress();
-            // Teléfono del cliente (de su ficha) para mostrarlo en el comprobante.
+            // Datos de contacto del cliente: se leen de la ficha ACTUAL (no de la
+            // copia guardada al emitir), así el comprobante sale completo aunque el
+            // dato se haya agregado/corregido después. Aplica a DNI, RUC, CE, etc.
             $customer = $d->getSale()->getCustomer();
+            $data['customerAddress'] = $customer->getAddress() ?: $d->getCustomerAddress();
             $data['customerPhone'] = $customer->getPhone() ?: $customer->getMobile();
             $data['igvRate'] = $this->settings->igvRate() * 100;
             $data['igvExempt'] = $d->getSale()->isIgvExempt();

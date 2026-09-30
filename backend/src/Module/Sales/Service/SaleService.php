@@ -594,6 +594,7 @@ final class SaleService
 
             // Para imprimir la cotización (copia al cliente).
             $data['customerAddress'] = $s->getCustomer()->getAddress();
+            $data['customerPhone'] = $s->getCustomer()->getPhone() ?: $s->getCustomer()->getMobile();
             $data['igvRate'] = $this->settings->igvRate() * 100;
             $data['company'] = [
                 'name' => $this->settings->get('company.name') ?? '',
