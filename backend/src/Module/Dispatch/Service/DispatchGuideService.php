@@ -119,6 +119,71 @@ final class DispatchGuideService
         return $this->toArray($guide);
     }
 
+    /** Edita una guía mientras no esté ACEPTADA por SUNAT. */
+    public function update(int $id, DispatchGuidePayload $payload): array
+    {
+        $guide = $this->repository->find($id) ?? throw new NotFoundHttpException('Guía no encontrada.');
+        if ($guide->getStatus() === 'ACEPTADO') {
+            throw new ConflictHttpException('Una guía ACEPTADA por SUNAT no se puede editar. Anúlala y crea una nueva.');
+        }
+
+        $items = $this->normalizeItems($payload->items);
+        if ($items === []) {
+            throw new UnprocessableEntityHttpException('La guía debe tener al menos un ítem con descripción y cantidad.');
+        }
+        if ($payload->transportMode === '01' && ($payload->carrierRuc === null || trim((string) $payload->carrierRuc) === '')) {
+            throw new UnprocessableEntityHttpException('Transporte público: el RUC del transportista es obligatorio.');
+        }
+        if ($payload->transportMode === '02' && ($payload->vehiclePlate === null || trim((string) $payload->vehiclePlate) === '')) {
+            throw new UnprocessableEntityHttpException('Transporte privado: la placa del vehículo es obligatoria.');
+        }
+
+        $guide->updateDraft(
+            new \DateTimeImmutable($payload->transferDate),
+            $payload->motive,
+            $payload->recipientDocType,
+            $payload->recipientDocNumber,
+            $payload->recipientName,
+            $payload->originAddress,
+            $payload->destinationAddress,
+            $items,
+        );
+        $guide->setOriginUbigeo($this->nullify($payload->originUbigeo));
+        $guide->setDestinationUbigeo($this->nullify($payload->destinationUbigeo));
+        $guide->setTransportMode($payload->transportMode);
+        $guide->setCarrierRuc($this->nullify($payload->carrierRuc));
+        $guide->setCarrierName($this->nullify($payload->carrierName));
+        $guide->setVehiclePlate($this->nullify($payload->vehiclePlate));
+        $guide->setDriverLicense($this->nullify($payload->driverLicense));
+        $guide->setDriverName($this->nullify($payload->driverName));
+        $guide->setTotalWeight($payload->totalWeight);
+        $guide->setPackages($payload->packages);
+        $guide->setObservations($this->nullify($payload->observations));
+        if ($payload->saleId !== null) {
+            $sale = $this->saleRepository->find($payload->saleId);
+            if ($sale !== null) {
+                $guide->setSale($sale);
+            }
+        }
+
+        $this->entityManager->flush();
+
+        return $this->toArray($guide);
+    }
+
+    /** Anula la guía en el ERP (refleja la baja hecha en SUNAT/NubeFact). */
+    public function annul(int $id, string $reason): array
+    {
+        $guide = $this->repository->find($id) ?? throw new NotFoundHttpException('Guía no encontrada.');
+        if ($guide->getStatus() === 'ANULADO') {
+            throw new ConflictHttpException('La guía ya está anulada.');
+        }
+        $guide->markAnnulled($reason);
+        $this->entityManager->flush();
+
+        return $this->toArray($guide);
+    }
+
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */
     public function list(int $page, int $perPage, string $search, string $status): array
     {

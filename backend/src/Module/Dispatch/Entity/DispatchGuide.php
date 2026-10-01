@@ -379,6 +379,34 @@ class DispatchGuide
         return $this->status;
     }
 
+    /**
+     * Actualiza los datos editables (solo mientras no esté ACEPTADA). No cambia
+     * serie ni correlativo; vuelve el estado a PENDIENTE para poder reemitir.
+     *
+     * @param array<int, array<string, mixed>> $items
+     */
+    public function updateDraft(
+        \DateTimeImmutable $transferDate,
+        string $motive,
+        string $recipientDocType,
+        string $recipientDocNumber,
+        string $recipientName,
+        string $originAddress,
+        string $destinationAddress,
+        array $items,
+    ): void {
+        $this->transferDate = $transferDate;
+        $this->motive = $motive;
+        $this->recipientDocType = $recipientDocType;
+        $this->recipientDocNumber = $recipientDocNumber;
+        $this->recipientName = $recipientName;
+        $this->originAddress = $originAddress;
+        $this->destinationAddress = $destinationAddress;
+        $this->items = $items;
+        $this->status = 'PENDIENTE';
+        $this->errorMessage = null;
+    }
+
     public function getHash(): ?string
     {
         return $this->hash;

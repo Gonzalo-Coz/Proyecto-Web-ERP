@@ -44,6 +44,21 @@ final class DispatchGuideController
         return new JsonResponse($this->service->create($payload), Response::HTTP_CREATED);
     }
 
+    #[Route('/{id<\d+>}', name: 'dispatch_guides_update', methods: ['PUT'])]
+    public function update(int $id, #[MapRequestPayload] DispatchGuidePayload $payload): JsonResponse
+    {
+        return new JsonResponse($this->service->update($id, $payload));
+    }
+
+    #[Route('/{id<\d+>}/annul', name: 'dispatch_guides_annul', methods: ['POST'])]
+    public function annul(int $id, Request $request): JsonResponse
+    {
+        $body = $request->getContent() !== '' ? (array) json_decode($request->getContent(), true) : [];
+        $reason = (string) ($body['reason'] ?? '');
+
+        return new JsonResponse($this->service->annul($id, $reason));
+    }
+
     #[Route('/{id<\d+>}/emit', name: 'dispatch_guides_emit', methods: ['POST'])]
     public function emit(int $id): JsonResponse
     {

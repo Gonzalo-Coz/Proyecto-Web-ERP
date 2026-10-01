@@ -12,6 +12,12 @@ export const dispatchService = {
   create(payload: DispatchGuidePayload): Promise<DispatchGuideItem> {
     return api.post('/dispatch-guides', payload).then((r) => r.data)
   },
+  update(id: number, payload: DispatchGuidePayload): Promise<DispatchGuideItem> {
+    return api.put(`/dispatch-guides/${id}`, payload).then((r) => r.data)
+  },
+  annul(id: number, reason: string): Promise<DispatchGuideItem> {
+    return api.post(`/dispatch-guides/${id}/annul`, { reason }).then((r) => r.data)
+  },
   emit(id: number): Promise<DispatchGuideItem> {
     return api.post(`/dispatch-guides/${id}/emit`).then((r) => r.data)
   },

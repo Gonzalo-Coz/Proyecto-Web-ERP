@@ -44,6 +44,46 @@ const modalOpen = ref(false)
 const saving = ref(false)
 const formError = ref('')
 const detail = ref<DispatchGuideItem | null>(null)
+const editingId = ref<number | null>(null)
+const carrierLookupLoading = ref(false)
+
+// Datos que se recuerdan para próximas guías (punto de partida y transportista
+// habituales). Se guardan en el navegador y se precargan al crear una nueva guía.
+const DEFAULTS_KEY = 'yigm.dispatch.defaults'
+type GuideDefaults = {
+  originAddress?: string
+  originUbigeo?: string
+  transportMode?: string
+  carrierRuc?: string
+  carrierName?: string
+  vehiclePlate?: string
+  driverLicense?: string
+  driverName?: string
+}
+function loadDefaults(): GuideDefaults {
+  try {
+    return JSON.parse(localStorage.getItem(DEFAULTS_KEY) || '{}') as GuideDefaults
+  } catch {
+    return {}
+  }
+}
+function saveDefaults(): void {
+  try {
+    const d: GuideDefaults = {
+      originAddress: form.originAddress,
+      originUbigeo: form.originUbigeo,
+      transportMode: form.transportMode,
+      carrierRuc: form.carrierRuc,
+      carrierName: form.carrierName,
+      vehiclePlate: form.vehiclePlate,
+      driverLicense: form.driverLicense,
+      driverName: form.driverName,
+    }
+    localStorage.setItem(DEFAULTS_KEY, JSON.stringify(d))
+  } catch {
+    /* localStorage no disponible: se ignora */
+  }
+}
 
 const emptyItem = (): DispatchItem => ({ codigo: '', descripcion: '', cantidad: 1, unidad: 'NIU' })
 const form = reactive({
@@ -91,10 +131,9 @@ async function loadFromSale(id: number | null): Promise<void> {
     return
   }
   const s = await saleService.get(id)
-  const parts = (s.customerDocument || '').split(' ')
-  form.recipientDocType = parts[0] || 'DNI'
-  form.recipientDocNumber = parts[1] || ''
-  form.recipientName = s.customerName || ''
+  // NO se autocompleta el destinatario: al trasladar, el destinatario suele ser
+  // distinto al cliente de la venta (p. ej. se envía a una empresa/almacén).
+  // Solo se jalan los ítems de la venta; el destinatario se ingresa aparte.
   form.saleId = id
   items.value = (s.items ?? []).map((i) => ({
     codigo: '',
@@ -125,23 +164,39 @@ async function lookupRecipient(): Promise<void> {
   }
 }
 
+/** Autocompleta la razón social del transportista consultando su RUC. */
+async function lookupCarrier(): Promise<void> {
+  const ruc = form.carrierRuc.trim()
+  if (!ruc) return
+  carrierLookupLoading.value = true
+  try {
+    const c = await lookupService.ruc(ruc)
+    form.carrierName = c.razonSocial
+  } catch {
+    toast.error('No se encontró ese RUC de transportista.')
+  } finally {
+    carrierLookupLoading.value = false
+  }
+}
+
 function openCreate(): void {
+  const d = loadDefaults()
   Object.assign(form, {
     transferDate: new Date().toISOString().slice(0, 10),
     motive: '01',
     recipientDocType: 'DNI',
     recipientDocNumber: '',
     recipientName: '',
-    originAddress: '',
-    originUbigeo: '',
+    originAddress: d.originAddress ?? '',
+    originUbigeo: d.originUbigeo ?? '',
     destinationAddress: '',
     destinationUbigeo: '',
-    transportMode: '02',
-    carrierRuc: '',
-    carrierName: '',
-    vehiclePlate: '',
-    driverLicense: '',
-    driverName: '',
+    transportMode: d.transportMode ?? '02',
+    carrierRuc: d.carrierRuc ?? '',
+    carrierName: d.carrierName ?? '',
+    vehiclePlate: d.vehiclePlate ?? '',
+    driverLicense: d.driverLicense ?? '',
+    driverName: d.driverName ?? '',
     totalWeight: 0,
     packages: 1,
     observations: '',
@@ -149,7 +204,45 @@ function openCreate(): void {
   })
   items.value = [emptyItem()]
   fromSaleId.value = null
+  editingId.value = null
   formError.value = ''
+  modalOpen.value = true
+}
+
+/** Abre el formulario para editar una guía existente (no ACEPTADA). */
+function openEdit(g: DispatchGuideItem): void {
+  Object.assign(form, {
+    transferDate: g.transferDate,
+    motive: g.motive,
+    recipientDocType: g.recipientDocType,
+    recipientDocNumber: g.recipientDocNumber,
+    recipientName: g.recipientName,
+    originAddress: g.originAddress,
+    originUbigeo: g.originUbigeo ?? '',
+    destinationAddress: g.destinationAddress,
+    destinationUbigeo: g.destinationUbigeo ?? '',
+    transportMode: g.transportMode,
+    carrierRuc: g.carrierRuc ?? '',
+    carrierName: g.carrierName ?? '',
+    vehiclePlate: g.vehiclePlate ?? '',
+    driverLicense: g.driverLicense ?? '',
+    driverName: g.driverName ?? '',
+    totalWeight: Number(g.totalWeight) || 0,
+    packages: g.packages ?? 1,
+    observations: g.observations ?? '',
+    saleId: g.saleId ?? null,
+  })
+  items.value = (g.items ?? []).map((i) => ({
+    codigo: i.codigo ?? '',
+    descripcion: i.descripcion ?? '',
+    cantidad: i.cantidad ?? 1,
+    unidad: i.unidad ?? 'NIU',
+  }))
+  if (items.value.length === 0) items.value = [emptyItem()]
+  fromSaleId.value = null
+  editingId.value = g.id
+  formError.value = ''
+  detail.value = null
   modalOpen.value = true
 }
 
@@ -157,14 +250,38 @@ async function save(): Promise<void> {
   saving.value = true
   formError.value = ''
   try {
-    await dispatchService.create({ ...form, items: items.value })
+    const payload = { ...form, items: items.value }
+    if (editingId.value !== null) {
+      await dispatchService.update(editingId.value, payload)
+      toast.success('Guía de remisión actualizada.')
+    } else {
+      await dispatchService.create(payload)
+      toast.success('Guía de remisión creada.')
+    }
+    saveDefaults()
     modalOpen.value = false
-    toast.success('Guía de remisión creada.')
     await load()
   } catch (e: any) {
-    formError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo crear la guía.'
+    formError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo guardar la guía.'
   } finally {
     saving.value = false
+  }
+}
+
+const annulling = ref(false)
+async function doAnnul(): Promise<void> {
+  if (!detail.value) return
+  const reason = window.prompt('Motivo de la anulación (opcional):', '') ?? ''
+  if (!window.confirm('¿Anular esta guía de remisión? Esta acción refleja la baja hecha en SUNAT.')) return
+  annulling.value = true
+  try {
+    detail.value = await dispatchService.annul(detail.value.id, reason)
+    await load()
+    toast.success('Guía anulada.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo anular la guía.')
+  } finally {
+    annulling.value = false
   }
 }
 
@@ -228,10 +345,10 @@ onMounted(() => {
     </DataTable>
 
     <!-- Formulario -->
-    <BaseModal :open="modalOpen" title="Nueva guía de remisión" size="xl" @close="modalOpen = false">
+    <BaseModal :open="modalOpen" :title="editingId !== null ? 'Editar guía de remisión' : 'Nueva guía de remisión'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
-          <FormField label="Generar desde una venta/comprobante (autocompleta destinatario e ítems)">
+          <FormField label="Generar desde una venta/comprobante (carga los ítems)">
             <SearchableSelect
               v-model="fromSaleId"
               :options="sales"
@@ -240,7 +357,7 @@ onMounted(() => {
               @change="loadFromSale(fromSaleId)"
             />
           </FormField>
-          <p class="mt-1 text-xs text-gray-500">Elige la venta de la moto o repuestos ya realizada; el destinatario y los ítems se cargan solos. Igual puedes ajustarlos abajo.</p>
+          <p class="mt-1 text-xs text-gray-500">Elige la venta de la moto o repuestos ya realizada; se cargan los ítems. El destinatario se ingresa aparte, pues suele ser distinto al cliente de la venta.</p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -311,7 +428,10 @@ onMounted(() => {
           </FormField>
           <div v-if="form.transportMode === '01'" class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <FormField label="RUC del transportista">
-              <input v-model="form.carrierRuc" class="form-input" maxlength="11" />
+              <div class="flex gap-1">
+                <input v-model="form.carrierRuc" class="form-input" maxlength="11" />
+                <button type="button" class="btn-secondary whitespace-nowrap" :disabled="carrierLookupLoading" @click="lookupCarrier">{{ carrierLookupLoading ? '…' : 'Buscar' }}</button>
+              </div>
             </FormField>
             <FormField label="Razón social del transportista">
               <input v-model="form.carrierName" class="form-input" maxlength="200" />
@@ -375,6 +495,8 @@ onMounted(() => {
       </dl>
       <div class="mt-6 flex flex-wrap justify-end gap-2">
         <a v-if="detail?.pdfUrl" :href="detail.pdfUrl" target="_blank" rel="noopener" class="btn-secondary">PDF SUNAT</a>
+        <button v-if="detail && detail.status !== 'ACEPTADO' && detail.status !== 'ANULADO'" class="btn-secondary" @click="openEdit(detail)">Editar</button>
+        <button v-if="detail && detail.status !== 'ANULADO'" class="btn-secondary !text-red-600" :disabled="annulling" @click="doAnnul">{{ annulling ? 'Anulando…' : 'Anular' }}</button>
         <button v-if="detail && detail.status !== 'ACEPTADO'" class="btn-secondary" @click="doConsult">Consultar</button>
         <button v-if="detail && detail.status !== 'ACEPTADO'" class="btn-primary" :disabled="emitting" @click="doEmit">{{ emitting ? 'Emitiendo…' : 'Emitir a SUNAT' }}</button>
         <button class="btn-secondary" @click="detail = null">Cerrar</button>
