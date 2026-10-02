@@ -8,6 +8,9 @@ import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { dispatchService } from '@/services/dispatch'
 import { saleService } from '@/services/sales'
 import { lookupService } from '@/services/lookup'
+import { mediaUrl } from '@/services/company'
+import api from '@/services/api'
+import { openDispatchGuidePdf, type GuideCompany } from '@/utils/dispatchGuide'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
 import type { DispatchGuideItem, DispatchItem } from '@/types/dispatch'
@@ -289,6 +292,37 @@ async function openDetail(row: DispatchGuideItem): Promise<void> {
   detail.value = await dispatchService.get(row.id)
 }
 
+// Datos de la empresa para el encabezado del documento (mismo estilo que los comprobantes).
+const company = ref<GuideCompany | null>(null)
+async function loadCompany(): Promise<void> {
+  try {
+    const { data } = await api.get('/settings')
+    const s = data.data as Record<string, string>
+    const abs = (p: string) => (p && !p.startsWith('http') ? window.location.origin + (p.startsWith('/') ? p : '/' + p) : p)
+    const logoPath = mediaUrl(s['company.logo_full_path'])
+    company.value = {
+      name: s['company.name'] ?? '',
+      tradeName: s['company.trade_name'] ?? null,
+      ruc: s['company.ruc'] ?? '',
+      address: s['company.address'] ?? null,
+      department: s['company.department'] ?? null,
+      province: s['company.province'] ?? null,
+      district: s['company.district'] ?? null,
+      phone: s['company.phone'] ?? null,
+      email: s['company.email'] ?? null,
+      logo: logoPath ? abs(logoPath) : abs('/brand/logo-full.png'),
+    }
+  } catch {
+    company.value = null
+  }
+}
+
+async function doPrint(): Promise<void> {
+  if (!detail.value) return
+  const co = company.value ?? { name: '', ruc: '', logo: window.location.origin + '/brand/logo-full.png' }
+  await openDispatchGuidePdf(detail.value, co)
+}
+
 const emitting = ref(false)
 async function doEmit(): Promise<void> {
   if (!detail.value) return
@@ -317,6 +351,7 @@ async function doConsult(): Promise<void> {
 onMounted(() => {
   load()
   loadSales()
+  loadCompany()
 })
 </script>
 
@@ -494,6 +529,7 @@ onMounted(() => {
         <div v-if="detail.errorMessage" class="sm:col-span-2"><dt class="text-xs uppercase text-gray-400">Mensaje</dt><dd class="text-red-600">{{ detail.errorMessage }}</dd></div>
       </dl>
       <div class="mt-6 flex flex-wrap justify-end gap-2">
+        <button v-if="detail" class="btn-secondary" @click="doPrint">Imprimir / PDF</button>
         <a v-if="detail?.pdfUrl" :href="detail.pdfUrl" target="_blank" rel="noopener" class="btn-secondary">PDF SUNAT</a>
         <button v-if="detail && detail.status !== 'ACEPTADO' && detail.status !== 'ANULADO'" class="btn-secondary" @click="openEdit(detail)">Editar</button>
         <button v-if="detail && detail.status !== 'ANULADO'" class="btn-secondary !text-red-600" :disabled="annulling" @click="doAnnul">{{ annulling ? 'Anulando…' : 'Anular' }}</button>
