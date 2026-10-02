@@ -147,8 +147,8 @@ async function loadFromSaleDocument(saleId: number | null): Promise<void> {
   // distinto al cliente de la venta. Solo se jalan los ítems.
   const s = await saleService.get(saleId)
   items.value = (s.items ?? []).map((i) => ({
-    codigo: '',
-    descripcion: (i.description || '').split('\n')[0],
+    codigo: i.code ?? '',
+    descripcion: (i.description || '').split('\n').map((l) => l.trim()).filter(Boolean).join(' · '),
     cantidad: i.quantity,
     unidad: 'NIU',
   }))

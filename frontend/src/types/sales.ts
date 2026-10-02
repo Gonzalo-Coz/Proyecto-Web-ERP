@@ -21,6 +21,8 @@ export interface SaleLine {
 export interface SaleItemDetail extends SaleLine {
   id: number
   lineTotal: string
+  /** Código interno del repuesto o de la unidad de moto. */
+  code?: string
 }
 
 export interface SalePaymentItem {
