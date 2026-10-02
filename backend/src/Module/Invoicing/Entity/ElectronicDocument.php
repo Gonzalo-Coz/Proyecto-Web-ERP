@@ -172,6 +172,11 @@ class ElectronicDocument
         return $this->issueDate;
     }
 
+    public function setIssueDate(\DateTimeImmutable $d): void
+    {
+        $this->issueDate = $d;
+    }
+
     public function getCustomerName(): string
     {
         return $this->customerName;

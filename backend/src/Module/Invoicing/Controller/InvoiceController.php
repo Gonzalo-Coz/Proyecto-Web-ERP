@@ -71,6 +71,28 @@ final class InvoiceController
         }
     }
 
+    #[Route('/credit-notes/import', name: 'invoicing_import_credit_note', methods: ['POST'])]
+    #[IsGranted('invoicing.documents.create')]
+    public function importCreditNote(Request $request): JsonResponse
+    {
+        $data = $request->toArray();
+
+        try {
+            return new JsonResponse(
+                $this->invoiceService->importCreditNote(
+                    (int) ($data['originalDocumentId'] ?? 0),
+                    (string) ($data['series'] ?? ''),
+                    (int) ($data['correlative'] ?? 0),
+                ),
+                Response::HTTP_CREATED,
+            );
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            return new JsonResponse(['detail' => $e->getMessage()], $e->getStatusCode());
+        } catch (\Throwable $e) {
+            return new JsonResponse(['detail' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/{id<\d+>}/resend', name: 'invoicing_resend', methods: ['POST'])]
     #[IsGranted('invoicing.documents.create')]
     public function resend(int $id): JsonResponse

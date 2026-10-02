@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
+import FormField from '@/components/ui/FormField.vue'
+import SearchableSelect from '@/components/ui/SearchableSelect.vue'
 import { invoicingService } from '@/services/invoicing'
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/composables/useToast'
@@ -78,6 +80,48 @@ async function doResend(): Promise<void> {
   }
 }
 
+/* ===== Importar una nota de crédito creada en el panel de NubeFact ===== */
+const importModal = ref(false)
+const importing = ref(false)
+const importError = ref('')
+const originalDocs = ref<InvoiceDocument[]>([])
+const importForm = reactive({ originalDocumentId: null as number | null, series: '', correlative: null as number | null })
+
+async function openImport(): Promise<void> {
+  importForm.originalDocumentId = null
+  importForm.series = ''
+  importForm.correlative = null
+  importError.value = ''
+  importModal.value = true
+  // Comprobantes aceptados (facturas/boletas) a los que puede referir la nota de crédito.
+  try {
+    const r = await invoicingService.list(1, 500, '', 'ACEPTADO', '')
+    originalDocs.value = r.data.filter((d) => d.docType === '01' || d.docType === '03')
+  } catch {
+    originalDocs.value = []
+  }
+}
+
+async function doImport(): Promise<void> {
+  if (!importForm.originalDocumentId || !importForm.series.trim() || !importForm.correlative) {
+    importError.value = 'Elige el comprobante original e indica la serie y el número de la nota de crédito.'
+    return
+  }
+  importing.value = true
+  importError.value = ''
+  try {
+    const nc = await invoicingService.importCreditNote(importForm.originalDocumentId, importForm.series.trim(), importForm.correlative)
+    importModal.value = false
+    detail.value = nc
+    await load()
+    toast.success('Nota de crédito importada de NubeFact.')
+  } catch (e: any) {
+    importError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo importar la nota de crédito.'
+  } finally {
+    importing.value = false
+  }
+}
+
 onMounted(() => load())
 </script>
 
@@ -95,7 +139,7 @@ onMounted(() => load())
             <option value="ANULADO">Anuladas</option>
           </select>
         </div>
-        <p class="text-xs text-gray-500">Notas de crédito emitidas. La creación de nuevas notas se habilitará próximamente.</p>
+        <button v-if="auth.can('invoicing.documents.create')" class="btn-primary" @click="openImport">Importar de NubeFact</button>
       </div>
       <table class="w-full text-left text-sm">
         <thead class="bg-gray-50 text-xs uppercase text-gray-500">
@@ -130,6 +174,38 @@ onMounted(() => load())
         <button class="btn-secondary" :disabled="meta.page >= meta.totalPages" @click="load(meta.page + 1)">Siguiente</button>
       </div>
     </div>
+
+    <!-- Importar nota de crédito de NubeFact -->
+    <BaseModal :open="importModal" title="Importar nota de crédito de NubeFact" @close="importModal = false">
+      <div class="space-y-4">
+        <p class="text-xs text-gray-500">
+          Para notas de crédito que creaste directamente en el panel de NubeFact. Elige el comprobante original e indica la
+          serie y el número de la nota; el sistema la consulta en NubeFact, confirma que existe y la registra aquí.
+        </p>
+        <FormField label="Comprobante original (factura o boleta)" required>
+          <SearchableSelect
+            v-model="importForm.originalDocumentId"
+            :options="originalDocs"
+            :option-label="(d) => `${d.docTypeName} ${d.fullNumber} — ${d.customerName}`"
+            :option-search="(d) => `${d.saleNumber ?? ''} ${d.customerDocument ?? ''}`"
+            placeholder="Busca por número o cliente…"
+          />
+        </FormField>
+        <div class="grid grid-cols-2 gap-3">
+          <FormField label="Serie de la NC" required>
+            <input v-model="importForm.series" class="form-input" placeholder="Ej. FC01 / BC01" maxlength="10" />
+          </FormField>
+          <FormField label="Número de la NC" required>
+            <input v-model.number="importForm.correlative" type="number" min="1" class="form-input" placeholder="Ej. 18" />
+          </FormField>
+        </div>
+        <p v-if="importError" class="text-sm text-red-600">{{ importError }}</p>
+        <div class="flex justify-end gap-3">
+          <button class="btn-secondary" @click="importModal = false">Cancelar</button>
+          <button class="btn-primary" :disabled="importing" @click="doImport">{{ importing ? 'Consultando…' : 'Importar' }}</button>
+        </div>
+      </div>
+    </BaseModal>
 
     <!-- Detalle -->
     <BaseModal :open="detail !== null" :title="`${detail?.docTypeName} ${detail?.fullNumber}`" @close="detail = null">

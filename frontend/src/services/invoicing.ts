@@ -12,6 +12,9 @@ export const invoicingService = {
   issue(saleId: number, docType: '01' | '03'): Promise<InvoiceDocument> {
     return api.post('/invoicing/documents', { saleId, docType }).then((r) => r.data)
   },
+  importCreditNote(originalDocumentId: number, series: string, correlative: number): Promise<InvoiceDocument> {
+    return api.post('/invoicing/documents/credit-notes/import', { originalDocumentId, series, correlative }).then((r) => r.data)
+  },
   resend(id: number): Promise<InvoiceDocument> {
     return api.post(`/invoicing/documents/${id}/resend`).then((r) => r.data)
   },

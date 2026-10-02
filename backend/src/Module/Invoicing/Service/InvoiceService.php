@@ -7,6 +7,7 @@ namespace App\Module\Invoicing\Service;
 use App\Module\Customer\Entity\Customer;
 use App\Module\Invoicing\Entity\ElectronicDocument;
 use App\Module\Invoicing\Provider\ElectronicInvoiceProviderInterface;
+use App\Module\Invoicing\Provider\ProviderResult;
 use App\Module\Invoicing\Repository\DocumentSeriesRepository;
 use App\Module\Invoicing\Repository\ElectronicDocumentRepository;
 use App\Module\Sales\Entity\SaleItem;
@@ -213,6 +214,82 @@ final class InvoiceService
         ]);
 
         return $this->toArray($document, true);
+    }
+
+    /**
+     * Importa/consulta en NubeFact una nota de crédito (tipo 07) creada por fuera
+     * del ERP (en el panel de NubeFact), para registrarla y poder verla aquí.
+     * Se liga a la venta del comprobante original que se le indique.
+     */
+    public function importCreditNote(int $originalDocumentId, string $series, int $correlative): array
+    {
+        $original = $this->documentRepository->find($originalDocumentId)
+            ?? throw new NotFoundHttpException('Comprobante original no encontrado.');
+
+        $series = strtoupper(trim($series));
+        if ($series === '' || $correlative < 1) {
+            throw new UnprocessableEntityHttpException('Indica la serie y el número de la nota de crédito.');
+        }
+
+        // Si ya está registrada, solo la refresca y la devuelve.
+        $existing = $this->documentRepository->findOneBy(['docType' => '07', 'series' => $series, 'correlative' => $correlative]);
+        if ($existing !== null) {
+            return $this->consult($existing->getId());
+        }
+
+        $nc = new ElectronicDocument(
+            $original->getSale(),
+            '07',
+            $series,
+            $correlative,
+            new \DateTimeImmutable('today', new \DateTimeZone('America/Lima')),
+        );
+
+        try {
+            $result = $this->provider->consult($nc);
+        } catch (\Throwable $e) {
+            throw new UnprocessableEntityHttpException('No se pudo consultar la nota de crédito en NubeFact: '.$e->getMessage());
+        }
+
+        // NubeFact responde con "errors" (p. ej. "no existe") cuando no la encuentra.
+        if ($result->status === ProviderResult::REJECTED
+            && stripos((string) $result->errorMessage, 'no existe') !== false) {
+            throw new UnprocessableEntityHttpException(sprintf(
+                'La nota de crédito %s-%08d no existe en NubeFact. Verifica la serie y el número.',
+                $series,
+                $correlative,
+            ));
+        }
+
+        // Fecha real de emisión según NubeFact (formato dd-mm-YYYY), si la devuelve.
+        $rawDate = (string) ($result->rawResponse['fecha_de_emision'] ?? '');
+        $parsed = $rawDate !== '' ? \DateTimeImmutable::createFromFormat('d-m-Y', $rawDate) : false;
+        if ($parsed instanceof \DateTimeImmutable) {
+            $nc->setIssueDate($parsed);
+        }
+
+        $nc->applyProviderResult(
+            $result->status,
+            $result->hash,
+            $result->qrData,
+            $result->xml,
+            $result->cdr,
+            $result->errorMessage,
+            $result->rawResponse,
+            $result->pdfUrl,
+            $result->xmlUrl,
+            $result->cdrUrl,
+        );
+        $this->entityManager->persist($nc);
+        $this->entityManager->flush();
+
+        $this->sunatLogger->info('Nota de crédito importada de NubeFact', [
+            'number' => $nc->getFullNumber(),
+            'status' => $nc->getStatus(),
+            'original' => $original->getFullNumber(),
+        ]);
+
+        return $this->toArray($nc, true);
     }
 
     private function sendToProvider(ElectronicDocument $document): array
