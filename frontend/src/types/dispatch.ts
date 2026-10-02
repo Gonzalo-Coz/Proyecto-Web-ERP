@@ -34,6 +34,9 @@ export interface DispatchGuideItem {
   items: DispatchItem[]
   saleId: number | null
   saleNumber: string | null
+  relatedDocType: string | null
+  relatedDocTypeName: string | null
+  relatedDocNumber: string | null
   observations: string | null
   status: 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'ANULADO'
   hash: string | null
@@ -63,7 +66,20 @@ export interface DispatchGuidePayload {
   packages: number
   saleId?: number | null
   observations?: string | null
+  relatedDocType?: string | null
+  relatedDocNumber?: string | null
   items: DispatchItem[]
+}
+
+/** Comprobante de venta aceptado, para elegir al generar la guía. */
+export interface SaleDocumentOption {
+  saleId: number
+  saleNumber: string
+  customerName: string
+  docType: string
+  docTypeName: string
+  fullNumber: string
+  issueDate: string
 }
 
 export const DISPATCH_MOTIVES: Record<string, string> = {

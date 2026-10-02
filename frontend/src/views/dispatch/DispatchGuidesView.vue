@@ -13,9 +13,8 @@ import api from '@/services/api'
 import { openDispatchGuidePdf, type GuideCompany } from '@/utils/dispatchGuide'
 import { useToast } from '@/composables/useToast'
 import type { PageMeta, TableColumn } from '@/types/common'
-import type { DispatchGuideItem, DispatchItem } from '@/types/dispatch'
+import type { DispatchGuideItem, DispatchItem, SaleDocumentOption } from '@/types/dispatch'
 import { DISPATCH_MOTIVES } from '@/types/dispatch'
-import type { SaleSummary } from '@/types/sales'
 
 const toast = useToast()
 
@@ -109,35 +108,44 @@ const form = reactive({
   packages: 1,
   observations: '',
   saleId: null as number | null,
+  relatedDocType: '',
+  relatedDocNumber: '',
 })
 const items = ref<DispatchItem[]>([emptyItem()])
 
-// Ventas completadas para generar la guía a partir del comprobante.
-const sales = ref<SaleSummary[]>([])
+// Comprobantes de venta aceptados para generar la guía. Se puede filtrar por tipo
+// (Factura/Boleta) y buscar escribiendo por número o cliente.
+const saleDocs = ref<SaleDocumentOption[]>([])
+const docTypeFilter = ref<string>('') // '' = todos, '01' factura, '03' boleta
 const fromSaleId = ref<number | null>(null)
 const lookupLoading = ref(false)
 
-async function loadSales(): Promise<void> {
+async function loadSaleDocuments(): Promise<void> {
   try {
-    const r = await saleService.list({ page: 1, perPage: 1000, search: '', sort: 'saleNumber', direction: 'desc', status: 'COMPLETADA' } as any)
-    sales.value = r.data
+    saleDocs.value = await dispatchService.saleDocuments(docTypeFilter.value, '')
   } catch {
-    sales.value = []
+    saleDocs.value = []
   }
 }
 
-/** Carga destinatario e ítems desde una venta/comprobante ya hecho. */
-async function loadFromSale(id: number | null): Promise<void> {
-  fromSaleId.value = id
-  if (!id) {
+/** Carga los ítems y el comprobante relacionado desde la venta elegida. */
+async function loadFromSaleDocument(saleId: number | null): Promise<void> {
+  fromSaleId.value = saleId
+  if (!saleId) {
     form.saleId = null
+    form.relatedDocType = ''
+    form.relatedDocNumber = ''
     return
   }
-  const s = await saleService.get(id)
+  const opt = saleDocs.value.find((d) => d.saleId === saleId)
+  if (opt) {
+    form.relatedDocType = opt.docType
+    form.relatedDocNumber = opt.fullNumber
+  }
+  form.saleId = saleId
   // NO se autocompleta el destinatario: al trasladar, el destinatario suele ser
-  // distinto al cliente de la venta (p. ej. se envía a una empresa/almacén).
-  // Solo se jalan los ítems de la venta; el destinatario se ingresa aparte.
-  form.saleId = id
+  // distinto al cliente de la venta. Solo se jalan los ítems.
+  const s = await saleService.get(saleId)
   items.value = (s.items ?? []).map((i) => ({
     codigo: '',
     descripcion: (i.description || '').split('\n')[0],
@@ -204,6 +212,8 @@ function openCreate(): void {
     packages: 1,
     observations: '',
     saleId: null,
+    relatedDocType: '',
+    relatedDocNumber: '',
   })
   items.value = [emptyItem()]
   fromSaleId.value = null
@@ -234,6 +244,8 @@ function openEdit(g: DispatchGuideItem): void {
     packages: g.packages ?? 1,
     observations: g.observations ?? '',
     saleId: g.saleId ?? null,
+    relatedDocType: g.relatedDocType ?? '',
+    relatedDocNumber: g.relatedDocNumber ?? '',
   })
   items.value = (g.items ?? []).map((i) => ({
     codigo: i.codigo ?? '',
@@ -350,7 +362,7 @@ async function doConsult(): Promise<void> {
 
 onMounted(() => {
   load()
-  loadSales()
+  loadSaleDocuments()
   loadCompany()
 })
 </script>
@@ -383,16 +395,28 @@ onMounted(() => {
     <BaseModal :open="modalOpen" :title="editingId !== null ? 'Editar guía de remisión' : 'Nueva guía de remisión'" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
         <div class="rounded-lg border border-blue-100 bg-blue-50/40 p-3">
-          <FormField label="Generar desde una venta/comprobante (carga los ítems)">
-            <SearchableSelect
-              v-model="fromSaleId"
-              :options="sales"
-              :option-label="(s) => `${s.saleNumber} — ${s.customerName}`"
-              placeholder="Busca la venta por número o cliente…"
-              @change="loadFromSale(fromSaleId)"
-            />
-          </FormField>
-          <p class="mt-1 text-xs text-gray-500">Elige la venta de la moto o repuestos ya realizada; se cargan los ítems. El destinatario se ingresa aparte, pues suele ser distinto al cliente de la venta.</p>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-[10rem,1fr]">
+            <FormField label="Tipo de comprobante">
+              <select v-model="docTypeFilter" class="form-input" @change="loadSaleDocuments(); fromSaleId = null">
+                <option value="">Todos</option>
+                <option value="01">Factura</option>
+                <option value="03">Boleta</option>
+              </select>
+            </FormField>
+            <FormField label="Comprobante de venta (carga los ítems)">
+              <SearchableSelect
+                v-model="fromSaleId"
+                :options="saleDocs"
+                value-key="saleId"
+                :option-label="(d) => `${d.docTypeName} ${d.fullNumber} — ${d.customerName}`"
+                :option-search="(d) => `${d.saleNumber} ${d.issueDate}`"
+                placeholder="Escribe el número de comprobante o el cliente…"
+                @change="loadFromSaleDocument(fromSaleId)"
+              />
+            </FormField>
+          </div>
+          <p v-if="form.relatedDocNumber" class="mt-1 text-xs text-blue-700">Documento relacionado: <b>{{ form.relatedDocType === '01' ? 'Factura' : form.relatedDocType === '03' ? 'Boleta' : 'Comprobante' }} {{ form.relatedDocNumber }}</b></p>
+          <p class="mt-1 text-xs text-gray-500">Elige el comprobante de la venta ya emitida (aceptado por SUNAT); se cargan los ítems y se guarda como documento relacionado. El destinatario se ingresa aparte, pues suele ser distinto al cliente de la venta.</p>
         </div>
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -522,6 +546,7 @@ onMounted(() => {
         <div><dt class="text-xs uppercase text-gray-400">Llegada</dt><dd>{{ detail.destinationAddress }}</dd></div>
         <div><dt class="text-xs uppercase text-gray-400">Transporte</dt><dd>{{ detail.transportModeName }}{{ detail.vehiclePlate ? ' · ' + detail.vehiclePlate : '' }}{{ detail.carrierName ? ' · ' + detail.carrierName : '' }}</dd></div>
         <div><dt class="text-xs uppercase text-gray-400">Peso / Bultos</dt><dd>{{ detail.totalWeight }} {{ detail.weightUnit }} · {{ detail.packages }}</dd></div>
+        <div v-if="detail.relatedDocNumber"><dt class="text-xs uppercase text-gray-400">Comprobante relacionado</dt><dd>{{ detail.relatedDocTypeName }} {{ detail.relatedDocNumber }}</dd></div>
         <div class="sm:col-span-2">
           <dt class="text-xs uppercase text-gray-400">Ítems</dt>
           <dd><span v-for="(it, i) in detail.items" :key="i">{{ it.cantidad }}× {{ it.descripcion }}<span v-if="i < detail.items.length - 1"> | </span></span></dd>

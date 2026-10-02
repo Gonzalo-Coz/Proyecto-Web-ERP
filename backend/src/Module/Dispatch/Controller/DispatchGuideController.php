@@ -32,6 +32,15 @@ final class DispatchGuideController
         ));
     }
 
+    #[Route('/sale-documents', name: 'dispatch_guides_sale_documents', methods: ['GET'])]
+    public function saleDocuments(Request $request): JsonResponse
+    {
+        return new JsonResponse($this->service->saleDocuments(
+            (string) $request->query->get('docType', ''),
+            (string) $request->query->get('search', ''),
+        ));
+    }
+
     #[Route('/{id<\d+>}', name: 'dispatch_guides_get', methods: ['GET'])]
     public function get(int $id): JsonResponse
     {

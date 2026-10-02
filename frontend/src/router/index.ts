@@ -82,6 +82,12 @@ const router = createRouter({
       meta: { title: 'Comprobantes Electrónicos', permission: 'invoicing.documents.view' },
     },
     {
+      path: '/credit-notes',
+      name: 'credit-notes',
+      component: () => import('@/views/invoicing/CreditNotesView.vue'),
+      meta: { title: 'Notas de Crédito', permission: 'invoicing.documents.view' },
+    },
+    {
       path: '/cash',
       name: 'cash',
       component: () => import('@/views/cash/CashView.vue'),

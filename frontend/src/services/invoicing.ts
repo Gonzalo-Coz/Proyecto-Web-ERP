@@ -3,8 +3,8 @@ import type { Paginated } from '@/types/common'
 import type { InvoiceDocument } from '@/types/invoicing'
 
 export const invoicingService = {
-  list(page = 1, perPage = 10, search = '', status = ''): Promise<Paginated<InvoiceDocument>> {
-    return api.get('/invoicing/documents', { params: { page, perPage, search, status } }).then((r) => r.data)
+  list(page = 1, perPage = 10, search = '', status = '', docType = ''): Promise<Paginated<InvoiceDocument>> {
+    return api.get('/invoicing/documents', { params: { page, perPage, search, status, docType } }).then((r) => r.data)
   },
   get(id: number): Promise<InvoiceDocument> {
     return api.get(`/invoicing/documents/${id}`).then((r) => r.data)

@@ -131,6 +131,13 @@ class DispatchGuide
     #[ORM\JoinColumn(nullable: true)]
     private ?Sale $sale = null;
 
+    /** Documento relacionado (comprobante de venta): tipo (cat. 01/03/07/08) y número. */
+    #[ORM\Column(length: 2, nullable: true)]
+    private ?string $relatedDocType = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $relatedDocNumber = null;
+
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observations = null;
 
@@ -362,6 +369,34 @@ class DispatchGuide
     public function setSale(?Sale $sale): void
     {
         $this->sale = $sale;
+    }
+
+    /** Nombres de los tipos de comprobante de venta (catálogo 01 SUNAT). */
+    public const RELATED_DOC_TYPES = ['01' => 'Factura', '03' => 'Boleta', '07' => 'Nota de crédito', '08' => 'Nota de débito'];
+
+    public function getRelatedDocType(): ?string
+    {
+        return $this->relatedDocType;
+    }
+
+    public function getRelatedDocTypeName(): ?string
+    {
+        return $this->relatedDocType !== null ? (self::RELATED_DOC_TYPES[$this->relatedDocType] ?? $this->relatedDocType) : null;
+    }
+
+    public function setRelatedDocType(?string $v): void
+    {
+        $this->relatedDocType = $v;
+    }
+
+    public function getRelatedDocNumber(): ?string
+    {
+        return $this->relatedDocNumber;
+    }
+
+    public function setRelatedDocNumber(?string $v): void
+    {
+        $this->relatedDocNumber = $v;
     }
 
     public function getObservations(): ?string

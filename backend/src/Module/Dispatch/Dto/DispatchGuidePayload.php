@@ -81,6 +81,13 @@ final class DispatchGuidePayload
         public readonly ?int $saleId = null,
 
         public readonly ?string $observations = null,
+
+        /** Comprobante de venta relacionado: tipo (01/03/07/08) y número (serie-correlativo). */
+        #[Assert\Length(max: 2)]
+        public readonly ?string $relatedDocType = null,
+
+        #[Assert\Length(max: 20)]
+        public readonly ?string $relatedDocNumber = null,
     ) {
     }
 }

@@ -7,6 +7,7 @@ namespace App\Module\Dispatch\Service;
 use App\Module\Dispatch\Dto\DispatchGuidePayload;
 use App\Module\Dispatch\Entity\DispatchGuide;
 use App\Module\Dispatch\Repository\DispatchGuideRepository;
+use App\Module\Invoicing\Entity\ElectronicDocument;
 use App\Module\Sales\Repository\SaleRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Tools\Pagination\Paginator;
@@ -105,6 +106,8 @@ final class DispatchGuideService
         $guide->setTotalWeight($payload->totalWeight);
         $guide->setPackages($payload->packages);
         $guide->setObservations($this->nullify($payload->observations));
+        $guide->setRelatedDocType($this->nullify($payload->relatedDocType));
+        $guide->setRelatedDocNumber($this->nullify($payload->relatedDocNumber));
 
         if ($payload->saleId !== null) {
             $sale = $this->saleRepository->find($payload->saleId);
@@ -159,6 +162,8 @@ final class DispatchGuideService
         $guide->setTotalWeight($payload->totalWeight);
         $guide->setPackages($payload->packages);
         $guide->setObservations($this->nullify($payload->observations));
+        $guide->setRelatedDocType($this->nullify($payload->relatedDocType));
+        $guide->setRelatedDocNumber($this->nullify($payload->relatedDocNumber));
         if ($payload->saleId !== null) {
             $sale = $this->saleRepository->find($payload->saleId);
             if ($sale !== null) {
@@ -169,6 +174,49 @@ final class DispatchGuideService
         $this->entityManager->flush();
 
         return $this->toArray($guide);
+    }
+
+    /**
+     * Comprobantes de venta ACEPTADOS para elegir al generar una guía. Permite
+     * filtrar por tipo (01 factura, 03 boleta) y buscar por número o cliente.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function saleDocuments(?string $docType, string $search): array
+    {
+        $qb = $this->entityManager->createQueryBuilder()
+            ->select('d', 's', 'c')
+            ->from(ElectronicDocument::class, 'd')
+            ->join('d.sale', 's')
+            ->join('s.customer', 'c')
+            ->where("d.status = 'ACEPTADO'")
+            ->orderBy('d.issueDate', 'DESC')
+            ->addOrderBy('d.correlative', 'DESC')
+            ->setMaxResults(500);
+
+        if ($docType !== null && $docType !== '' && in_array($docType, ['01', '03', '07', '08'], true)) {
+            $qb->andWhere('d.docType = :dt')->setParameter('dt', $docType);
+        }
+        if ($search !== '') {
+            $qb->andWhere('LOWER(c.name) LIKE :q OR LOWER(s.saleNumber) LIKE :q OR CAST(d.correlative AS text) LIKE :q OR c.documentNumber LIKE :q')
+                ->setParameter('q', '%'.mb_strtolower($search).'%');
+        }
+
+        $out = [];
+        foreach ($qb->getQuery()->getResult() as $d) {
+            /** @var ElectronicDocument $d */
+            $out[] = [
+                'saleId' => $d->getSale()->getId(),
+                'saleNumber' => $d->getSale()->getSaleNumber(),
+                'customerName' => $d->getSale()->getCustomer()->getName(),
+                'docType' => $d->getDocType(),
+                'docTypeName' => $d->getDocTypeName(),
+                'fullNumber' => $d->getFullNumber(),
+                'issueDate' => $d->getIssueDate()->format('Y-m-d'),
+            ];
+        }
+
+        return $out;
     }
 
     /** Anula la guía en el ERP (refleja la baja hecha en SUNAT/NubeFact). */
@@ -282,6 +330,9 @@ final class DispatchGuideService
             'items' => $g->getItems(),
             'saleId' => $g->getSale()?->getId(),
             'saleNumber' => $g->getSale()?->getSaleNumber(),
+            'relatedDocType' => $g->getRelatedDocType(),
+            'relatedDocTypeName' => $g->getRelatedDocTypeName(),
+            'relatedDocNumber' => $g->getRelatedDocNumber(),
             'observations' => $g->getObservations(),
             'status' => $g->getStatus(),
             'hash' => $g->getHash(),

@@ -29,6 +29,7 @@ final class InvoiceController
             perPage: $request->query->getInt('perPage', 10),
             search: trim($request->query->getString('search', '')),
             status: $request->query->getString('status', ''),
+            docType: $request->query->getString('docType', ''),
         ));
     }
 

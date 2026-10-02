@@ -249,7 +249,7 @@ final class InvoiceService
     }
 
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */
-    public function list(int $page, int $perPage, string $search, string $status): array
+    public function list(int $page, int $perPage, string $search, string $status, string $docType = ''): array
     {
         $page = max(1, $page);
         $perPage = min(100, max(1, $perPage));
@@ -266,6 +266,9 @@ final class InvoiceService
         }
         if ($status !== '' && in_array($status, ElectronicDocument::STATUSES, true)) {
             $qb->andWhere('d.status = :st')->setParameter('st', $status);
+        }
+        if ($docType !== '' && array_key_exists($docType, ElectronicDocument::TYPES)) {
+            $qb->andWhere('d.docType = :dt')->setParameter('dt', $docType);
         }
 
         $paginator = new Paginator($qb->getQuery());

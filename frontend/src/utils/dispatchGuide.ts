@@ -142,7 +142,7 @@ function bodyHtml(g: DispatchGuideItem, co: GuideCompany): string {
           <div class="a4-panel-b">
             <div><b>Peso bruto total:</b> ${esc(g.totalWeight)} ${esc(g.weightUnit)}</div>
             <div><b>N° de bultos:</b> ${g.packages}</div>
-            ${g.saleNumber ? `<div><b>Documento relacionado:</b> ${esc(g.saleNumber)}</div>` : ''}
+            ${g.relatedDocNumber ? `<div><b>Comprobante relacionado:</b> ${esc(g.relatedDocTypeName ?? '')} ${esc(g.relatedDocNumber)}</div>` : g.saleNumber ? `<div><b>Venta relacionada:</b> ${esc(g.saleNumber)}</div>` : ''}
           </div>
         </div>
       </div>
