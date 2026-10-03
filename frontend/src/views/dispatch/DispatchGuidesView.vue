@@ -168,8 +168,8 @@ async function lookupRecipient(): Promise<void> {
       const p = await lookupService.dni(doc)
       form.recipientName = p.nombreCompleto
     }
-  } catch {
-    toast.error('No se encontró ese documento.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.message ?? 'No se encontró ese documento.')
   } finally {
     lookupLoading.value = false
   }
@@ -183,8 +183,8 @@ async function lookupCarrier(): Promise<void> {
   try {
     const c = await lookupService.ruc(ruc)
     form.carrierName = c.razonSocial
-  } catch {
-    toast.error('No se encontró ese RUC de transportista.')
+  } catch (e: any) {
+    toast.error(e.response?.data?.message ?? 'No se encontró ese RUC de transportista.')
   } finally {
     carrierLookupLoading.value = false
   }

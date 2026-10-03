@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Lookup\Command;
 
-use App\Module\Lookup\Infrastructure\ApisPeru\ApisPeruConfig;
+use App\Module\Lookup\Infrastructure\Decolecta\DecolectaConfig;
 use App\Module\Lookup\Service\CompanyLookupService;
 use App\Module\Lookup\Service\PersonLookupService;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -26,11 +26,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *   php bin/console app:lookup:test 20131312955   (RUC)
  *   php bin/console app:lookup:test 77819251      (DNI)
  */
-#[AsCommand(name: 'app:lookup:test', description: 'Diagnostica las consultas DNI/RUC (APISPERU)')]
+#[AsCommand(name: 'app:lookup:test', description: 'Diagnostica las consultas DNI/RUC (Decolecta)')]
 final class TestLookupCommand extends Command
 {
     public function __construct(
-        private readonly ApisPeruConfig $config,
+        private readonly DecolectaConfig $config,
         private readonly PersonLookupService $personLookup,
         private readonly CompanyLookupService $companyLookup,
     ) {
