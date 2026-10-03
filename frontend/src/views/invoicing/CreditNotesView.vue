@@ -122,6 +122,18 @@ async function doImport(): Promise<void> {
   }
 }
 
+const exporting = ref(false)
+async function doExport(): Promise<void> {
+  exporting.value = true
+  try {
+    await invoicingService.exportCreditNotes(search.value, statusFilter.value)
+  } catch {
+    toast.error('No se pudo exportar el Excel.')
+  } finally {
+    exporting.value = false
+  }
+}
+
 onMounted(() => load())
 </script>
 
@@ -139,7 +151,10 @@ onMounted(() => load())
             <option value="ANULADO">Anuladas</option>
           </select>
         </div>
-        <button v-if="auth.can('invoicing.documents.create')" class="btn-primary" @click="openImport">Importar de NubeFact</button>
+        <div class="flex gap-2">
+          <button class="btn-secondary" :disabled="exporting" @click="doExport">{{ exporting ? 'Exportando…' : 'Exportar Excel' }}</button>
+          <button v-if="auth.can('invoicing.documents.create')" class="btn-primary" @click="openImport">Importar de NubeFact</button>
+        </div>
       </div>
       <table class="w-full text-left text-sm">
         <thead class="bg-gray-50 text-xs uppercase text-gray-500">
@@ -147,7 +162,7 @@ onMounted(() => load())
             <th class="px-4 py-3">Nota de crédito</th>
             <th class="px-4 py-3">Fecha</th>
             <th class="px-4 py-3">Cliente</th>
-            <th class="px-4 py-3">Venta</th>
+            <th class="px-4 py-3">Doc. modificado</th>
             <th class="px-4 py-3 text-right">Total</th>
             <th class="px-4 py-3">Estado SUNAT</th>
             <th class="px-4 py-3 text-right">Acciones</th>
@@ -160,7 +175,7 @@ onMounted(() => load())
             <td class="px-4 py-3 font-medium">{{ d.docTypeName }} {{ d.fullNumber }}</td>
             <td class="px-4 py-3">{{ d.issueDate }}</td>
             <td class="px-4 py-3">{{ d.customerName }}</td>
-            <td class="px-4 py-3 text-gray-500">{{ d.saleNumber }}</td>
+            <td class="px-4 py-3 text-gray-500">{{ d.modifiesFullNumber ? `${d.modifiesDocTypeName} ${d.modifiesFullNumber}` : '—' }}</td>
             <td class="px-4 py-3 text-right">{{ d.currency === 'USD' ? 'US$' : 'S/' }} {{ d.total }}</td>
             <td class="px-4 py-3">
               <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium" :class="STATUS_COLORS[d.status]">{{ d.status }}</span>
@@ -215,6 +230,10 @@ onMounted(() => load())
           <p>Documento: <strong class="text-gray-900">{{ detail.customerDocument }}</strong></p>
           <p>Fecha de emisión: <strong class="text-gray-900">{{ detail.issueDate }}</strong></p>
           <p>Venta origen: <strong class="text-gray-900">{{ detail.saleNumber }}</strong></p>
+          <p v-if="detail.modifiesFullNumber" class="col-span-2">Documento que modifica:
+            <strong class="text-gray-900">{{ detail.modifiesDocTypeName }} {{ detail.modifiesFullNumber }}</strong>
+            <span v-if="detail.modifiesIssueDate" class="text-gray-500"> ({{ detail.modifiesIssueDate }})</span>
+          </p>
         </div>
         <p class="text-right">
           Subtotal: {{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.subtotal }} · IGV: {{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.igv }} · <strong>Total: {{ detail.currency === 'USD' ? 'US$' : 'S/' }} {{ detail.total }}</strong>

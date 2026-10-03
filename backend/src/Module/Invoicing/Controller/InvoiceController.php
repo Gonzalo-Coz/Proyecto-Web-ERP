@@ -71,6 +71,24 @@ final class InvoiceController
         }
     }
 
+    #[Route('/credit-notes/export.xlsx', name: 'invoicing_credit_notes_export', methods: ['GET'])]
+    #[IsGranted('invoicing.documents.view')]
+    public function exportCreditNotes(Request $request): Response
+    {
+        $content = $this->invoiceService->creditNotesXlsx(
+            trim($request->query->getString('search', '')),
+            $request->query->getString('status', ''),
+        );
+        $response = new Response(
+            $content,
+            Response::HTTP_OK,
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        );
+        $response->headers->set('Content-Disposition', 'attachment; filename="notas_de_credito.xlsx"');
+
+        return $response;
+    }
+
     #[Route('/credit-notes/import', name: 'invoicing_import_credit_note', methods: ['POST'])]
     #[IsGranted('invoicing.documents.create')]
     public function importCreditNote(Request $request): JsonResponse

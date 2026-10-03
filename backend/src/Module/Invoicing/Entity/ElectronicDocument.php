@@ -72,6 +72,20 @@ class ElectronicDocument
     #[ORM\Column(type: 'decimal', precision: 12, scale: 2)]
     private string $total;
 
+    // --- Documento que modifica (solo notas de crédito/débito): referencia al
+    //     comprobante original. Requerido en el Registro de Ventas de SUNAT. ---
+    #[ORM\Column(length: 2, nullable: true)]
+    private ?string $modifiesDocType = null;
+
+    #[ORM\Column(length: 10, nullable: true)]
+    private ?string $modifiesSeries = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $modifiesCorrelative = null;
+
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $modifiesIssueDate = null;
+
     // --- Resultado SUNAT (no editable manualmente, §15) ---
 
     #[ORM\Column(length: 10, options: ['default' => 'PENDIENTE'])]
@@ -215,6 +229,55 @@ class ElectronicDocument
     public function getTotal(): string
     {
         return $this->total;
+    }
+
+    /** Sobrescribe los importes (al importar una NC se toman de la respuesta de NubeFact). */
+    public function setAmounts(float $subtotal, float $igv, float $total): void
+    {
+        $this->subtotal = number_format($subtotal, 2, '.', '');
+        $this->igv = number_format($igv, 2, '.', '');
+        $this->total = number_format($total, 2, '.', '');
+    }
+
+    public function getModifiesDocType(): ?string
+    {
+        return $this->modifiesDocType;
+    }
+
+    public function getModifiesDocTypeName(): ?string
+    {
+        return $this->modifiesDocType !== null ? (self::TYPES[$this->modifiesDocType] ?? $this->modifiesDocType) : null;
+    }
+
+    public function getModifiesSeries(): ?string
+    {
+        return $this->modifiesSeries;
+    }
+
+    public function getModifiesCorrelative(): ?int
+    {
+        return $this->modifiesCorrelative;
+    }
+
+    public function getModifiesFullNumber(): ?string
+    {
+        return $this->modifiesSeries !== null && $this->modifiesCorrelative !== null
+            ? sprintf('%s-%08d', $this->modifiesSeries, $this->modifiesCorrelative)
+            : null;
+    }
+
+    public function getModifiesIssueDate(): ?\DateTimeImmutable
+    {
+        return $this->modifiesIssueDate;
+    }
+
+    /** Guarda la referencia al comprobante original que modifica esta nota. */
+    public function setModifiedDocument(self $original): void
+    {
+        $this->modifiesDocType = $original->getDocType();
+        $this->modifiesSeries = $original->getSeries();
+        $this->modifiesCorrelative = $original->getCorrelative();
+        $this->modifiesIssueDate = $original->getIssueDate();
     }
 
     public function getStatus(): string

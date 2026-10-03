@@ -268,6 +268,17 @@ final class InvoiceService
             $nc->setIssueDate($parsed);
         }
 
+        // Montos reales de la nota según NubeFact (no los de la venta original).
+        $raw = $result->rawResponse;
+        if (isset($raw['total'])) {
+            $base = (float) ($raw['total_gravada'] ?? 0) + (float) ($raw['total_exonerada'] ?? 0)
+                + (float) ($raw['total_inafecta'] ?? 0);
+            $nc->setAmounts($base, (float) ($raw['total_igv'] ?? 0), (float) $raw['total']);
+        }
+
+        // Documento que modifica: el comprobante original elegido.
+        $nc->setModifiedDocument($original);
+
         $nc->applyProviderResult(
             $result->status,
             $result->hash,
@@ -365,6 +376,98 @@ final class InvoiceService
         return $this->toArray($document, true);
     }
 
+    /** Tipo de documento del cliente → código del catálogo 06 de SUNAT. */
+    private const CLIENT_DOC_CODE = ['DNI' => '1', 'RUC' => '6', 'CE' => '4', 'PASAPORTE' => '7', 'CARNET_EXTRANJERIA' => '4'];
+
+    /**
+     * Reporte de notas de crédito en el formato del Registro de Ventas (solo las
+     * columnas que usamos), incluyendo el documento que modifica cada nota.
+     * Devuelve el contenido binario del .xlsx.
+     */
+    public function creditNotesXlsx(string $search, string $status): string
+    {
+        $qb = $this->documentRepository->createQueryBuilder('d')
+            ->join('d.sale', 'v')->addSelect('v')
+            ->where("d.docType = '07'")
+            ->orderBy('d.issueDate', 'ASC')->addOrderBy('d.correlative', 'ASC');
+        if ($search !== '') {
+            $qb->andWhere('LOWER(d.series) LIKE :s OR LOWER(d.customerName) LIKE :s OR d.customerDocNumber LIKE :s OR LOWER(v.saleNumber) LIKE :s')
+                ->setParameter('s', '%'.mb_strtolower($search).'%');
+        }
+        if ($status !== '' && in_array($status, ElectronicDocument::STATUSES, true)) {
+            $qb->andWhere('d.status = :st')->setParameter('st', $status);
+        }
+        /** @var list<ElectronicDocument> $docs */
+        $docs = $qb->getQuery()->getResult();
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Notas de Crédito');
+
+        $headers = [
+            'Fecha de Emisión', 'Tipo CP', 'Serie', 'Número', 'Tipo Doc.', 'Número Doc.', 'Ap. Nomb / Razón Social',
+            'Dscto BI', 'Dscto IGV', 'Exonerado', 'Total CP', 'Moneda',
+            'Fecha Emisión Doc Modificado', 'Tipo CP Modificado', 'Serie CP Modificado', 'Nro CP Modificado',
+        ];
+        $sheet->fromArray($headers, null, 'A1');
+
+        $row = 2;
+        foreach ($docs as $d) {
+            $exempt = $d->getSale()->isIgvExempt();
+            $base = (float) $d->getSubtotal();
+            $igv = (float) $d->getIgv();
+            $total = (float) $d->getTotal();
+            // La NC reduce ventas: los importes se registran en negativo.
+            $dsctoBi = $exempt ? 0.0 : -$base;
+            $dsctoIgv = $exempt ? 0.0 : -$igv;
+            $exonerado = $exempt ? -$base : 0.0;
+
+            $sheet->fromArray([
+                $d->getIssueDate()->format('d/m/Y'),
+                (int) $d->getDocType(), // 7
+                $d->getSeries(),
+                $d->getCorrelative(),
+                self::CLIENT_DOC_CODE[$d->getCustomerDocType()] ?? '0',
+                $d->getCustomerDocNumber(),
+                $d->getCustomerName(),
+                round($dsctoBi, 2),
+                round($dsctoIgv, 2),
+                round($exonerado, 2),
+                round(-$total, 2),
+                $d->getSale()->getCurrency() === 'USD' ? 'USD' : 'PEN',
+                $d->getModifiesIssueDate()?->format('d/m/Y') ?? '',
+                $d->getModifiesDocType() !== null ? (int) $d->getModifiesDocType() : '',
+                $d->getModifiesSeries() ?? '',
+                $d->getModifiesCorrelative() ?? '',
+            ], null, 'A'.$row);
+            ++$row;
+        }
+
+        // Estilo: cabecera en negrita; columnas del documento modificado resaltadas.
+        $lastCol = 'P';
+        $sheet->getStyle('A1:'.$lastCol.'1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:'.$lastCol.'1')->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+            ->getStartColor()->setRGB('E8EEF5');
+        if ($row > 2) {
+            $sheet->getStyle('M1:P'.($row - 1))->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('FFF2CC');
+            $sheet->getStyle('H2:K'.($row - 1))->getNumberFormat()->setFormatCode('#,##0.00');
+        }
+        foreach (range('A', $lastCol) as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'nc_').'.xlsx';
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save($tmp);
+        $content = (string) file_get_contents($tmp);
+        @unlink($tmp);
+        $spreadsheet->disconnectWorksheets();
+
+        return $content;
+    }
+
     public function toArray(ElectronicDocument $d, bool $withDetail): array
     {
         $data = [
@@ -384,6 +487,11 @@ final class InvoiceService
             'currency' => $d->getSale()->getCurrency(),
             'status' => $d->getStatus(),
             'errorMessage' => $d->getErrorMessage(),
+            // Documento que modifica (notas de crédito/débito).
+            'modifiesDocType' => $d->getModifiesDocType(),
+            'modifiesDocTypeName' => $d->getModifiesDocTypeName(),
+            'modifiesFullNumber' => $d->getModifiesFullNumber(),
+            'modifiesIssueDate' => $d->getModifiesIssueDate()?->format('Y-m-d'),
         ];
 
         if ($withDetail) {

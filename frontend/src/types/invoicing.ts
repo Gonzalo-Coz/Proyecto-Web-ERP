@@ -11,8 +11,13 @@ export interface InvoiceDocument {
   subtotal: string
   igv: string
   total: string
-  status: 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO'
+  status: 'PENDIENTE' | 'ACEPTADO' | 'RECHAZADO' | 'ANULADO'
   errorMessage: string | null
+  // Documento que modifica (notas de crédito/débito)
+  modifiesDocType?: string | null
+  modifiesDocTypeName?: string | null
+  modifiesFullNumber?: string | null
+  modifiesIssueDate?: string | null
   hash?: string | null
   qrData?: string | null
   cdr?: string | null

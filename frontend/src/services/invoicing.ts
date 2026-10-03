@@ -15,6 +15,16 @@ export const invoicingService = {
   importCreditNote(originalDocumentId: number, series: string, correlative: number): Promise<InvoiceDocument> {
     return api.post('/invoicing/documents/credit-notes/import', { originalDocumentId, series, correlative }).then((r) => r.data)
   },
+  exportCreditNotes(search = '', status = ''): Promise<void> {
+    return api.get('/invoicing/documents/credit-notes/export.xlsx', { params: { search, status }, responseType: 'blob' }).then((r) => {
+      const url = URL.createObjectURL(r.data as Blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'notas_de_credito.xlsx'
+      a.click()
+      URL.revokeObjectURL(url)
+    })
+  },
   resend(id: number): Promise<InvoiceDocument> {
     return api.post(`/invoicing/documents/${id}/resend`).then((r) => r.data)
   },
