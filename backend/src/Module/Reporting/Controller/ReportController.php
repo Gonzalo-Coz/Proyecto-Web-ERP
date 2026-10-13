@@ -23,14 +23,60 @@ final class ReportController
 
     #[Route('/stock-ventas-motos.xlsx', name: 'reports_stock_ventas_xlsx', methods: ['GET'])]
     #[IsGranted('reports.main.view')]
-    public function stockVentasXlsx(): Response
+    public function stockVentasXlsx(Request $request): Response
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return $this->xlsx(
+            $this->reportService->stockVentasXlsx($from, $to),
+            'stock_y_ventas_motos.xlsx',
+        );
+    }
+
+    #[Route('/repuestos-yamaha.xlsx', name: 'reports_repuestos_xlsx', methods: ['GET'])]
+    #[IsGranted('reports.main.view')]
+    public function repuestosYamahaXlsx(Request $request): Response
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        return $this->xlsx(
+            $this->reportService->repuestosYamahaXlsx($from, $to),
+            'venta_repuestos_yamaha.xlsx',
+        );
+    }
+
+    #[Route('/stock-repuestos.xlsx', name: 'reports_stock_repuestos_xlsx', methods: ['GET'])]
+    #[IsGranted('reports.main.view')]
+    public function stockRepuestosXlsx(): Response
+    {
+        return $this->xlsx(
+            $this->reportService->stockRepuestosXlsx(),
+            'stock_repuestos_yamaha.xlsx',
+        );
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function dateRange(Request $request): array
+    {
+        $from = $request->query->getString('from', date('Y-m-01'));
+        $to = $request->query->getString('to', date('Y-m-d'));
+        foreach (['from' => $from, 'to' => $to] as $name => $value) {
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) !== 1) {
+                throw new UnprocessableEntityHttpException(sprintf('Parámetro "%s" inválido (YYYY-MM-DD).', $name));
+            }
+        }
+
+        return [$from, $to];
+    }
+
+    private function xlsx(string $content, string $filename): Response
     {
         $response = new Response(
-            $this->reportService->stockVentasXlsx(),
+            $content,
             Response::HTTP_OK,
             ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
         );
-        $response->headers->set('Content-Disposition', 'attachment; filename="stock_y_ventas_motos.xlsx"');
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $filename));
 
         return $response;
     }

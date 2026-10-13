@@ -57,24 +57,26 @@ final class ReportService
             // Reporte de venta de repuestos (por línea). Solo ventas comprobadas
             // (COMPLETADA + comprobante ACEPTADO). Operaciones exoneradas: el precio
             // NO lleva IGV, por eso la columna no lo menciona. Un solo descuento (monto).
+            // Venta de repuestos en el FORMATO YAMAHA (Información Retail Requerida).
+            // CL/RUC = RUC del dealer; solo ventas comprobadas en el rango de fechas.
             'repuestosyamaha' => [
-                'title' => 'Venta de Repuestos',
-                'columns' => $this->cols(['CL/RUC', 'Local', 'Cliente', 'Teléfono', 'Código', 'Descripción', 'Cantidad', 'Precio Unit. (S/)', 'Descuento (S/)', 'Monto Total (S/)', 'Origen', 'Comprobante', 'Fecha']),
+                'title' => 'Venta de Repuestos (Formato Yamaha)',
+                'columns' => $this->cols(['Nro', 'Bloque', 'CL/RUC', 'Local', 'Código', 'Descripción', 'Cantidad Vendida', '% Descto', 'Descuento', 'Precio Venta (con IGV)', 'Monto total', 'Origen', 'Fecha Ope']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT :ruc, :local, c.name, COALESCE(NULLIF(c.phone, ''), c.mobile),
+                    "SELECT ROW_NUMBER() OVER (ORDER BY s.sale_date, s.id, si.id), 'Venta',
+                            :ruc, :local,
                             sp.part_code, si.description, si.quantity,
-                            si.unit_price, COALESCE(si.discount, 0), si.line_total,
+                            COALESCE(si.discount_percent, 0), COALESCE(si.discount, 0),
+                            si.unit_price, si.line_total,
                             CASE WHEN EXISTS (SELECT 1 FROM service_orders so WHERE so.invoice_sale_id = s.id) THEN 'Taller' ELSE 'Mostrador' END,
-                            (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id AND ed.status = 'ACEPTADO' ORDER BY ed.id DESC LIMIT 1),
                             s.sale_date
                      FROM sale_items si
                      JOIN sales s ON s.id = si.sale_id
-                     JOIN customers c ON c.id = s.customer_id
                      JOIN spare_parts sp ON sp.id = si.spare_part_id
                      WHERE si.item_type = 'SPARE_PART' AND s.status = 'COMPLETADA'
                        AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')
                        AND s.sale_date BETWEEN :from AND :to
-                     ORDER BY s.sale_date, s.id",
+                     ORDER BY s.sale_date, s.id, si.id",
                     array_merge($params, [
                         'ruc' => $this->settings->get('company.ruc') ?? '',
                         'local' => $this->settings->get('company.trade_name') ?: ($this->settings->get('company.name') ?? 'PRINCIPAL'),
@@ -127,11 +129,12 @@ final class ReportService
                                (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
                         FROM sale_items si JOIN sales s ON s.id = si.sale_id JOIN customers cu ON cu.id = s.customer_id
                         WHERE si.motorcycle_unit_id = u.id AND si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA'
+                          AND s.sale_date BETWEEN :from AND :to
                         ORDER BY s.sale_date DESC, s.id DESC LIMIT 1
                      ) v ON true
                      WHERE u.deleted_at IS NULL AND u.status <> 'BAJA'
                      ORDER BY u.status, m.model, u.internal_code",
-                    ['dealer' => $this->settings->get('company.name') ?? ''],
+                    array_merge($params, ['dealer' => $this->settings->get('company.name') ?? '']),
                 ),
             ],
             'purchases' => [
@@ -273,14 +276,23 @@ final class ReportService
                      ORDER BY sp.description",
                 ),
             ],
+            // Stock de repuestos en el FORMATO YAMAHA (Información Retail Requerida).
+            // Es una foto del stock actual; Valor Inventario = costo unitario.
             'stock' => [
-                'title' => 'Stock de Repuestos (a la fecha)',
-                'columns' => $this->cols(['Código', 'Cód. Parte', 'Descripción', 'Categoría', 'Stock']),
+                'title' => 'Stock de Repuestos (Formato Yamaha)',
+                'columns' => $this->cols(['Nro', 'Bloque', 'CL/RUC', 'Local', 'Código', 'Descripción', 'Cantidad en Stock', 'Valor Inventario', 'Monto Total Inventario']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT sp.internal_code, sp.part_code, sp.description, c.name, sp.stock
-                     FROM spare_parts sp LEFT JOIN catalog_items c ON c.id = sp.category_id
+                    "SELECT ROW_NUMBER() OVER (ORDER BY sp.description), 'Stock', :ruc, :local,
+                            sp.part_code, sp.description, sp.stock,
+                            COALESCE(sp.purchase_price, 0),
+                            ROUND(sp.stock * COALESCE(sp.purchase_price, 0), 2)
+                     FROM spare_parts sp
                      WHERE sp.deleted_at IS NULL AND sp.is_active = true
                      ORDER BY sp.description",
+                    [
+                        'ruc' => $this->settings->get('company.ruc') ?? '',
+                        'local' => $this->settings->get('company.trade_name') ?: ($this->settings->get('company.name') ?? 'PRINCIPAL'),
+                    ],
                 ),
             ],
             'stockmotos' => [
@@ -367,10 +379,12 @@ final class ReportService
      * El resto del archivo (estilos, temas, validaciones/desplegables, impresión)
      * queda intacto byte a byte, así que no hay corrupción.
      */
-    public function stockVentasXlsx(): string
+    public function stockVentasXlsx(string $from = '1900-01-01', string $to = '2999-12-31'): string
     {
         $dealer = $this->settings->get('company.name') ?: 'INTEGRA GLOBAL MOTORS S.A.C.';
 
+        // El stock se lista completo; las ventas se filtran por el rango (una unidad
+        // vendida fuera del rango aparece como stock, sin datos de venta).
         $rows = $this->db->fetchAllNumeric(
             "SELECT u.vin, v.sale_date, v.comprobante,
                     COALESCE(v.retail_payment_type, ''), COALESCE(v.retail_financial_entity, ''),
@@ -384,10 +398,12 @@ final class ReportService
                        (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
                 FROM sale_items si JOIN sales s ON s.id = si.sale_id
                 WHERE si.motorcycle_unit_id = u.id AND si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA'
+                  AND s.sale_date BETWEEN :from AND :to
                 ORDER BY s.sale_date DESC, s.id DESC LIMIT 1
              ) v ON true
              WHERE u.deleted_at IS NULL AND u.status <> 'BAJA'
              ORDER BY u.status, m.model, u.internal_code",
+            ['from' => $from, 'to' => $to],
         );
 
         // Estilos (s=) reutilizados de la propia plantilla, por columna C..O.
@@ -492,6 +508,84 @@ final class ReportService
         $zip->close();
         $bin = (string) file_get_contents($tmp);
         @unlink($tmp);
+
+        return $bin;
+    }
+
+    /** Venta de Repuestos en el formato Yamaha, como .xlsx limpio (una hoja). */
+    public function repuestosYamahaXlsx(string $from, string $to): string
+    {
+        $rep = $this->generate('repuestosyamaha', $from, $to);
+
+        return $this->tabularXlsx('VENTA DE REPUESTOS', $rep['columns'], $rep['rows'], [12], [6, 7, 8, 9, 10]);
+    }
+
+    /** Stock de Repuestos en el formato Yamaha, como .xlsx limpio (foto actual). */
+    public function stockRepuestosXlsx(): string
+    {
+        $rep = $this->generate('stock', '1900-01-01', '2999-12-31');
+
+        return $this->tabularXlsx('STOCK DE REPUESTOS', $rep['columns'], $rep['rows'], [], [6, 7, 8]);
+    }
+
+    /**
+     * Construye un .xlsx limpio de una hoja con encabezado resaltado y formatos de
+     * número/fecha por columna (índices 0-based). Se usa para los formatos Yamaha
+     * de repuestos; las columnas de texto (RUC, códigos) se escriben como texto
+     * para que Excel no las convierta a notación científica.
+     *
+     * @param list<array{label: string}> $columns
+     * @param list<array<int, mixed>>    $rows
+     * @param list<int>                  $dateCols
+     * @param list<int>                  $numCols
+     */
+    private function tabularXlsx(string $sheetTitle, array $columns, array $rows, array $dateCols = [], array $numCols = []): string
+    {
+        $ss = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $ws = $ss->getActiveSheet();
+        $ws->setTitle(substr($sheetTitle, 0, 31));
+
+        $headers = array_map(static fn (array $c): string => $c['label'], $columns);
+        $ws->fromArray($headers, null, 'A1');
+
+        $dateSet = array_fill_keys($dateCols, true);
+        $numSet = array_fill_keys($numCols, true);
+        $colLetter = static fn (int $i): string => \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($i);
+
+        $r = 2;
+        foreach ($rows as $row) {
+            $c = 0;
+            foreach ($row as $val) {
+                $ref = $colLetter($c + 1).$r;
+                if (isset($dateSet[$c]) && is_string($val) && preg_match('/^\d{4}-\d{2}-\d{2}/', $val) === 1) {
+                    $ws->setCellValue($ref, \PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(new \DateTime(substr($val, 0, 10))));
+                    $ws->getStyle($ref)->getNumberFormat()->setFormatCode('dd/mm/yyyy');
+                } elseif (isset($numSet[$c]) && is_numeric($val)) {
+                    $ws->setCellValue($ref, (float) $val);
+                    $ws->getStyle($ref)->getNumberFormat()->setFormatCode('#,##0.00');
+                } else {
+                    $ws->setCellValueExplicit($ref, (string) ($val ?? ''), \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                }
+                ++$c;
+            }
+            ++$r;
+        }
+
+        $n = max(1, count($headers));
+        $lastCol = $colLetter($n);
+        $ws->getStyle('A1:'.$lastCol.'1')->getFont()->setBold(true);
+        $ws->getStyle('A1:'.$lastCol.'1')->getFill()
+            ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('E8EEF5');
+        for ($i = 1; $i <= $n; ++$i) {
+            $ws->getColumnDimension($colLetter($i))->setAutoSize(true);
+        }
+        $ws->freezePane('A2');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'rep').'.xlsx';
+        (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($ss))->save($tmp);
+        $bin = (string) file_get_contents($tmp);
+        @unlink($tmp);
+        $ss->disconnectWorksheets();
 
         return $bin;
     }

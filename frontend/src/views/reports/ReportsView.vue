@@ -6,27 +6,53 @@ import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 
-const REPORT_TYPES = [
-  { key: 'sales', label: 'Ventas' },
-  { key: 'repuestosyamaha', label: 'Venta de Repuestos' },
-  { key: 'motosyamaha', label: 'Venta de Motos (Formato Yamaha)' },
-  { key: 'stockventasmotos', label: 'Stock y Ventas Motos (Formato Yamaha)' },
-  { key: 'purchases', label: 'Compras (resumen)' },
-  { key: 'comprasrepuestos', label: 'Compras de Repuestos (detalle)' },
-  { key: 'comprasmotos', label: 'Compras de Motos (detalle)' },
-  { key: 'cash', label: 'Caja' },
-  { key: 'kardex', label: 'Kardex' },
-  { key: 'workshop', label: 'Taller' },
-  { key: 'documents', label: 'Comprobantes SUNAT' },
-  { key: 'customers', label: 'Clientes' },
-  { key: 'suppliers', label: 'Proveedores' },
-  { key: 'motorcycles', label: 'Motocicletas' },
-  { key: 'inventory', label: 'Inventario Valorizado' },
-  { key: 'stock', label: 'Stock de Repuestos' },
-  { key: 'reposicion', label: 'Repuestos por reponer (pedido)' },
-  { key: 'stockmotos', label: 'Stock de Motos' },
-  { key: 'utilities', label: 'Utilidades' },
-  { key: 'audit', label: 'Auditoría' },
+/** Reportes agrupados por área para un menú ordenado (optgroups). */
+const REPORT_GROUPS = [
+  {
+    label: 'Ventas',
+    items: [
+      { key: 'sales', label: 'Ventas' },
+      { key: 'repuestosyamaha', label: 'Venta de Repuestos (Formato Yamaha)' },
+      { key: 'motosyamaha', label: 'Venta de Motos (Formato Yamaha)' },
+      { key: 'stockventasmotos', label: 'Stock y Ventas de Motos (Formato Yamaha)' },
+      { key: 'utilities', label: 'Utilidades' },
+    ],
+  },
+  {
+    label: 'Compras',
+    items: [
+      { key: 'purchases', label: 'Compras (resumen)' },
+      { key: 'comprasrepuestos', label: 'Compras de Repuestos (detalle)' },
+      { key: 'comprasmotos', label: 'Compras de Motos (detalle)' },
+    ],
+  },
+  {
+    label: 'Inventario',
+    items: [
+      { key: 'stock', label: 'Stock de Repuestos (Formato Yamaha)' },
+      { key: 'inventory', label: 'Inventario Valorizado' },
+      { key: 'reposicion', label: 'Repuestos por reponer (pedido)' },
+      { key: 'stockmotos', label: 'Stock de Motos' },
+      { key: 'motorcycles', label: 'Motocicletas' },
+    ],
+  },
+  { label: 'Taller', items: [{ key: 'workshop', label: 'Órdenes de Taller' }] },
+  {
+    label: 'Finanzas',
+    items: [
+      { key: 'cash', label: 'Caja' },
+      { key: 'kardex', label: 'Kardex (movimientos de stock)' },
+    ],
+  },
+  { label: 'SUNAT', items: [{ key: 'documents', label: 'Comprobantes SUNAT' }] },
+  {
+    label: 'Maestros',
+    items: [
+      { key: 'customers', label: 'Clientes' },
+      { key: 'suppliers', label: 'Proveedores' },
+    ],
+  },
+  { label: 'Sistema', items: [{ key: 'audit', label: 'Auditoría' }] },
 ]
 
 const filters = reactive({
@@ -35,8 +61,16 @@ const filters = reactive({
   to: new Date().toISOString().slice(0, 10),
 })
 
-/** Reportes que son una "foto" del estado actual (stock): no usan rango de fechas. */
-const usesDateRange = computed(() => filters.type !== 'stockventasmotos')
+/** Reportes que son una "foto" del estado actual: no usan rango de fechas. */
+const SNAPSHOT = ['stock', 'inventory', 'reposicion', 'stockmotos', 'motorcycles']
+const usesDateRange = computed(() => !SNAPSHOT.includes(filters.type))
+
+/** Reportes con descarga Excel en plantilla oficial (no el export genérico). */
+const TEMPLATE_XLSX: Record<string, { url: string; file: string; dates: boolean }> = {
+  stockventasmotos: { url: '/reports/stock-ventas-motos.xlsx', file: 'stock_y_ventas_motos.xlsx', dates: true },
+  repuestosyamaha: { url: '/reports/repuestos-yamaha.xlsx', file: 'venta_repuestos_yamaha.xlsx', dates: true },
+  stock: { url: '/reports/stock-repuestos.xlsx', file: 'stock_repuestos_yamaha.xlsx', dates: false },
+}
 
 const report = ref<{ title: string; columns: { label: string }[]; rows: unknown[][] } | null>(null)
 const loading = ref(false)
@@ -55,29 +89,31 @@ async function generate(): Promise<void> {
   }
 }
 
-/** Descarga el reporte de Stock y Ventas de Motos en la PLANTILLA oficial Yamaha (.xlsx con diseño y filtros). */
+/** Descarga un reporte en su plantilla Excel oficial (.xlsx con diseño). */
 const downloadingYamaha = ref(false)
-async function downloadYamaha(): Promise<void> {
+async function downloadTemplate(cfg: { url: string; file: string; dates: boolean }): Promise<void> {
   downloadingYamaha.value = true
   try {
-    const res = await api.get('/reports/stock-ventas-motos.xlsx', { responseType: 'blob' })
+    const params = cfg.dates ? { from: filters.from, to: filters.to } : {}
+    const res = await api.get(cfg.url, { params, responseType: 'blob' })
     const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = 'stock_y_ventas_motos.xlsx'
+    link.download = cfg.file
     link.click()
     URL.revokeObjectURL(link.href)
   } catch {
-    errorMsg.value = 'No se pudo generar el formato Yamaha.'
+    errorMsg.value = 'No se pudo generar el Excel.'
   } finally {
     downloadingYamaha.value = false
   }
 }
 
-/** Exporta el reporte visible a Excel. Stock y Ventas de Motos usa la plantilla oficial Yamaha. */
+/** Exporta el reporte visible a Excel. Algunos usan una plantilla oficial (.xlsx). */
 function exportExcel(): void {
-  if (filters.type === 'stockventasmotos') {
-    void downloadYamaha()
+  const tpl = TEMPLATE_XLSX[filters.type]
+  if (tpl) {
+    void downloadTemplate(tpl)
     return
   }
   if (!report.value) return
@@ -105,7 +141,9 @@ function exportExcel(): void {
         <div>
           <label class="form-label">Reporte</label>
           <select v-model="filters.type" class="form-input">
-            <option v-for="t in REPORT_TYPES" :key="t.key" :value="t.key">{{ t.label }}</option>
+            <optgroup v-for="g in REPORT_GROUPS" :key="g.label" :label="g.label">
+              <option v-for="t in g.items" :key="t.key" :value="t.key">{{ t.label }}</option>
+            </optgroup>
           </select>
         </div>
         <div v-if="usesDateRange">
@@ -121,7 +159,7 @@ function exportExcel(): void {
             {{ loading ? 'Generando…' : 'Generar' }}
           </button>
           <button
-            v-if="report && auth.can('reports.main.export')"
+            v-if="(report || TEMPLATE_XLSX[filters.type]) && auth.can('reports.main.export')"
             class="btn-secondary"
             :disabled="downloadingYamaha"
             @click="exportExcel"
@@ -130,6 +168,9 @@ function exportExcel(): void {
           </button>
         </div>
       </div>
+      <p v-if="filters.type === 'stockventasmotos'" class="mt-3 text-xs text-gray-500">
+        El stock se muestra completo; el rango de fechas filtra solo las <b>ventas</b> (una unidad vendida fuera del rango aparece como stock).
+      </p>
       <p v-if="errorMsg" class="mt-3 text-sm text-red-600">{{ errorMsg }}</p>
     </div>
 
