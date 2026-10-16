@@ -856,10 +856,11 @@ onMounted(async () => {
 
         <table class="w-full text-left">
           <thead class="text-xs uppercase text-gray-500">
-            <tr><th class="py-1">Descripción</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Total</th></tr>
+            <tr><th class="py-1">Código</th><th class="py-1">Descripción</th><th class="py-1 text-right">Cant.</th><th class="py-1 text-right">P.Unit</th><th class="py-1 text-right">Total</th></tr>
           </thead>
           <tbody>
             <tr v-for="i in detail.items" :key="i.id" class="border-t border-gray-100">
+              <td class="py-1 font-mono text-xs text-gray-600">{{ i.code || '—' }}</td>
               <td class="py-1">{{ i.description }}</td>
               <td class="py-1 text-right">{{ i.quantity }}</td>
               <td class="py-1 text-right">{{ i.unitPrice }}</td>
