@@ -95,6 +95,7 @@ const pvpMargin = computed(() => {
   return { amount: s - p, pct: ((s - p) / p) * 100 }
 })
 const confirmTarget = ref<SparePartItem | null>(null)
+const deleting = ref(false)
 const viewTarget = ref<SparePartItem | null>(null)
 
 // Kardex y ajuste
@@ -293,11 +294,20 @@ async function applyAdjust(): Promise<void> {
 
 async function confirmDelete(): Promise<void> {
   if (!confirmTarget.value) return
+  const target = confirmTarget.value
+  deleting.value = true
   try {
-    await sparePartService.remove(confirmTarget.value.id)
-  } finally {
+    await sparePartService.remove(target.id)
     confirmTarget.value = null
+    toast.success('Repuesto eliminado.')
     await load()
+  } catch (e: any) {
+    // Normalmente: tiene ventas/cotizaciones asociadas → no se puede borrar del todo.
+    const msg = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo eliminar el repuesto.'
+    toast.error(`${msg} Si ya no lo usas, desactívalo en «Editar» (quita «Activo») para ocultarlo sin borrar su historial.`)
+    confirmTarget.value = null
+  } finally {
+    deleting.value = false
   }
 }
 
