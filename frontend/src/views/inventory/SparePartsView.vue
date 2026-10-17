@@ -356,7 +356,7 @@ onMounted(async () => {
       :rows="rows"
       :meta="meta"
       :loading="loading"
-      search-placeholder="Buscar por código, descripción o código de barras…"
+      search-placeholder="Buscar por código, descripción, categoría/kit, marca o código de barras…"
       @change="onTableChange"
     >
       <template #toolbar>
