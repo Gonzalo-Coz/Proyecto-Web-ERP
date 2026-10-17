@@ -3,7 +3,7 @@ import type { ListQuery, Paginated } from '@/types/common'
 import type { KardexEntry, SparePartItem, SparePartPayload } from '@/types/inventory'
 
 export const sparePartService = {
-  list(query: ListQuery & { compatibleModelId?: number; stockFilter?: string }): Promise<Paginated<SparePartItem>> {
+  list(query: ListQuery & { compatibleModelId?: number; stockFilter?: string; categoryId?: number }): Promise<Paginated<SparePartItem>> {
     return api.get('/inventory/spare-parts', { params: query }).then((r) => r.data)
   },
   create(payload: SparePartPayload): Promise<SparePartItem> {

@@ -40,6 +40,7 @@ const brands = ref<CatalogItem[]>([])
 const categories = ref<CatalogItem[]>([])
 const models = ref<ModelItem[]>([])
 const stockFilter = ref('')
+const categoryFilter = ref<number | null>(null)
 const query = reactive({ page: 1, perPage: 10, search: '', sort: 'description', direction: 'asc' as const })
 
 const modalOpen = ref(false)
@@ -163,7 +164,7 @@ const importStatusClass: Record<string, string> = {
 async function load(): Promise<void> {
   loading.value = true
   try {
-    const result = await sparePartService.list({ ...query, stockFilter: stockFilter.value })
+    const result = await sparePartService.list({ ...query, stockFilter: stockFilter.value, categoryId: categoryFilter.value ?? 0 })
     rows.value = result.data
     meta.value = result.meta
   } finally {
@@ -176,7 +177,7 @@ const exporting = ref(false)
 async function exportExcel(): Promise<void> {
   exporting.value = true
   try {
-    const res = await sparePartService.list({ ...query, page: 1, perPage: 100000, stockFilter: stockFilter.value })
+    const res = await sparePartService.list({ ...query, page: 1, perPage: 100000, stockFilter: stockFilter.value, categoryId: categoryFilter.value ?? 0 })
     const esc = (v: unknown): string => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const suggest = (p: SparePartItem): number => Math.max(0, Math.max(p.maxStock ?? p.minStock, p.minStock) - p.stock)
     const cols = ['Código', 'Cód. Parte', 'Código de barras', 'Descripción', 'Marca', 'Categoría', 'Stock', 'Mínimo', 'Máximo', 'Sugerido a pedir', 'Costo Unit.', 'Últ. compra', 'Ubicación']
@@ -325,7 +326,7 @@ onMounted(async () => {
 
 <template>
   <DefaultLayout>
-    <div class="mb-4 flex gap-2">
+    <div class="mb-4 flex flex-wrap items-center gap-2">
       <button
         v-for="f in [{ k: '', l: 'Todos' }, { k: 'low', l: 'Stock bajo' }, { k: 'out', l: 'Sin stock' }]"
         :key="f.k"
@@ -335,6 +336,19 @@ onMounted(async () => {
       >
         {{ f.l }}
       </button>
+
+      <!-- Filtro por categoría / kit (ej. KIT ARRASTRE XTZ150 → piñón, catalina, cadena). -->
+      <div class="ml-auto flex items-center gap-2">
+        <label class="text-sm text-gray-500">Categoría / Kit:</label>
+        <select
+          v-model.number="categoryFilter"
+          class="form-input !w-56"
+          @change="query.page = 1; load()"
+        >
+          <option :value="null">Todas las categorías</option>
+          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
     </div>
 
     <DataTable

@@ -66,6 +66,7 @@ final class SparePartController
             direction: $request->query->getString('direction', 'asc'),
             compatibleModelId: $request->query->getInt('compatibleModelId', 0),
             stockFilter: $request->query->getString('stockFilter', ''),
+            categoryId: $request->query->getInt('categoryId', 0),
         ));
     }
 

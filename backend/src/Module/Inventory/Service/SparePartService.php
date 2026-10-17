@@ -33,7 +33,7 @@ final class SparePartService
     }
 
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */
-    public function list(int $page, int $perPage, string $search, string $sort, string $direction, int $compatibleModelId, string $stockFilter): array
+    public function list(int $page, int $perPage, string $search, string $sort, string $direction, int $compatibleModelId, string $stockFilter, int $categoryId = 0): array
     {
         $page = max(1, $page);
         $perPage = min(5000, max(1, $perPage));
@@ -56,6 +56,9 @@ final class SparePartService
         }
         if ($compatibleModelId > 0) {
             $qb->join('p.compatibleModels', 'cm')->andWhere('cm.id = :mid')->setParameter('mid', $compatibleModelId);
+        }
+        if ($categoryId > 0) {
+            $qb->andWhere('c.id = :cat')->setParameter('cat', $categoryId);
         }
         if ($stockFilter === 'low') {
             $qb->andWhere('p.stock > 0 AND p.stock <= p.minStock');

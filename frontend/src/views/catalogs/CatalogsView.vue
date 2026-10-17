@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
@@ -11,7 +11,61 @@ import { CATALOG_TYPES, type CatalogItem, type CatalogType } from '@/types/catal
 
 const auth = useAuthStore()
 
+/**
+ * Contexto por tipo de catálogo: qué es, cómo se llama en singular, ejemplos y
+ * si usa "código". Hace que crear marcas/categorías/etc. sea claro en vez de un
+ * formulario genérico "Nombre/Código" sin sentido.
+ */
+const TYPE_META: Record<CatalogType, {
+  singular: string
+  plural: string
+  newLabel: string
+  help: string
+  nameLabel: string
+  namePlaceholder: string
+  showCode: boolean
+  codeHelp?: string
+}> = {
+  brands: {
+    singular: 'marca',
+    plural: 'marcas',
+    newLabel: 'Nueva marca',
+    help: 'Fabricantes de repuestos y motos. Se eligen al registrar un repuesto. Ej.: Yamaha, Suzuki, NGK, Motul.',
+    nameLabel: 'Nombre de la marca',
+    namePlaceholder: 'Ej. Yamaha',
+    showCode: false,
+  },
+  categories: {
+    singular: 'categoría',
+    plural: 'categorías',
+    newLabel: 'Nueva categoría',
+    help: 'Agrupan los repuestos por tipo o arman un “kit”. Luego puedes filtrar la lista de repuestos por aquí. Ej.: Filtros, Lubricantes, KIT ARRASTRE XTZ150 (piñón, catalina y cadena).',
+    nameLabel: 'Nombre de la categoría o kit',
+    namePlaceholder: 'Ej. KIT ARRASTRE XTZ150',
+    showCode: false,
+  },
+  payment_methods: {
+    singular: 'método de pago',
+    plural: 'métodos de pago',
+    newLabel: 'Nuevo método de pago',
+    help: 'Formas en que cobras o pagas. Aparecen al registrar cobros y compras. Ej.: Efectivo, Yape, Plin, Tarjeta, Transferencia.',
+    nameLabel: 'Nombre del método de pago',
+    namePlaceholder: 'Ej. Yape',
+    showCode: false,
+  },
+  banks: {
+    singular: 'banco',
+    plural: 'bancos',
+    newLabel: 'Nuevo banco',
+    help: 'Entidades bancarias para las referencias de pago y financiamiento. Ej.: BCP, BBVA, Interbank, Scotiabank.',
+    nameLabel: 'Nombre del banco',
+    namePlaceholder: 'Ej. BCP',
+    showCode: false,
+  },
+}
+
 const activeType = ref<CatalogType>('brands')
+const meta = computed(() => TYPE_META[activeType.value])
 const items = ref<CatalogItem[]>([])
 const loading = ref(false)
 const search = ref('')
@@ -107,11 +161,16 @@ onMounted(load)
       </button>
     </div>
 
+    <!-- Explica para qué sirve el catálogo activo, con ejemplos. -->
+    <div class="mb-4 rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-sm text-gray-600">
+      {{ meta.help }}
+    </div>
+
     <div class="card p-0">
       <div class="flex items-center justify-between gap-4 border-b border-gray-200 p-4">
-        <input v-model="search" type="search" class="form-input max-w-xs" placeholder="Filtrar…" />
+        <input v-model="search" type="search" class="form-input max-w-xs" :placeholder="`Buscar ${meta.singular}…`" />
         <button v-if="auth.can('settings.catalogs.create')" class="btn-primary" @click="openCreate">
-          Nuevo elemento
+          + {{ meta.newLabel }}
         </button>
       </div>
 
@@ -119,21 +178,23 @@ onMounted(load)
         <thead class="bg-gray-50 text-xs uppercase text-gray-500">
           <tr>
             <th class="px-4 py-3 font-medium">Nombre</th>
-            <th class="px-4 py-3 font-medium">Código</th>
+            <th v-if="meta.showCode" class="px-4 py-3 font-medium">Código</th>
             <th class="px-4 py-3 font-medium">Estado</th>
             <th class="px-4 py-3 text-right font-medium">Acciones</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="4" class="px-4 py-8 text-center text-gray-400">Cargando…</td>
+            <td :colspan="meta.showCode ? 4 : 3" class="px-4 py-8 text-center text-gray-400">Cargando…</td>
           </tr>
           <tr v-else-if="filtered().length === 0">
-            <td colspan="4" class="px-4 py-8 text-center text-gray-400">Sin elementos.</td>
+            <td :colspan="meta.showCode ? 4 : 3" class="px-4 py-8 text-center text-gray-400">
+              Aún no hay {{ meta.plural }}. Pulsa «+ {{ meta.newLabel }}» para agregar.
+            </td>
           </tr>
           <tr v-for="item in filtered()" v-else :key="item.id" class="border-t border-gray-100 hover:bg-gray-50">
             <td class="px-4 py-3">{{ item.name }}</td>
-            <td class="px-4 py-3 text-gray-500">{{ item.code ?? '—' }}</td>
+            <td v-if="meta.showCode" class="px-4 py-3 text-gray-500">{{ item.code ?? '—' }}</td>
             <td class="px-4 py-3"><StatusBadge :active="item.isActive" /></td>
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-2">
@@ -160,19 +221,19 @@ onMounted(load)
 
     <BaseModal
       :open="modalOpen"
-      :title="editing ? `Editar: ${editing.name}` : 'Nuevo elemento'"
+      :title="editing ? `Editar ${meta.singular}: ${editing.name}` : meta.newLabel"
       @close="modalOpen = false"
     >
       <form class="space-y-4" @submit.prevent="save">
-        <FormField label="Nombre" required>
-          <input v-model="form.name" class="form-input" required maxlength="100" />
+        <FormField :label="meta.nameLabel" required>
+          <input v-model="form.name" class="form-input" required maxlength="100" :placeholder="meta.namePlaceholder" />
         </FormField>
-        <FormField label="Código (opcional, para referencias del sistema)">
-          <input v-model="form.code" class="form-input uppercase" maxlength="30" />
+        <FormField v-if="meta.showCode" label="Código (opcional)">
+          <input v-model="form.code" class="form-input uppercase" maxlength="30" :placeholder="meta.codeHelp ?? 'Para referencias internas'" />
         </FormField>
         <label class="flex items-center gap-2 text-sm text-gray-700">
           <input v-model="form.isActive" type="checkbox" />
-          Activo
+          Activo (disponible para usar en el sistema)
         </label>
 
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
