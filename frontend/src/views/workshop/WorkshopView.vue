@@ -884,6 +884,12 @@ onMounted(async () => {
             <span class="text-xs text-gray-500">Carga los trabajos/repuestos e imprime las actas en esta etapa.</span>
           </div>
 
+          <!-- Ya facturada (p. ej. orden antigua): solo falta marcar entregada. -->
+          <div v-else-if="detail.status === 'EN_REPARACION' && detail.invoiceSaleId" class="flex flex-wrap items-center gap-2">
+            <button class="btn-primary" @click="advanceTo('ENTREGADA')">✓ Marcar entregada</button>
+            <span class="text-xs text-gray-500">Esta orden ya fue facturada (venta #{{ detail.invoiceSaleId }}).</span>
+          </div>
+
           <div v-else-if="detail.status === 'EN_REPARACION'" class="flex flex-wrap items-center gap-2">
             <label class="text-xs text-gray-600">Zona:</label>
             <select v-model="invoiceZone" class="form-input !w-auto !py-1 !text-sm">
