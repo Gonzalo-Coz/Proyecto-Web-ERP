@@ -20,20 +20,16 @@ import type { PageMeta } from '@/types/common'
 import { DOCUMENT_TYPES, type CustomerItem } from '@/types/masters'
 import type { UnitItem, ModelItem } from '@/types/motorcycles'
 import type { SparePartItem } from '@/types/inventory'
-import { ORDER_STATUSES, type OrderStatus, type ServiceOrderItem, type ServiceOrderSummary } from '@/types/workshop'
+import { ORDER_STATUSES, ORDER_STATUS_LABELS, type OrderStatus, type ServiceOrderItem, type ServiceOrderSummary } from '@/types/workshop'
 import type { MaintenancePlanActivity, MaintenancePlanModel, MaintenancePlanServiceDetail } from '@/types/maintenance'
 
 const auth = useAuthStore()
 const toast = useToast()
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
+const STATUS_COLORS: Record<string, string> = {
   RECIBIDA: 'bg-gray-200 text-gray-700',
-  EN_DIAGNOSTICO: 'bg-blue-100 text-blue-800',
-  ESPERANDO_REPUESTOS: 'bg-orange-100 text-orange-800',
   EN_REPARACION: 'bg-yellow-100 text-yellow-800',
-  LISTA_PARA_ENTREGA: 'bg-teal-100 text-teal-800',
   ENTREGADA: 'bg-green-100 text-green-800',
-  GARANTIA: 'bg-purple-100 text-purple-800',
   ANULADA: 'bg-red-100 text-red-700',
 }
 
@@ -95,7 +91,6 @@ function onDraftPartChange(d: DraftItem): void {
   if (p) d.unitPrice = Number(p.salePrice ?? 0)
 }
 const draftItems = ref<DraftItem[]>([blankDraft()])
-const newStatus = ref<OrderStatus>('RECIBIDA')
 
 // --- Plan de mantenimiento por kilometraje ---
 const planModels = ref<MaintenancePlanModel[]>([])
@@ -441,7 +436,6 @@ async function save(): Promise<void> {
     const created = await workshopService.create({ ...form })
     modalOpen.value = false
     detail.value = created
-    newStatus.value = created.status
     await load()
   } catch (e: any) {
     formError.value = e.response?.data?.detail ?? e.response?.data?.message ?? 'No se pudo crear la orden.'
@@ -452,7 +446,6 @@ async function save(): Promise<void> {
 
 async function openDetail(row: ServiceOrderSummary): Promise<void> {
   detail.value = await workshopService.get(row.id)
-  newStatus.value = detail.value.status
   detailError.value = ''
   draftItems.value = [blankDraft()]
   planWarnings.value = []
@@ -536,11 +529,12 @@ async function doUpdateItem(item: ServiceOrderItem, patch: { quantity?: number; 
   }
 }
 
-async function doChangeStatus(): Promise<void> {
+/** Avanza la orden a la siguiente etapa con un clic (Recibida → En trabajo). */
+async function advanceTo(status: OrderStatus): Promise<void> {
   if (!detail.value) return
   detailError.value = ''
   try {
-    detail.value = await workshopService.changeStatus(detail.value.id, newStatus.value)
+    detail.value = await workshopService.changeStatus(detail.value.id, status)
     await load(meta.value?.page ?? 1)
   } catch (e: any) {
     detailError.value = e.response?.data?.detail ?? 'No se pudo cambiar el estado.'
@@ -549,15 +543,22 @@ async function doChangeStatus(): Promise<void> {
 
 /** Zona tributaria para facturar el servicio. Amazonía (exonerado) por defecto (Tingo María). */
 const invoiceZone = ref<'AMAZONIA' | 'LOCAL'>('AMAZONIA')
+const invoicing = ref(false)
 
-async function doInvoice(): Promise<void> {
+/** Facturar y entregar en un solo paso (Etapa 3): emite el comprobante y marca entregada. */
+async function doInvoiceAndDeliver(): Promise<void> {
   if (!detail.value) return
+  if (!window.confirm('Se emitirá el comprobante y la orden quedará ENTREGADA. ¿Continuar?')) return
   detailError.value = ''
+  invoicing.value = true
   try {
-    detail.value = await workshopService.invoice(detail.value.id, invoiceZone.value)
+    detail.value = await workshopService.invoice(detail.value.id, invoiceZone.value, true)
     await load(meta.value?.page ?? 1)
+    toast.success('Orden facturada y entregada.')
   } catch (e: any) {
-    detailError.value = e.response?.data?.detail ?? 'No se pudo facturar la orden.'
+    detailError.value = e.response?.data?.detail ?? 'No se pudo facturar y entregar la orden.'
+  } finally {
+    invoicing.value = false
   }
 }
 
@@ -628,7 +629,7 @@ onMounted(async () => {
         :class="statusFilter === f ? 'bg-primary-600 text-white' : 'border border-gray-300 bg-white text-gray-700'"
         @click="statusFilter = f; load(1)"
       >
-        {{ f === '' ? 'Todas' : f.replaceAll('_', ' ') }}
+        {{ f === '' ? 'Todas' : ORDER_STATUS_LABELS[f] }}
       </button>
     </div>
 
@@ -662,7 +663,7 @@ onMounted(async () => {
             <td class="px-4 py-3 text-right">S/ {{ o.total }}</td>
             <td class="px-4 py-3">
               <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium" :class="STATUS_COLORS[o.status]">
-                {{ o.status.replaceAll('_', ' ') }}
+                {{ ORDER_STATUS_LABELS[o.status] ?? o.status }}
               </span>
             </td>
             <td class="px-4 py-3 text-right"><button class="btn-secondary" @click="openDetail(o)">Ver</button></td>
@@ -678,26 +679,22 @@ onMounted(async () => {
     <!-- Recepción -->
     <BaseModal :open="modalOpen" title="Recepción de motocicleta" size="xl" @close="modalOpen = false">
       <form class="space-y-4" @submit.prevent="save">
-        <div class="grid grid-cols-2 gap-4">
-          <FormField label="Cliente (titular)" required>
-            <div class="flex gap-2">
-              <div class="flex-1">
-                <SearchableSelect
-                  v-model="form.customerId"
-                  :options="customers"
-                  :option-label="(c) => `${c.name} (${c.documentNumber})`"
-                  placeholder="Escribe nombre, DNI o RUC…"
-                  @change="onReceptionCustomerChange"
-                />
-              </div>
-              <button type="button" class="btn-secondary whitespace-nowrap" title="Registrar un cliente nuevo" @click="openNewCustomer">+ Nuevo cliente</button>
+        <!-- Esencial: lo mínimo para registrar rápido cuando hay cola. -->
+        <FormField label="Cliente (titular)" required>
+          <div class="flex gap-2">
+            <div class="flex-1">
+              <SearchableSelect
+                v-model="form.customerId"
+                :options="customers"
+                :option-label="(c) => `${c.name} (${c.documentNumber})`"
+                placeholder="Escribe nombre, DNI o RUC…"
+                @change="onReceptionCustomerChange"
+              />
             </div>
-            <p v-if="receptionHint" class="mt-1 text-xs" :class="form.motorcycleUnitId ? 'text-emerald-700' : 'text-gray-500'">{{ receptionHint }}</p>
-          </FormField>
-          <FormField label="Ingresa / a nombre de (opcional)">
-            <input v-model="form.broughtBy" class="form-input" maxlength="150" placeholder="Quién trae la moto, si es distinto" />
-          </FormField>
-        </div>
+            <button type="button" class="btn-secondary whitespace-nowrap" title="Registrar un cliente nuevo" @click="openNewCustomer">+ Nuevo cliente</button>
+          </div>
+          <p v-if="receptionHint" class="mt-1 text-xs" :class="form.motorcycleUnitId ? 'text-emerald-700' : 'text-gray-500'">{{ receptionHint }}</p>
+        </FormField>
         <FormField label="Unidad vendida por la empresa (expediente digital)">
           <div class="flex gap-2">
             <select v-model.number="form.motorcycleUnitId" class="form-input flex-1" @change="prefillMoto">
@@ -728,53 +725,63 @@ onMounted(async () => {
         <FormField v-if="form.motorcycleUnitId === null" label="Descripción de la motocicleta" required>
           <input v-model="form.motorcycleDescription" class="form-input" required maxlength="200" placeholder="Se llena al elegir el modelo; puedes ajustarla" />
         </FormField>
-        <div class="grid grid-cols-4 gap-4">
-          <FormField label="Marca">
-            <input v-model="form.motoBrand" class="form-input" maxlength="60" placeholder="Yamaha" />
-          </FormField>
-          <FormField label="Color">
-            <input v-model="form.motoColor" class="form-input" maxlength="60" />
-          </FormField>
-          <FormField label="N° de serie">
-            <input v-model="form.motoSerial" class="form-input" maxlength="60" />
-          </FormField>
+        <div class="grid grid-cols-3 gap-4">
           <FormField label="Placa">
             <input v-model="form.plate" class="form-input uppercase" maxlength="10" />
           </FormField>
-        </div>
-        <div class="grid grid-cols-4 gap-4">
           <FormField label="Kilometraje">
             <input v-model.number="form.mileage" type="number" min="0" class="form-input" />
           </FormField>
-          <FormField label="Fecha de ingreso" required>
-            <input v-model="form.entryDate" type="date" class="form-input" required />
-          </FormField>
-          <FormField label="Hora de ingreso">
-            <input v-model="form.entryTime" type="time" class="form-input" />
-          </FormField>
-          <FormField label="Tiempo estimado (horas)">
-            <input v-model.number="form.estimatedHours" type="number" min="0" step="0.5" class="form-input" placeholder="Ej. 3" />
+          <FormField label="Motivo / diagnóstico">
+            <input v-model="form.diagnosis" class="form-input" placeholder="Qué reporta o qué se hará" />
           </FormField>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <FormField label="Mecánico asignado">
-            <input v-model="form.mechanicName" class="form-input" maxlength="100" />
-          </FormField>
-          <FormField label="Diagnóstico inicial">
-            <input v-model="form.diagnosis" class="form-input" />
-          </FormField>
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-          <FormField label="Teléfono de contacto">
-            <input v-model="form.contactPhone" class="form-input" maxlength="30" />
-          </FormField>
-          <FormField label="Email de contacto">
-            <input v-model="form.contactEmail" type="email" class="form-input" maxlength="120" />
-          </FormField>
-        </div>
-        <FormField label="Observaciones">
-          <input v-model="form.notes" class="form-input" />
-        </FormField>
+
+        <!-- Resto opcional, plegado para no alargar la recepción. -->
+        <details class="rounded-lg border border-gray-200 p-3">
+          <summary class="cursor-pointer select-none text-sm font-medium text-gray-600">Más detalles (opcional)</summary>
+          <div class="mt-3 space-y-4">
+            <FormField label="Ingresa / a nombre de">
+              <input v-model="form.broughtBy" class="form-input" maxlength="150" placeholder="Quién trae la moto, si es distinto" />
+            </FormField>
+            <div class="grid grid-cols-3 gap-4">
+              <FormField label="Marca">
+                <input v-model="form.motoBrand" class="form-input" maxlength="60" placeholder="Yamaha" />
+              </FormField>
+              <FormField label="Color">
+                <input v-model="form.motoColor" class="form-input" maxlength="60" />
+              </FormField>
+              <FormField label="N° de serie">
+                <input v-model="form.motoSerial" class="form-input" maxlength="60" />
+              </FormField>
+            </div>
+            <div class="grid grid-cols-4 gap-4">
+              <FormField label="Fecha de ingreso">
+                <input v-model="form.entryDate" type="date" class="form-input" />
+              </FormField>
+              <FormField label="Hora de ingreso">
+                <input v-model="form.entryTime" type="time" class="form-input" />
+              </FormField>
+              <FormField label="Tiempo estimado (h)">
+                <input v-model.number="form.estimatedHours" type="number" min="0" step="0.5" class="form-input" placeholder="Ej. 3" />
+              </FormField>
+              <FormField label="Mecánico asignado">
+                <input v-model="form.mechanicName" class="form-input" maxlength="100" />
+              </FormField>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <FormField label="Teléfono de contacto">
+                <input v-model="form.contactPhone" class="form-input" maxlength="30" />
+              </FormField>
+              <FormField label="Email de contacto">
+                <input v-model="form.contactEmail" type="email" class="form-input" maxlength="120" />
+              </FormField>
+            </div>
+            <FormField label="Observaciones">
+              <input v-model="form.notes" class="form-input" />
+            </FormField>
+          </div>
+        </details>
         <p v-if="formError" class="text-sm text-red-600">{{ formError }}</p>
         <div class="flex justify-end gap-3 pt-2">
           <button type="button" class="btn-secondary" @click="modalOpen = false">Cancelar</button>
@@ -859,27 +866,34 @@ onMounted(async () => {
           <p v-if="detail.notes" class="col-span-2">Observaciones: <strong class="text-gray-900">{{ detail.notes }}</strong></p>
         </div>
 
+        <!-- Documentos: historia clínica siempre; actas según la etapa. -->
         <div class="flex flex-wrap justify-end gap-2">
-          <button
-            class="btn-secondary"
-            :disabled="historyLoading"
-            @click="openOrderHistory(detail.id)"
-          >
+          <button class="btn-secondary" :disabled="historyLoading" @click="openOrderHistory(detail.id)">
             {{ historyLoading ? 'Abriendo…' : '📋 Historia clínica' }}
           </button>
-          <button class="btn-secondary" @click="doPrint">🖨 Orden de Servicio</button>
-          <button class="btn-secondary" @click="doDelivery">🖨 Acta de Entrega</button>
+          <button v-if="detail.status !== 'RECIBIDA'" class="btn-secondary" @click="doPrint">🖨 Orden / Acta</button>
+          <button v-if="detail.status === 'ENTREGADA'" class="btn-secondary" @click="doDelivery">🖨 Acta de Entrega</button>
         </div>
 
-        <!-- Estado -->
-        <div v-if="auth.can('workshop.orders.edit') && orderEditable" class="flex items-end gap-2 rounded-lg bg-gray-50 p-3">
-          <div class="flex-1">
-            <label class="form-label text-xs">Estado de la orden</label>
-            <select v-model="newStatus" class="form-input">
-              <option v-for="s in ORDER_STATUSES" :key="s" :value="s">{{ s.replaceAll('_', ' ') }}</option>
-            </select>
+        <!-- Avance del flujo en 3 etapas, con un clic. -->
+        <div v-if="auth.can('workshop.orders.edit') && orderEditable" class="rounded-lg bg-gray-50 p-3">
+          <p class="mb-2 text-xs font-semibold uppercase text-gray-500">Avanzar la orden</p>
+
+          <div v-if="detail.status === 'RECIBIDA'" class="flex flex-wrap items-center gap-2">
+            <button class="btn-primary" @click="advanceTo('EN_REPARACION')">▶ Pasar a trabajo</button>
+            <span class="text-xs text-gray-500">Carga los trabajos/repuestos e imprime las actas en esta etapa.</span>
           </div>
-          <button class="btn-primary" @click="doChangeStatus">Actualizar</button>
+
+          <div v-else-if="detail.status === 'EN_REPARACION'" class="flex flex-wrap items-center gap-2">
+            <label class="text-xs text-gray-600">Zona:</label>
+            <select v-model="invoiceZone" class="form-input !w-auto !py-1 !text-sm">
+              <option value="AMAZONIA">Amazonía (exonerado de IGV)</option>
+              <option value="LOCAL">Local (con IGV)</option>
+            </select>
+            <button class="btn-primary" :disabled="invoicing" @click="doInvoiceAndDeliver">
+              {{ invoicing ? 'Procesando…' : '✓ Facturar y entregar' }}
+            </button>
+          </div>
         </div>
 
         <!-- Plan de mantenimiento por kilometraje -->
@@ -1171,14 +1185,6 @@ onMounted(async () => {
             <span v-if="detail.invoiceSaleId" class="rounded-full bg-green-100 px-3 py-1 text-xs text-green-800">
               Facturada (venta #{{ detail.invoiceSaleId }})
             </span>
-            <template v-if="auth.can('workshop.orders.approve') && !detail.invoiceSaleId && orderEditable && (detail.items?.length ?? 0) > 0">
-              <label class="text-xs text-gray-500" title="Tingo María es zona Amazonía: por defecto se exonera el IGV.">IGV:</label>
-              <select v-model="invoiceZone" class="form-input !w-auto !py-1 !text-sm">
-                <option value="AMAZONIA">Exonerado (Amazonía)</option>
-                <option value="LOCAL">Incluido (18%)</option>
-              </select>
-              <button class="btn-primary" @click="doInvoice">Facturar orden</button>
-            </template>
           </div>
         </div>
       </div>

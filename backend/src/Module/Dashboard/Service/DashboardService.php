@@ -136,9 +136,10 @@ final class DashboardService
         $counts = $this->db->fetchAllKeyValue('SELECT status, COUNT(*) FROM service_orders GROUP BY status');
 
         return [
-            'pending' => (int) ($counts['RECIBIDA'] ?? 0) + (int) ($counts['EN_DIAGNOSTICO'] ?? 0),
-            'inProgress' => (int) ($counts['ESPERANDO_REPUESTOS'] ?? 0) + (int) ($counts['EN_REPARACION'] ?? 0),
-            'ready' => (int) ($counts['LISTA_PARA_ENTREGA'] ?? 0),
+            // Flujo de 3 etapas: Recibida (cola) → En reparación (trabajo) → Entregada.
+            'pending' => (int) ($counts['RECIBIDA'] ?? 0),
+            'inProgress' => (int) ($counts['EN_REPARACION'] ?? 0),
+            'ready' => (int) ($counts['EN_REPARACION'] ?? 0),
             'delivered' => (int) ($counts['ENTREGADA'] ?? 0),
             'delayed' => (int) $this->scalar(
                 "SELECT COUNT(*) FROM service_orders WHERE status NOT IN ('ENTREGADA') AND estimated_date IS NOT NULL AND estimated_date < CURRENT_DATE",

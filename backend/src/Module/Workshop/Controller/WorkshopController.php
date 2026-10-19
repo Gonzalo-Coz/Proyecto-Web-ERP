@@ -87,8 +87,9 @@ final class WorkshopController
     {
         $body = $request->getContent() !== '' ? (array) json_decode($request->getContent(), true) : [];
         $taxZone = (string) ($body['taxZone'] ?? 'AMAZONIA');
+        $markDelivered = (bool) ($body['markDelivered'] ?? false);
 
-        return new JsonResponse($this->workshopService->invoice($id, $taxZone));
+        return new JsonResponse($this->workshopService->invoice($id, $taxZone, $markDelivered));
     }
 
     #[Route('/moto-history/{unitId<\d+>}', name: 'workshop_moto_history', methods: ['GET'])]

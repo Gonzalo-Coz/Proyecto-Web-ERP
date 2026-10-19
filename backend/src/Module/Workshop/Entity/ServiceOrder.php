@@ -24,10 +24,13 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\HasLifecycleCallbacks]
 class ServiceOrder
 {
-    public const STATUSES = [
-        'RECIBIDA', 'EN_DIAGNOSTICO', 'ESPERANDO_REPUESTOS',
-        'EN_REPARACION', 'LISTA_PARA_ENTREGA', 'ENTREGADA', 'GARANTIA', 'ANULADA',
-    ];
+    /**
+     * Flujo simplificado en 3 etapas (+ anulada):
+     *   RECIBIDA     → recepción y cola: datos del cliente/vehículo y lista de lo que se usará.
+     *   EN_REPARACION → en trabajo: se carga todo, se imprimen actas, historia clínica disponible.
+     *   ENTREGADA    → entrega final (se factura y entrega en un paso).
+     */
+    public const STATUSES = ['RECIBIDA', 'EN_REPARACION', 'ENTREGADA', 'ANULADA'];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

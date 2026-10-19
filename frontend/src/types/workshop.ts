@@ -1,9 +1,15 @@
-export const ORDER_STATUSES = [
-  'RECIBIDA', 'EN_DIAGNOSTICO', 'ESPERANDO_REPUESTOS',
-  'EN_REPARACION', 'LISTA_PARA_ENTREGA', 'ENTREGADA', 'GARANTIA',
-] as const
+// Flujo simplificado en 3 etapas (+ anulada por botón aparte).
+export const ORDER_STATUSES = ['RECIBIDA', 'EN_REPARACION', 'ENTREGADA'] as const
 // 'ANULADA' es un estado válido pero NO se elige por el selector (se usa el botón de anular).
 export type OrderStatus = (typeof ORDER_STATUSES)[number] | 'ANULADA'
+
+/** Etiquetas legibles de cada etapa. */
+export const ORDER_STATUS_LABELS: Record<string, string> = {
+  RECIBIDA: 'Recibida',
+  EN_REPARACION: 'En trabajo',
+  ENTREGADA: 'Entregada',
+  ANULADA: 'Anulada',
+}
 
 export interface ServiceOrderItem {
   id: number

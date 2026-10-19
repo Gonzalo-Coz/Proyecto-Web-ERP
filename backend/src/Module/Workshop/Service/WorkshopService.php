@@ -604,7 +604,7 @@ final class WorkshopService
      * @param string $taxZone 'AMAZONIA' (exonerado de IGV, por defecto — Tingo María)
      *                        o 'LOCAL' (gravado, IGV incluido en el precio).
      */
-    public function invoice(int $orderId, string $taxZone = 'AMAZONIA'): array
+    public function invoice(int $orderId, string $taxZone = 'AMAZONIA', bool $markDelivered = false): array
     {
         $order = $this->find($orderId);
         if ($order->getInvoiceSaleId() !== null) {
@@ -651,6 +651,16 @@ final class WorkshopService
         // Marca la venta como categoría TALLER (no mostrador).
         $saleEntity = $this->entityManager->find(\App\Module\Sales\Entity\Sale::class, (int) $sale['id']);
         $saleEntity?->setChannel('TALLER');
+
+        // Facturar y entregar en un solo paso: marca la orden entregada y libera la moto.
+        if ($markDelivered && !$order->isDelivered()) {
+            $order->markDelivered();
+            $unit = $order->getMotorcycleUnit();
+            if ($unit !== null && $unit->getStatus() === 'EN_TALLER') {
+                $unit->setStatus('DISPONIBLE');
+            }
+        }
+
         $this->entityManager->flush();
 
         return $this->toArray($order, true);
