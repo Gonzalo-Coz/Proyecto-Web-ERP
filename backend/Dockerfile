@@ -1,5 +1,8 @@
 # Backend Symfony para Railway — nginx + php-fpm en un contenedor.
-FROM php:8.4-fpm-alpine
+# Versión FIJADA a la parchada contra CVE-2026-109618 / CVE-2026-109619 ("PHP2Shell",
+# RCE sin autenticación, CVSS 9.2). Corregido en 8.4.27+. Sube este número cuando
+# salgan nuevos parches de la rama 8.4.
+FROM php:8.4.27-fpm-alpine
 
 # Extensiones que usan Symfony / Doctrine / PostgreSQL / PhpSpreadsheet (zip),
 # y nginx + gettext (envsubst).

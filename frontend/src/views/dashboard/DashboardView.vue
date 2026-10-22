@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import DefaultLayout from '@/layouts/DefaultLayout.vue'
+import ChartCanvas from '@/components/ui/ChartCanvas.vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 
@@ -57,6 +58,41 @@ const kpis = computed(() => [
   { label: 'Este mes', value: data.value?.sales?.month, accent: 'text-primary-800' },
   { label: 'Este año', value: data.value?.sales?.year, accent: 'text-primary-800' },
 ])
+
+/* ===== Análisis estadístico (ventas/rentabilidad + inventario) ===== */
+const st = computed<any>(() => data.value?.statistics ?? null)
+const PALETTE = ['#4f46e5', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
+const num = (v: unknown): number => Number(v ?? 0)
+const pctTxt = (v: number | null | undefined): string => (v == null ? '—' : `${v > 0 ? '+' : ''}${v}%`)
+
+const chartOpts = { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+const doughnutOpts = { plugins: { legend: { position: 'bottom' as const, labels: { boxWidth: 12, font: { size: 11 } } } } }
+
+const salesTrendChart = computed(() => ({
+  labels: trend.value.map((t) => t.label),
+  datasets: [{ label: 'Ventas', data: trend.value.map((t) => num(t.total)), borderColor: '#4f46e5', backgroundColor: 'rgba(79,70,229,.12)', fill: true, tension: 0.3 }],
+}))
+const marginTrendChart = computed(() => {
+  const m = st.value?.marginTrend ?? []
+  return { labels: m.map((x: any) => x.label), datasets: [{ label: 'Margen %', data: m.map((x: any) => num(x.pct)), borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,.12)', fill: true, tension: 0.3 }] }
+})
+const topProductsChart = computed(() => {
+  const p = st.value?.topProducts ?? []
+  return { labels: p.map((x: any) => x.label), datasets: [{ label: 'Ingreso', data: p.map((x: any) => num(x.revenue)), backgroundColor: '#0ea5e9', borderRadius: 4 }] }
+})
+const channelChart = computed(() => {
+  const c = st.value?.byChannel ?? []
+  return { labels: c.map((x: any) => (x.label === 'TALLER' ? 'Taller' : 'Mostrador')), datasets: [{ data: c.map((x: any) => num(x.total)), backgroundColor: PALETTE }] }
+})
+const paymentChart = computed(() => {
+  const p = st.value?.byPayment ?? []
+  return { labels: p.map((x: any) => x.label), datasets: [{ data: p.map((x: any) => num(x.total)), backgroundColor: PALETTE }] }
+})
+const abcChart = computed(() => {
+  const a = st.value?.abc ?? []
+  const colors: Record<string, string> = { A: '#10b981', B: '#f59e0b', C: '#ef4444' }
+  return { labels: a.map((x: any) => `Clase ${x.cls}`), datasets: [{ data: a.map((x: any) => num(x.revenue)), backgroundColor: a.map((x: any) => colors[x.cls] ?? '#888') }] }
+})
 </script>
 
 <template>
@@ -97,6 +133,74 @@ const kpis = computed(() => [
           <p class="mt-1.5 text-2xl font-bold tabular-nums" :class="k.accent">{{ money(k.value) }}</p>
         </div>
       </div>
+
+      <!-- ===== Análisis estadístico ===== -->
+      <template v-if="st">
+        <h2 class="pt-2 text-sm font-bold uppercase tracking-wide text-slate-500">Análisis para decisiones</h2>
+
+        <!-- Indicadores clave -->
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
+          <div class="card">
+            <p class="text-xs font-medium uppercase text-slate-400">Crecimiento del mes</p>
+            <p class="mt-1.5 text-2xl font-bold tabular-nums" :class="num(st.salesGrowth.pct) >= 0 ? 'text-emerald-600' : 'text-red-600'">{{ pctTxt(st.salesGrowth.pct) }}</p>
+            <p class="text-xs text-slate-400">vs. mes anterior</p>
+          </div>
+          <div class="card">
+            <p class="text-xs font-medium uppercase text-slate-400">Ticket promedio</p>
+            <p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ money(st.avgTicket.value) }}</p>
+            <p class="text-xs text-slate-400">{{ st.avgTicket.count }} ventas este mes</p>
+          </div>
+          <div class="card">
+            <p class="text-xs font-medium uppercase text-slate-400">Margen bruto</p>
+            <p class="mt-1.5 text-2xl font-bold tabular-nums text-emerald-600">{{ st.grossMargin.pct == null ? '—' : st.grossMargin.pct + '%' }}</p>
+            <p class="text-xs text-slate-400">Utilidad {{ money(st.grossMargin.profit) }}</p>
+          </div>
+          <div class="card">
+            <p class="text-xs font-medium uppercase text-slate-400">Inventario (valor)</p>
+            <p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ money(st.inventoryStats.inventoryValue) }}</p>
+            <p class="text-xs text-slate-400">Capital en repuestos</p>
+          </div>
+          <div class="card">
+            <p class="text-xs font-medium uppercase text-slate-400">Stock muerto</p>
+            <p class="mt-1.5 text-2xl font-bold tabular-nums text-amber-600">{{ st.inventoryStats.deadStockCount }}</p>
+            <p class="text-xs text-slate-400">{{ money(st.inventoryStats.deadStockValue) }} sin mov. 90d</p>
+          </div>
+          <div class="card">
+            <p class="text-xs font-medium uppercase text-slate-400">Rotación</p>
+            <p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ st.inventoryStats.turnover == null ? '—' : st.inventoryStats.turnover + '×' }}</p>
+            <p class="text-xs text-slate-400">{{ st.inventoryStats.daysOfInventory == null ? 'al año' : st.inventoryStats.daysOfInventory + ' días de inventario' }}</p>
+          </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div class="card">
+            <h3 class="mb-3 text-sm font-bold text-slate-700">Tendencia de ventas (6 meses)</h3>
+            <ChartCanvas type="line" :data="salesTrendChart" :options="chartOpts" :height="240" />
+          </div>
+          <div class="card">
+            <h3 class="mb-3 text-sm font-bold text-slate-700">Margen bruto % (6 meses)</h3>
+            <ChartCanvas type="line" :data="marginTrendChart" :options="chartOpts" :height="240" />
+          </div>
+          <div class="card">
+            <h3 class="mb-3 text-sm font-bold text-slate-700">Top repuestos por ingreso (90 días)</h3>
+            <ChartCanvas type="bar" :data="topProductsChart" :options="chartOpts" :height="260" />
+          </div>
+          <div class="card">
+            <h3 class="mb-3 text-sm font-bold text-slate-700">Ventas por canal (mes)</h3>
+            <ChartCanvas type="doughnut" :data="channelChart" :options="doughnutOpts" :height="260" />
+          </div>
+          <div class="card">
+            <h3 class="mb-3 text-sm font-bold text-slate-700">Análisis ABC de repuestos</h3>
+            <ChartCanvas type="doughnut" :data="abcChart" :options="doughnutOpts" :height="260" />
+            <p class="mt-2 text-xs text-slate-400">Clase A = 80% del ingreso (los críticos), B = 15%, C = 5%.</p>
+          </div>
+          <div class="card">
+            <h3 class="mb-3 text-sm font-bold text-slate-700">Métodos de pago (mes)</h3>
+            <ChartCanvas type="doughnut" :data="paymentChart" :options="doughnutOpts" :height="260" />
+          </div>
+        </div>
+      </template>
 
       <!-- ==== Los 2 gráficos ==== -->
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
