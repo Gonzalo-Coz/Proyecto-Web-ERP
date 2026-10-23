@@ -83,12 +83,13 @@ final class ReportService
                     ]),
                 ),
             ],
-            // Reporte retail Yamaha: venta de motocicletas (formato oficial DATA).
+            // Ventas internas de motos (base Yamaha retail) + cliente y teléfono.
             'motosyamaha' => [
-                'title' => 'Venta de Motos (Formato Yamaha)',
-                'columns' => $this->cols(['DEALER', 'VIN', 'FECHA DE VENTA RETAIL', 'N° DE COMPROBANTE DE PAGO', 'TIPO DE PAGO', 'ENTIDAD FINANCIERA', 'TCEA', 'BONO YMDP', 'BONO DEALER', 'CAMPAÑA', 'MODELO', 'COLOR', 'FECHA DE COMPRA', 'MONEDA', 'MONTO DE VENTA']),
+                'title' => 'Ventas Internas Motos',
+                'columns' => $this->cols(['DEALER', 'CLIENTE', 'TELÉFONO', 'VIN', 'FECHA DE VENTA RETAIL', 'N° DE COMPROBANTE DE PAGO', 'TIPO DE PAGO', 'ENTIDAD FINANCIERA', 'TCEA', 'BONO YMDP', 'BONO DEALER', 'CAMPAÑA', 'MODELO', 'COLOR', 'FECHA DE COMPRA', 'MONEDA', 'MONTO DE VENTA']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT :dealer, u.vin, s.sale_date,
+                    "SELECT :dealer, c.name, COALESCE(NULLIF(c.phone, ''), c.mobile),
+                            u.vin, s.sale_date,
                             (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1),
                             COALESCE(s.retail_payment_type, ''), COALESCE(s.retail_financial_entity, ''),
                             COALESCE(s.retail_tcea::text, ''), COALESCE(s.retail_bonus_ymdp::text, ''),
@@ -98,6 +99,7 @@ final class ReportService
                             COALESCE(s.currency, 'PEN'), si.line_total
                      FROM sale_items si
                      JOIN sales s ON s.id = si.sale_id
+                     JOIN customers c ON c.id = s.customer_id
                      JOIN motorcycle_units u ON u.id = si.motorcycle_unit_id
                      JOIN motorcycle_models m ON m.id = u.model_id
                      WHERE si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA'

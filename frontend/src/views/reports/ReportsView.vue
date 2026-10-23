@@ -13,7 +13,7 @@ const REPORT_GROUPS = [
     items: [
       { key: 'sales', label: 'Ventas' },
       { key: 'repuestosyamaha', label: 'Venta de Repuestos (Formato Yamaha)' },
-      { key: 'motosyamaha', label: 'Venta de Motos (Formato Yamaha)' },
+      { key: 'motosyamaha', label: 'Ventas Internas Motos' },
       { key: 'stockventasmotos', label: 'Stock y Ventas de Motos (Formato Yamaha)' },
       { key: 'utilities', label: 'Utilidades' },
     ],
