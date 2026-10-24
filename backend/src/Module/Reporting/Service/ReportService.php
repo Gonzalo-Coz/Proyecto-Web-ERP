@@ -41,12 +41,13 @@ final class ReportService
             // anuladas y ventas aún sin comprobante aceptado.
             'sales' => [
                 'title' => 'Reporte de Ventas (con comprobante aceptado)',
-                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Teléfono', 'Comprobante', 'Productos', 'Vendedor', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo']),
+                'columns' => $this->cols(['Número', 'Fecha', 'Cliente', 'Teléfono', 'Comprobante', 'Productos', 'Vendedor', 'Subtotal', 'IGV', 'Total', 'Pagado', 'Saldo', 'Observación']),
                 'rows' => $this->db->fetchAllNumeric(
                     "SELECT s.sale_number, s.sale_date, c.name,
                             COALESCE(NULLIF(c.phone, ''), c.mobile),
                             (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id AND ed.status = 'ACEPTADO' ORDER BY ed.id DESC LIMIT 1),
-                            {$this->saleProductsSql('s.id')}, s.seller, s.subtotal, s.igv, s.total, s.paid_amount, (s.total - s.paid_amount)
+                            {$this->saleProductsSql('s.id')}, s.seller, s.subtotal, s.igv, s.total, s.paid_amount, (s.total - s.paid_amount),
+                            COALESCE(s.notes, '')
                      FROM sales s JOIN customers c ON c.id = s.customer_id
                      WHERE s.status = 'COMPLETADA'
                        AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')

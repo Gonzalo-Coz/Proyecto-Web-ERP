@@ -104,13 +104,16 @@ function margin(base: number | null | undefined, sale: number | null): { pct: nu
   return { pct: ((sale - b) / b) * 100, amount: sale - b }
 }
 
-/** Motos: el precio de venta se escribe en US$ o S/; por defecto la moneda de la factura. */
+/**
+ * Motos: el precio de VENTA se fija en SOLES por defecto, aunque la factura de
+ * compra venga en US$ (importación). El costo sí respeta la moneda de la factura;
+ * el precio de venta se ingresa en soles, así que no debe heredar US$.
+ */
 function initMotoDefaults(): void {
   const p = preview.value
   if (!p) return
-  const cur = p.document.currency === 'USD' ? 'USD' : 'PEN'
   p.motorcycles.forEach((m) => {
-    m.saleCurrency = m.saleCurrency ?? cur
+    m.saleCurrency = m.saleCurrency ?? 'PEN'
   })
 }
 const rate = computed(() => Number(preview.value?.exchangeRate ?? 0))
