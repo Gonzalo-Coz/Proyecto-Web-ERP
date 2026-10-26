@@ -305,11 +305,9 @@ final class WorkshopService
                 $unit = $this->unitRepository->find($unitId)
                     ?? throw new UnprocessableEntityHttpException('Unidad no encontrada.');
                 $order->setMotorcycleUnit($unit);
-                // Solo las unidades en stock propio cambian a EN_TALLER;
-                // las vendidas (del cliente) conservan su estado.
-                if ($unit->getStatus() === 'DISPONIBLE') {
-                    $unit->setStatus('EN_TALLER');
-                }
+                // El taller es INDEPENDIENTE del inventario: NO cambia el estado de
+                // la moto en stock. La orden lleva su propio flujo (Recibida → En
+                // trabajo → Entregada) sin reflejarse en Stock/Ventas de Motos.
             }
 
             $order->setMotorcycleDescription($description !== '' ? $description : null);
@@ -585,10 +583,6 @@ final class WorkshopService
 
         if ($status === 'ENTREGADA') {
             $order->markDelivered();
-            $unit = $order->getMotorcycleUnit();
-            if ($unit !== null && $unit->getStatus() === 'EN_TALLER') {
-                $unit->setStatus('DISPONIBLE');
-            }
         } else {
             $order->setStatus($status);
         }
@@ -652,13 +646,10 @@ final class WorkshopService
         $saleEntity = $this->entityManager->find(\App\Module\Sales\Entity\Sale::class, (int) $sale['id']);
         $saleEntity?->setChannel('TALLER');
 
-        // Facturar y entregar en un solo paso: marca la orden entregada y libera la moto.
+        // Facturar y entregar en un solo paso: marca la orden entregada.
+        // (El taller no toca el estado de inventario de la moto.)
         if ($markDelivered && !$order->isDelivered()) {
             $order->markDelivered();
-            $unit = $order->getMotorcycleUnit();
-            if ($unit !== null && $unit->getStatus() === 'EN_TALLER') {
-                $unit->setStatus('DISPONIBLE');
-            }
         }
 
         $this->entityManager->flush();
@@ -694,11 +685,7 @@ final class WorkshopService
                     );
                 }
             }
-            // Libera la unidad si estaba en taller.
-            $unit = $order->getMotorcycleUnit();
-            if ($unit !== null && $unit->getStatus() === 'EN_TALLER') {
-                $unit->setStatus('DISPONIBLE');
-            }
+            // El taller no toca el estado de inventario de la moto.
             $order->setStatus('ANULADA');
             if (trim($reason) !== '') {
                 $order->setNotes(trim(($order->getNotes() ?? '')."\n[Anulada: ".trim($reason).']'));
