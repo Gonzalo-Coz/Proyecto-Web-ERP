@@ -134,7 +134,9 @@ final class ReportService
                           AND s.sale_date BETWEEN :from AND :to
                         ORDER BY s.sale_date DESC, s.id DESC LIMIT 1
                      ) v ON true
-                     WHERE u.deleted_at IS NULL AND u.status <> 'BAJA'
+                     -- Solo stock libre (DISPONIBLE) + motos vendidas dentro del rango.
+                     -- Se excluyen reservadas, en taller, garantía y vendidas fuera del rango.
+                     WHERE u.deleted_at IS NULL AND (u.status = 'DISPONIBLE' OR v.sale_date IS NOT NULL)
                      ORDER BY u.status, m.model, u.internal_code",
                     array_merge($params, ['dealer' => $this->settings->get('company.name') ?? '']),
                 ),
@@ -403,7 +405,8 @@ final class ReportService
                   AND s.sale_date BETWEEN :from AND :to
                 ORDER BY s.sale_date DESC, s.id DESC LIMIT 1
              ) v ON true
-             WHERE u.deleted_at IS NULL AND u.status <> 'BAJA'
+             -- Solo stock libre (DISPONIBLE) + motos vendidas dentro del rango.
+             WHERE u.deleted_at IS NULL AND (u.status = 'DISPONIBLE' OR v.sale_date IS NOT NULL)
              ORDER BY u.status, m.model, u.internal_code",
             ['from' => $from, 'to' => $to],
         );

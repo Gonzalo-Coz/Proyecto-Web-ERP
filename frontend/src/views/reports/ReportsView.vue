@@ -169,7 +169,7 @@ function exportExcel(): void {
         </div>
       </div>
       <p v-if="filters.type === 'stockventasmotos'" class="mt-3 text-xs text-gray-500">
-        El stock se muestra completo; el rango de fechas filtra solo las <b>ventas</b> (una unidad vendida fuera del rango aparece como stock).
+        Muestra las motos <b>disponibles</b> (stock libre) y las <b>vendidas dentro del rango</b> de fechas. No incluye reservadas, en taller ni garantía.
       </p>
       <p v-if="errorMsg" class="mt-3 text-sm text-red-600">{{ errorMsg }}</p>
     </div>
