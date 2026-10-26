@@ -20,3 +20,14 @@ export interface CompanyLookup {
   distrito: string | null
   actividadEconomica: string | null
 }
+
+/** Respuesta de consulta vehicular por placa (datos técnicos). */
+export interface VehicleLookup {
+  placa: string
+  marca: string
+  modelo: string
+  color: string
+  serie: string
+  motor: string
+  vin: string
+}

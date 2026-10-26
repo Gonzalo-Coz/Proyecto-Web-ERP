@@ -12,6 +12,7 @@ use App\Module\Lookup\Exception\LookupRateLimitException;
 use App\Module\Lookup\Exception\LookupUnavailableException;
 use App\Module\Lookup\Service\CompanyLookupService;
 use App\Module\Lookup\Service\PersonLookupService;
+use App\Module\Lookup\Service\VehicleLookupService;
 use OpenApi\Attributes as OA;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,7 @@ final class LookupController
     public function __construct(
         private readonly PersonLookupService $personLookup,
         private readonly CompanyLookupService $companyLookup,
+        private readonly VehicleLookupService $vehicleLookup,
     ) {
     }
 
@@ -52,6 +54,17 @@ final class LookupController
     {
         try {
             return new JsonResponse($this->companyLookup->byRuc($ruc)->toArray());
+        } catch (LookupException $e) {
+            return $this->error($e);
+        }
+    }
+
+    #[Route('/placa/{placa}', name: 'lookup_placa', methods: ['GET'])]
+    #[OA\Get(summary: 'Consulta un vehículo por placa')]
+    public function placa(string $placa): JsonResponse
+    {
+        try {
+            return new JsonResponse($this->vehicleLookup->byPlaca($placa)->toArray());
         } catch (LookupException $e) {
             return $this->error($e);
         }

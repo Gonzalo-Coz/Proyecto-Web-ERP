@@ -30,6 +30,11 @@ services:
     App\Module\Lookup\Provider\DocumentLookupProviderInterface:
         alias: App\Module\Lookup\Infrastructure\Decolecta\DecolectaClient
 
+    # Proveedor de consulta VEHICULAR por placa activo: FACTILIZA (api.factiliza.com).
+    # Para cambiar de proveedor, crear su adaptador y cambiar SOLO este alias.
+    App\Module\Lookup\Provider\VehicleLookupProviderInterface:
+        alias: App\Module\Lookup\Infrastructure\Factiliza\FactilizaVehicleClient
+
     App\:
         resource: '../src/'
         exclude:

@@ -283,6 +283,32 @@ function onExternalModelChange(): void {
   }
 }
 
+/** Consulta vehicular por placa (Factiliza): autocompleta marca, modelo, color y serie. */
+const placaLoading = ref(false)
+async function lookupPlaca(): Promise<void> {
+  const placa = (form.plate ?? '').trim()
+  if (!placa) {
+    toast.error('Escribe la placa primero.')
+    return
+  }
+  placaLoading.value = true
+  try {
+    const v = await lookupService.placa(placa)
+    if (v.marca) form.motoBrand = v.marca
+    if (v.color) form.motoColor = v.color
+    if (v.serie || v.vin) form.motoSerial = v.serie || v.vin
+    // Solo para moto externa: arma la descripción con marca + modelo.
+    if (form.motorcycleUnitId === null && (v.marca || v.modelo)) {
+      form.motorcycleDescription = `${v.marca} ${v.modelo}`.trim()
+    }
+    toast.success(`Vehículo encontrado: ${v.marca} ${v.modelo}`.trim())
+  } catch (e: any) {
+    toast.error(e.response?.data?.message ?? 'No se encontró el vehículo con esa placa.')
+  } finally {
+    placaLoading.value = false
+  }
+}
+
 /** Al elegir el cliente: autoselecciona la moto que compró y prellena datos (editable). */
 async function onReceptionCustomerChange(): Promise<void> {
   prefillContact()
@@ -727,7 +753,12 @@ onMounted(async () => {
         </FormField>
         <div class="grid grid-cols-3 gap-4">
           <FormField label="Placa">
-            <input v-model="form.plate" class="form-input uppercase" maxlength="10" />
+            <div class="flex gap-1">
+              <input v-model="form.plate" class="form-input uppercase" maxlength="10" placeholder="Ej. 1234-AB" @keyup.enter.prevent="lookupPlaca" />
+              <button type="button" class="btn-secondary whitespace-nowrap" :disabled="placaLoading" title="Consultar datos del vehículo por placa" @click="lookupPlaca">
+                {{ placaLoading ? '…' : 'Buscar' }}
+              </button>
+            </div>
           </FormField>
           <FormField label="Kilometraje">
             <input v-model.number="form.mileage" type="number" min="0" class="form-input" />
