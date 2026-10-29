@@ -93,6 +93,30 @@ const abcChart = computed(() => {
   const colors: Record<string, string> = { A: '#10b981', B: '#f59e0b', C: '#ef4444' }
   return { labels: a.map((x: any) => `Clase ${x.cls}`), datasets: [{ data: a.map((x: any) => num(x.revenue)), backgroundColor: a.map((x: any) => colors[x.cls] ?? '#888') }] }
 })
+
+/* ===== Dashboards por área: TALLER, REPUESTOS, MOTOS ===== */
+const area = computed<any>(() => data.value?.areas ?? null)
+
+const tallerTrendChart = computed(() => {
+  const t = area.value?.taller?.trend ?? []
+  return { labels: t.map((x: any) => x.label), datasets: [{ label: 'Ingresos taller', data: t.map((x: any) => num(x.total)), borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,.12)', fill: true, tension: 0.3 }] }
+})
+const tallerStatusChart = computed(() => {
+  const b = area.value?.taller?.byStatus ?? {}
+  return { labels: ['Recibida', 'En trabajo', 'Entregada'], datasets: [{ data: [b.RECIBIDA || 0, b.EN_REPARACION || 0, b.ENTREGADA || 0], backgroundColor: ['#9ca3af', '#f59e0b', '#10b981'] }] }
+})
+const repMostradorTallerChart = computed(() => {
+  const r = area.value?.repuestos
+  return { labels: ['Mostrador', 'Consumo taller'], datasets: [{ data: [num(r?.mostradorMonth), num(r?.tallerMonth)], backgroundColor: ['#4f46e5', '#f59e0b'] }] }
+})
+const repTopChart = computed(() => {
+  const p = area.value?.repuestos?.topProducts ?? []
+  return { labels: p.map((x: any) => x.label), datasets: [{ label: 'Ingreso', data: p.map((x: any) => num(x.revenue)), backgroundColor: '#0ea5e9', borderRadius: 4 }] }
+})
+const motosTopChart = computed(() => {
+  const m = area.value?.motos?.topModels ?? []
+  return { labels: m.map((x: any) => x.label), datasets: [{ label: 'Ingreso', data: m.map((x: any) => num(x.revenue)), backgroundColor: '#10b981', borderRadius: 4 }] }
+})
 </script>
 
 <template>
@@ -199,6 +223,56 @@ const abcChart = computed(() => {
             <h3 class="mb-3 text-sm font-bold text-slate-700">Métodos de pago (mes)</h3>
             <ChartCanvas type="doughnut" :data="paymentChart" :options="doughnutOpts" :height="260" />
           </div>
+        </div>
+      </template>
+
+      <!-- ===== Dashboards por área ===== -->
+      <template v-if="area">
+        <!-- TALLER -->
+        <div class="flex items-center gap-2 pt-2">
+          <span class="rounded-md bg-amber-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-amber-700">Taller</span>
+          <span class="text-xs text-slate-400">Flujo del área de servicio</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Ingresos del mes</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-amber-600">{{ money(area.taller.revenueMonth) }}</p><p class="text-xs text-slate-400">MO {{ money(area.taller.laborMonth) }} · Rep. {{ money(area.taller.partsMonth) }}</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Órdenes del mes</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ area.taller.ordersMonth }}</p><p class="text-xs text-slate-400">recibidas este mes</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">En trabajo</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-amber-600">{{ area.taller.byStatus.EN_REPARACION }}</p><p class="text-xs text-slate-400">{{ area.taller.byStatus.RECIBIDA }} recibidas en cola</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Entregadas</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-emerald-600">{{ area.taller.byStatus.ENTREGADA }}</p><p class="text-xs text-slate-400">histórico</p></div>
+        </div>
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div class="card lg:col-span-2"><h3 class="mb-3 text-sm font-bold text-slate-700">Ingresos del taller (6 meses)</h3><ChartCanvas type="line" :data="tallerTrendChart" :options="chartOpts" :height="240" /></div>
+          <div class="card"><h3 class="mb-3 text-sm font-bold text-slate-700">Órdenes por etapa</h3><ChartCanvas type="doughnut" :data="tallerStatusChart" :options="doughnutOpts" :height="240" /></div>
+        </div>
+
+        <!-- REPUESTOS -->
+        <div class="flex items-center gap-2 pt-2">
+          <span class="rounded-md bg-sky-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-sky-700">Repuestos</span>
+          <span class="text-xs text-slate-400">Venta e inventario</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Venta mostrador (mes)</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ money(area.repuestos.mostradorMonth) }}</p><p class="text-xs text-slate-400">cliente final</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Utilidad bruta (mes)</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-emerald-600">{{ money(area.repuestos.grossProfitMonth) }}</p><p class="text-xs text-slate-400">margen {{ area.repuestos.marginPct == null ? '—' : area.repuestos.marginPct + '%' }}</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Inventario (valor)</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ money(area.repuestos.inventoryValue) }}</p><p class="text-xs text-slate-400">{{ area.repuestos.deadStockCount }} sin movimiento 90d</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Alertas de stock</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-amber-600">{{ area.repuestos.lowStock }}</p><p class="text-xs text-slate-400">{{ area.repuestos.outOfStock }} sin stock</p></div>
+        </div>
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div class="card lg:col-span-2"><h3 class="mb-3 text-sm font-bold text-slate-700">Top repuestos por ingreso (90 días)</h3><ChartCanvas type="bar" :data="repTopChart" :options="chartOpts" :height="260" /></div>
+          <div class="card"><h3 class="mb-3 text-sm font-bold text-slate-700">Mostrador vs consumo taller (mes)</h3><ChartCanvas type="doughnut" :data="repMostradorTallerChart" :options="doughnutOpts" :height="260" /></div>
+        </div>
+
+        <!-- MOTOS -->
+        <div class="flex items-center gap-2 pt-2">
+          <span class="rounded-md bg-emerald-100 px-2 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700">Motos</span>
+          <span class="text-xs text-slate-400">Stock y ventas de motocicletas</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Disponibles</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ area.motos.available }}</p><p class="text-xs text-slate-400">{{ money(area.motos.stockValue) }} en stock</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Vendidas (mes)</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-emerald-600">{{ area.motos.soldMonth }}</p><p class="text-xs text-slate-400">{{ money(area.motos.revenueMonth) }}</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Utilidad (mes)</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-emerald-600">{{ money(area.motos.grossProfitMonth) }}</p><p class="text-xs text-slate-400">margen {{ area.motos.marginPct == null ? '—' : area.motos.marginPct + '%' }}</p></div>
+          <div class="card"><p class="text-xs font-medium uppercase text-slate-400">Ingreso promedio</p><p class="mt-1.5 text-2xl font-bold tabular-nums text-primary-800">{{ area.motos.soldMonth > 0 ? money(area.motos.revenueMonth / area.motos.soldMonth) : '—' }}</p><p class="text-xs text-slate-400">por moto vendida</p></div>
+        </div>
+        <div class="grid grid-cols-1 gap-4">
+          <div class="card"><h3 class="mb-3 text-sm font-bold text-slate-700">Modelos más vendidos (6 meses)</h3><ChartCanvas type="bar" :data="motosTopChart" :options="chartOpts" :height="260" /></div>
         </div>
       </template>
 

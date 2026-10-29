@@ -615,9 +615,14 @@ final class WorkshopService
         $lines = [];
         foreach ($order->getItems() as $it) {
             $prefix = $it->getItemType() === 'PART' ? 'Repuesto: ' : 'Mano de obra: ';
+            // Incluye el código del repuesto en la línea para que el comprobante
+            // quede mapeado como una venta de mostrador (código + descripción).
+            $code = ($it->getItemType() === 'PART' && $it->getSparePart() !== null)
+                ? $it->getSparePart()->getInternalCode().' · '
+                : '';
             $lines[] = [
                 'itemType' => 'SERVICE',
-                'description' => $prefix.$it->getDescription(),
+                'description' => $prefix.$code.$it->getDescription(),
                 'quantity' => $it->getQuantity(),
                 'unitPrice' => round((float) $it->getUnitPrice(), 2),
                 'discount' => 0,

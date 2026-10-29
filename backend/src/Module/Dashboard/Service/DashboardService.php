@@ -29,7 +29,130 @@ final class DashboardService
             'alerts' => $this->alerts(),
             'recentActivity' => $this->recentActivity(),
             'statistics' => $this->statistics(),
+            'areas' => $this->areas(),
         ];
+    }
+
+    /**
+     * Dashboards por área (TALLER, REPUESTOS, MOTOS) para ver el flujo de cada
+     * línea de negocio por separado. Base para los KPIs de gestión.
+     *
+     * @return array<string, mixed>
+     */
+    private function areas(): array
+    {
+        return [
+            'taller' => $this->tallerArea(),
+            'repuestos' => $this->repuestosArea(),
+            'motos' => $this->motosArea(),
+        ];
+    }
+
+    /** TALLER: órdenes por etapa, ingresos del mes (mano de obra vs repuestos) y tendencia. */
+    private function tallerArea(): array
+    {
+        $counts = $this->db->fetchAllKeyValue("SELECT status, COUNT(*) FROM service_orders WHERE status <> 'ANULADA' GROUP BY status");
+        $mes = "s.channel = 'TALLER' AND s.status = 'COMPLETADA' AND s.sale_date >= date_trunc('month', CURRENT_DATE)::date";
+        $labor = (float) $this->scalar("SELECT COALESCE(SUM(si.line_total),0) FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE $mes AND si.description LIKE 'Mano de obra:%'");
+        $parts = (float) $this->scalar("SELECT COALESCE(SUM(si.line_total),0) FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE $mes AND si.description LIKE 'Repuesto:%'");
+
+        // Tendencia de ingresos del taller (6 meses).
+        $trendRows = $this->db->fetchAllKeyValue(
+            "SELECT to_char(date_trunc('month', s.sale_date), 'YYYY-MM'), COALESCE(SUM(s.total),0)
+             FROM sales s WHERE s.channel = 'TALLER' AND s.status = 'COMPLETADA'
+               AND s.sale_date >= (date_trunc('month', CURRENT_DATE) - interval '5 months')::date GROUP BY 1",
+        );
+
+        return [
+            'byStatus' => [
+                'RECIBIDA' => (int) ($counts['RECIBIDA'] ?? 0),
+                'EN_REPARACION' => (int) ($counts['EN_REPARACION'] ?? 0),
+                'ENTREGADA' => (int) ($counts['ENTREGADA'] ?? 0),
+            ],
+            'ordersMonth' => (int) $this->scalar("SELECT COUNT(*) FROM service_orders WHERE status <> 'ANULADA' AND entry_date >= date_trunc('month', CURRENT_DATE)::date"),
+            'laborMonth' => round($labor, 2),
+            'partsMonth' => round($parts, 2),
+            'revenueMonth' => round($labor + $parts, 2),
+            'trend' => $this->fillMonths($trendRows),
+        ];
+    }
+
+    /** REPUESTOS: venta por mostrador (mes), utilidad bruta, inventario y top productos. */
+    private function repuestosArea(): array
+    {
+        $mes = "s.status = 'COMPLETADA' AND s.sale_date >= date_trunc('month', CURRENT_DATE)::date";
+        // Mostrador (cliente final) vs consumo interno (taller) — KPI 4.
+        $mostrador = (float) $this->scalar("SELECT COALESCE(SUM(si.line_total),0) FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE si.item_type = 'SPARE_PART' AND s.channel = 'MOSTRADOR' AND $mes");
+        // Utilidad bruta de repuestos (mostrador): ingresos - costo — KPI 3.
+        $cost = (float) $this->scalar("SELECT COALESCE(SUM(COALESCE(sp.purchase_price,0) * si.quantity),0) FROM sale_items si JOIN sales s ON s.id = si.sale_id JOIN spare_parts sp ON sp.id = si.spare_part_id WHERE si.item_type = 'SPARE_PART' AND s.channel = 'MOSTRADOR' AND $mes");
+        // Consumo interno (repuestos usados en taller, por descripción de la línea de servicio).
+        $taller = (float) $this->scalar("SELECT COALESCE(SUM(si.line_total),0) FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE s.channel = 'TALLER' AND $mes AND si.description LIKE 'Repuesto:%'");
+        $inv = $this->inventoryStats();
+        $top = $this->db->fetchAllAssociative(
+            "SELECT sp.description AS label, ROUND(SUM(si.line_total),2) AS revenue
+             FROM sale_items si JOIN sales s ON s.id = si.sale_id JOIN spare_parts sp ON sp.id = si.spare_part_id
+             WHERE si.item_type = 'SPARE_PART' AND s.status = 'COMPLETADA' AND s.sale_date >= CURRENT_DATE - 90
+             GROUP BY sp.description ORDER BY revenue DESC LIMIT 8",
+        );
+
+        return [
+            'mostradorMonth' => round($mostrador, 2),
+            'tallerMonth' => round($taller, 2),
+            'grossProfitMonth' => round($mostrador - $cost, 2),
+            'marginPct' => $mostrador > 0 ? round(($mostrador - $cost) / $mostrador * 100, 1) : null,
+            'inventoryValue' => $inv['inventoryValue'],
+            'lowStock' => (int) $this->scalar('SELECT COUNT(*) FROM spare_parts WHERE deleted_at IS NULL AND stock > 0 AND stock <= min_stock'),
+            'outOfStock' => (int) $this->scalar("SELECT COUNT(*) FROM spare_parts WHERE deleted_at IS NULL AND is_active = true AND stock <= 0"),
+            'deadStockCount' => $inv['deadStockCount'],
+            'topProducts' => $top,
+        ];
+    }
+
+    /** MOTOS: stock disponible, vendidas del mes, ingresos, margen y top modelos. */
+    private function motosArea(): array
+    {
+        $mes = "s.status = 'COMPLETADA' AND s.sale_date >= date_trunc('month', CURRENT_DATE)::date";
+        $available = (int) $this->scalar("SELECT COUNT(*) FROM motorcycle_units WHERE status = 'DISPONIBLE' AND deleted_at IS NULL");
+        $stockValue = (float) $this->scalar("SELECT COALESCE(SUM(purchase_price),0) FROM motorcycle_units WHERE status = 'DISPONIBLE' AND deleted_at IS NULL");
+        $sold = $this->db->fetchAssociative("SELECT COUNT(*) AS n, COALESCE(SUM(si.line_total),0) AS rev FROM sale_items si JOIN sales s ON s.id = si.sale_id WHERE si.item_type = 'MOTORCYCLE_UNIT' AND $mes");
+        $cost = (float) $this->scalar("SELECT COALESCE(SUM(COALESCE(u.purchase_price,0)),0) FROM sale_items si JOIN sales s ON s.id = si.sale_id JOIN motorcycle_units u ON u.id = si.motorcycle_unit_id WHERE si.item_type = 'MOTORCYCLE_UNIT' AND $mes");
+        $rev = (float) ($sold['rev'] ?? 0);
+        $top = $this->db->fetchAllAssociative(
+            "SELECT m.model AS label, COUNT(*) AS n, ROUND(SUM(si.line_total),2) AS revenue
+             FROM sale_items si JOIN sales s ON s.id = si.sale_id JOIN motorcycle_units u ON u.id = si.motorcycle_unit_id JOIN motorcycle_models m ON m.id = u.model_id
+             WHERE si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA' AND s.sale_date >= CURRENT_DATE - 180
+             GROUP BY m.model ORDER BY revenue DESC LIMIT 8",
+        );
+
+        return [
+            'available' => $available,
+            'stockValue' => round($stockValue, 2),
+            'soldMonth' => (int) ($sold['n'] ?? 0),
+            'revenueMonth' => round($rev, 2),
+            'grossProfitMonth' => round($rev - $cost, 2),
+            'marginPct' => $rev > 0 ? round(($rev - $cost) / $rev * 100, 1) : null,
+            'topModels' => $top,
+        ];
+    }
+
+    /**
+     * Rellena una serie de 6 meses (etiquetas Ene..Dic) a partir de un mapa YYYY-MM => valor.
+     *
+     * @param array<string, mixed> $map
+     *
+     * @return list<array{label: string, total: float}>
+     */
+    private function fillMonths(array $map): array
+    {
+        $meses = ['1' => 'Ene', '2' => 'Feb', '3' => 'Mar', '4' => 'Abr', '5' => 'May', '6' => 'Jun', '7' => 'Jul', '8' => 'Ago', '9' => 'Set', '10' => 'Oct', '11' => 'Nov', '12' => 'Dic'];
+        $series = [];
+        $cursor = (new \DateTimeImmutable('first day of this month'))->modify('-5 months');
+        for ($i = 0; $i < 6; ++$i) {
+            $series[] = ['label' => $meses[(string) (int) $cursor->format('n')], 'total' => (float) ($map[$cursor->format('Y-m')] ?? 0)];
+            $cursor = $cursor->modify('+1 month');
+        }
+
+        return $series;
     }
 
     /**
