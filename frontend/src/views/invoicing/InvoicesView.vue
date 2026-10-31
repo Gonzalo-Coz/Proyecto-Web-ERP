@@ -150,7 +150,7 @@ onMounted(() => {
     <div class="card p-0">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4">
         <div class="flex flex-wrap items-center gap-2">
-          <input v-model="search" type="search" class="form-input max-w-xs" placeholder="Buscar por número, cliente o venta…" @input="onSearch" />
+          <input v-model="search" type="search" class="form-input max-w-xs" placeholder="Buscar por número, cliente, venta, placa/serie, VIN o código…" @input="onSearch" />
           <select v-model="statusFilter" class="form-input w-48" @change="load(1)">
             <option value="">Todos los estados</option>
             <option value="PENDIENTE">Pendientes</option>

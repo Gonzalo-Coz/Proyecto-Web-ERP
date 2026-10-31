@@ -337,6 +337,49 @@ final class InvoiceService
     }
 
     /** @return array{data: list<array<string, mixed>>, meta: array<string, int>} */
+    /**
+     * Búsqueda amplia de comprobantes: por serie, número (correlativo), cliente,
+     * número de venta, observación de la venta y por los datos de los ítems
+     * (descripción, y en motos: código interno, VIN, N° motor, chasis, serie; en
+     * repuestos: código interno, código de parte, código de barras). Así se ubica
+     * un comprobante por la placa/serie/identificador de la moto (ej. "BBB1170").
+     */
+    private function applyDocumentSearch(\Doctrine\ORM\QueryBuilder $qb, string $search): void
+    {
+        $search = trim($search);
+        if ($search === '') {
+            return;
+        }
+        $qb->setParameter('s', '%'.mb_strtolower($search).'%');
+
+        $parts = [
+            'LOWER(d.series) LIKE :s',
+            'LOWER(d.customerName) LIKE :s',
+            'LOWER(d.customerDocNumber) LIKE :s',
+            'LOWER(v.saleNumber) LIKE :s',
+            'LOWER(v.notes) LIKE :s',
+            'EXISTS (SELECT 1 FROM App\\Module\\Sales\\Entity\\SaleItem si'
+                .' LEFT JOIN si.motorcycleUnit u2 LEFT JOIN si.sparePart sp2'
+                .' WHERE si.sale = v AND ('
+                .'LOWER(si.description) LIKE :s'
+                .' OR LOWER(u2.internalCode) LIKE :s OR LOWER(u2.vin) LIKE :s'
+                .' OR LOWER(u2.engineNumber) LIKE :s OR LOWER(u2.chassisNumber) LIKE :s'
+                .' OR LOWER(u2.series) LIKE :s'
+                .' OR LOWER(sp2.internalCode) LIKE :s OR LOWER(sp2.partCode) LIKE :s'
+                .' OR LOWER(sp2.barcode) LIKE :s'
+                .'))',
+        ];
+
+        // Si el término tiene dígitos, también se compara contra el correlativo.
+        $digits = preg_replace('/\D/', '', $search);
+        if ($digits !== '') {
+            $parts[] = 'd.correlative = :corr';
+            $qb->setParameter('corr', (int) $digits);
+        }
+
+        $qb->andWhere(implode(' OR ', $parts));
+    }
+
     public function list(int $page, int $perPage, string $search, string $status, string $docType = ''): array
     {
         $page = max(1, $page);
@@ -348,10 +391,7 @@ final class InvoiceService
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage);
 
-        if ($search !== '') {
-            $qb->andWhere('LOWER(d.series) LIKE :s OR LOWER(d.customerName) LIKE :s OR d.customerDocNumber LIKE :s OR LOWER(v.saleNumber) LIKE :s')
-                ->setParameter('s', '%'.mb_strtolower($search).'%');
-        }
+        $this->applyDocumentSearch($qb, $search);
         if ($status !== '' && in_array($status, ElectronicDocument::STATUSES, true)) {
             $qb->andWhere('d.status = :st')->setParameter('st', $status);
         }
@@ -390,10 +430,7 @@ final class InvoiceService
             ->join('d.sale', 'v')->addSelect('v')
             ->where("d.docType = '07'")
             ->orderBy('d.issueDate', 'ASC')->addOrderBy('d.correlative', 'ASC');
-        if ($search !== '') {
-            $qb->andWhere('LOWER(d.series) LIKE :s OR LOWER(d.customerName) LIKE :s OR d.customerDocNumber LIKE :s OR LOWER(v.saleNumber) LIKE :s')
-                ->setParameter('s', '%'.mb_strtolower($search).'%');
-        }
+        $this->applyDocumentSearch($qb, $search);
         if ($status !== '' && in_array($status, ElectronicDocument::STATUSES, true)) {
             $qb->andWhere('d.status = :st')->setParameter('st', $status);
         }
