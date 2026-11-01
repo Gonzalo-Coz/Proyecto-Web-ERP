@@ -90,7 +90,7 @@ final class ReportService
                 'rows' => $this->db->fetchAllNumeric(
                     "SELECT :dealer, c.name, COALESCE(NULLIF(c.phone, ''), c.mobile),
                             u.vin, s.sale_date,
-                            (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1),
+                            (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1),
                             COALESCE(s.retail_payment_type, ''), COALESCE(s.retail_financial_entity, ''),
                             COALESCE(s.retail_tcea::text, ''), COALESCE(s.retail_bonus_ymdp::text, ''),
                             COALESCE(s.retail_bonus_dealer::text, ''), COALESCE(s.retail_campaign, ''),
@@ -128,7 +128,7 @@ final class ReportService
                         SELECT s.sale_date, s.retail_payment_type, s.retail_financial_entity, s.retail_tcea,
                                s.retail_bonus_ymdp, s.retail_bonus_dealer, s.retail_campaign, s.currency,
                                si.line_total AS monto, cu.name AS customer_name,
-                               (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
+                               (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
                         FROM sale_items si JOIN sales s ON s.id = si.sale_id JOIN customers cu ON cu.id = s.customer_id
                         WHERE si.motorcycle_unit_id = u.id AND si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA'
                           AND s.sale_date BETWEEN :from AND :to
@@ -399,7 +399,7 @@ final class ReportService
              LEFT JOIN LATERAL (
                 SELECT s.sale_date, s.retail_payment_type, s.retail_financial_entity, s.retail_tcea,
                        s.retail_bonus_ymdp, s.retail_bonus_dealer, s.retail_campaign,
-                       (SELECT CONCAT(ed.series, ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
+                       (SELECT CONCAT(ed.series, '-', ed.correlative) FROM electronic_documents ed WHERE ed.sale_id = s.id ORDER BY ed.id DESC LIMIT 1) AS comprobante
                 FROM sale_items si JOIN sales s ON s.id = si.sale_id
                 WHERE si.motorcycle_unit_id = u.id AND si.item_type = 'MOTORCYCLE_UNIT' AND s.status = 'COMPLETADA'
                   AND s.sale_date BETWEEN :from AND :to
