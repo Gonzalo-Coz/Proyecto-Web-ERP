@@ -55,10 +55,16 @@ const REPORT_GROUPS = [
   { label: 'Sistema', items: [{ key: 'audit', label: 'Auditoría' }] },
 ]
 
+/** Fecha de HOY en hora local (Perú, UTC-5), formato YYYY-MM-DD.
+ *  No usar toISOString(): devuelve UTC y de tarde/noche salta al día siguiente. */
+function localToday(): string {
+  return new Date().toLocaleDateString('en-CA') // en-CA = formato ISO YYYY-MM-DD
+}
+
 const filters = reactive({
   type: 'sales',
-  from: new Date().toISOString().slice(0, 8) + '01',
-  to: new Date().toISOString().slice(0, 10),
+  from: localToday().slice(0, 8) + '01', // primer día del mes actual (local)
+  to: localToday(), // hoy (local)
 })
 
 /** Reportes que son una "foto" del estado actual: no usan rango de fechas. */

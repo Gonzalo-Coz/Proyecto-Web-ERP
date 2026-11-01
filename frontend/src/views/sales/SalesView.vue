@@ -67,9 +67,17 @@ const modalOpen = ref(false)
 const editingSaleId = ref<number | null>(null)
 const saving = ref(false)
 const formError = ref('')
+
+/** Fecha de HOY en hora local (Perú, UTC-5), formato YYYY-MM-DD.
+ *  No usar toISOString(): devuelve UTC y de tarde/noche salta al día siguiente,
+ *  lo que guardaba la venta con la fecha del día siguiente. */
+function localToday(): string {
+  return new Date().toLocaleDateString('en-CA')
+}
+
 const form = reactive({
   customerId: 0,
-  saleDate: new Date().toISOString().slice(0, 10),
+  saleDate: localToday(),
   complete: false,
   notes: null as string | null,
   igvIncluded: false,
@@ -400,7 +408,7 @@ function openCreate(complete: boolean): void {
   editingSaleId.value = null
   Object.assign(form, {
     customerId: customers.value[0]?.id ?? 0,
-    saleDate: new Date().toISOString().slice(0, 10),
+    saleDate: localToday(),
     complete,
     notes: null,
     globalDiscount: 0,
