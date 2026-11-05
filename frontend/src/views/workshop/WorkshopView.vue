@@ -75,7 +75,7 @@ const detail = ref<ServiceOrderSummary | null>(null)
 const detailError = ref('')
 // Alta múltiple: varias filas de trabajo/repuesto a la vez ("más casillas").
 interface DraftItem {
-  itemType: 'PART' | 'LABOR'
+  itemType: 'PART' | 'PART_FREE' | 'LABOR'
   sparePartId: number | null
   description: string
   quantity: number
@@ -1084,7 +1084,7 @@ onMounted(async () => {
             </thead>
             <tbody>
               <tr v-for="i in planItems" :key="i.id" class="border-t border-gray-100">
-                <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
+                <td class="py-1 text-xs">{{ i.itemType === 'LABOR' ? 'MANO DE OBRA' : 'REPUESTO' }}</td>
                 <td class="py-1">{{ i.description }}</td>
                 <td class="py-1 text-right">
                   <input
@@ -1127,7 +1127,7 @@ onMounted(async () => {
             </thead>
             <tbody>
               <tr v-for="i in extraItems" :key="i.id" class="border-t border-gray-100">
-                <td class="py-1 text-xs">{{ i.itemType === 'PART' ? 'REPUESTO' : 'MANO DE OBRA' }}</td>
+                <td class="py-1 text-xs">{{ i.itemType === 'LABOR' ? 'MANO DE OBRA' : 'REPUESTO' }}</td>
                 <td class="py-1">{{ i.description }}</td>
                 <td class="py-1 text-right">
                   <input
@@ -1172,11 +1172,12 @@ onMounted(async () => {
               <label v-if="i === 0" class="form-label text-xs">Tipo</label>
               <select v-model="d.itemType" class="form-input" @change="onDraftPartChange(d)">
                 <option value="LABOR">Mano de obra</option>
-                <option value="PART">Repuesto</option>
+                <option value="PART">Repuesto (inventario)</option>
+                <option value="PART_FREE">Repuesto (texto libre)</option>
               </select>
             </div>
             <div class="col-span-5">
-              <label v-if="i === 0" class="form-label text-xs">{{ d.itemType === 'PART' ? 'Repuesto (descuenta stock)' : 'Descripción' }}</label>
+              <label v-if="i === 0" class="form-label text-xs">{{ d.itemType === 'PART' ? 'Repuesto (descuenta stock)' : d.itemType === 'PART_FREE' ? 'Repuesto (texto libre, no descuenta stock)' : 'Descripción' }}</label>
               <SearchableSelect
                 v-if="d.itemType === 'PART'"
                 v-model="d.sparePartId"
@@ -1186,7 +1187,7 @@ onMounted(async () => {
                 placeholder="Escribe código, nombre o categoría (ej. KIT DE ARRASTRE)…"
                 @change="onDraftPartChange(d)"
               />
-              <input v-else v-model="d.description" class="form-input" placeholder="Cambio de aceite y filtro" />
+              <input v-else v-model="d.description" class="form-input" :placeholder="d.itemType === 'PART_FREE' ? 'Repuesto no registrado (ej. Filtro de aceite genérico)' : 'Cambio de aceite y filtro'" />
             </div>
             <div class="col-span-2">
               <label v-if="i === 0" class="form-label text-xs">Cant.</label>

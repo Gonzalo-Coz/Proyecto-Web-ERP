@@ -15,7 +15,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'service_order_items')]
 class ServiceOrderItem
 {
-    public const TYPES = ['PART', 'LABOR'];
+    // PART = repuesto de inventario (descuenta stock); PART_FREE = repuesto por texto
+    // libre que no está en inventario (no descuenta stock); LABOR = mano de obra.
+    public const TYPES = ['PART', 'PART_FREE', 'LABOR'];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

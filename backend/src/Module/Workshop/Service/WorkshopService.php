@@ -367,11 +367,13 @@ final class WorkshopService
                 $item = new ServiceOrderItem($order, 'PART', $part->getDescription(), $quantity, $unitPrice);
                 $item->setSparePart($part);
             } else {
+                // LABOR (mano de obra) o PART_FREE (repuesto por texto libre, fuera de
+                // inventario): ambos van por texto manual y NO tocan el stock.
                 $description = trim((string) ($data['description'] ?? ''));
                 if ($description === '') {
-                    throw new UnprocessableEntityHttpException('La mano de obra requiere descripción.');
+                    throw new UnprocessableEntityHttpException('La descripción es obligatoria.');
                 }
-                $item = new ServiceOrderItem($order, 'LABOR', $description, $quantity, $unitPrice);
+                $item = new ServiceOrderItem($order, $itemType, $description, $quantity, $unitPrice);
             }
 
             $order->addItem($item);
@@ -614,7 +616,7 @@ final class WorkshopService
         // vía Kardex TALLER, así que no deben descontar stock otra vez.
         $lines = [];
         foreach ($order->getItems() as $it) {
-            $prefix = $it->getItemType() === 'PART' ? 'Repuesto: ' : 'Mano de obra: ';
+            $prefix = in_array($it->getItemType(), ['PART', 'PART_FREE'], true) ? 'Repuesto: ' : 'Mano de obra: ';
             // Incluye el código del repuesto en la línea para que el comprobante
             // quede mapeado como una venta de mostrador (código + descripción).
             $code = ($it->getItemType() === 'PART' && $it->getSparePart() !== null)

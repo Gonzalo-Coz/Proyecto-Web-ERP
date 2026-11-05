@@ -13,7 +13,7 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 
 export interface ServiceOrderItem {
   id: number
-  itemType: 'PART' | 'LABOR'
+  itemType: 'PART' | 'PART_FREE' | 'LABOR'
   sparePartId: number | null
   description: string
   quantity: number

@@ -14,7 +14,7 @@ export const workshopService = {
   },
   addItem(
     id: number,
-    item: { itemType: 'PART' | 'LABOR'; sparePartId?: number | null; description?: string; quantity: number; unitPrice: number },
+    item: { itemType: 'PART' | 'PART_FREE' | 'LABOR'; sparePartId?: number | null; description?: string; quantity: number; unitPrice: number },
   ): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/items`, item).then((r) => r.data)
   },
