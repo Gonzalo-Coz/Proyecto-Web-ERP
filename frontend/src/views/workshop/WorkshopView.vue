@@ -628,7 +628,9 @@ onMounted(async () => {
     models.value = (await modelService.list({ page: 1, perPage: 200, search: '', sort: 'model', direction: 'asc' })).data.filter((m) => m.isActive)
   } catch { models.value = [] }
   try {
-    spareParts.value = (await sparePartService.list({ page: 1, perPage: 100, search: '', sort: 'description', direction: 'asc' })).data.filter((p) => p.isActive)
+    // Cargar TODOS los repuestos activos (no solo 100): el selector filtra en pantalla,
+    // así que si solo se cargan 100, los repuestos fuera de esos 100 nunca aparecen al buscar.
+    spareParts.value = (await sparePartService.list({ page: 1, perPage: 5000, search: '', sort: 'description', direction: 'asc' })).data.filter((p) => p.isActive)
   } catch { spareParts.value = [] }
   try {
     planModels.value = await maintenanceService.models()
