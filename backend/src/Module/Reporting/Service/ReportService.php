@@ -238,7 +238,7 @@ final class ReportService
                 'title' => 'Reporte de Clientes',
                 'columns' => $this->cols(['Documento', 'Nombre/Razón Social', 'Celular', 'Correo', 'Registrado', 'Compras (S/)', 'Nº Ventas']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT CONCAT(c.document_type, ' ', c.document_number), c.name, c.mobile, c.email, c.created_at::date,
+                    "SELECT CONCAT(c.document_type, ' ', c.document_number), c.name, COALESCE(NULLIF(c.phone, ''), c.mobile), c.email, c.created_at::date,
                             COALESCE((SELECT SUM(s.total) FROM sales s WHERE s.customer_id = c.id AND s.status = 'COMPLETADA'), 0),
                             (SELECT COUNT(*) FROM sales s WHERE s.customer_id = c.id AND s.status = 'COMPLETADA')
                      FROM customers c WHERE c.deleted_at IS NULL AND c.created_at::date BETWEEN :from AND :to
