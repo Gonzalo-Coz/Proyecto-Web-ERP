@@ -52,8 +52,9 @@ final class InvoiceImportService
         // DUA por VIN desde el PDF (si se adjuntó); el XML no lo incluye.
         $duaByVin = ($pdf !== null && $pdf !== '') ? $this->duaExtractor->extractByVin($pdf) : [];
 
+        // Tipo de cambio solo referencial (para mostrar el margen aproximado en el modal);
+        // NO se usa para convertir: el costo y el precio se guardan tal cual.
         $rate = $currency === 'USD' ? $this->exchangeRate->saleRate($doc['issueDate']) : 1.0;
-        $factor = $rate ?? 0.0; // si no hay T.C., el frontend lo pedirá
 
         $supplier = $this->supplierRepository->findOneByRuc($data['supplier']['ruc']);
 
@@ -172,17 +173,8 @@ final class InvoiceImportService
             $items[] = ['itemType' => 'SPARE_PART', 'sparePartId' => $partId, 'quantity' => $qty, 'unitPrice' => $cost, 'discount' => 0];
         }
 
-        // Tipo de cambio de la factura (el que vio/editó el usuario). Para importaciones
-        // en US$ se usa para guardar los precios de la unidad SIEMPRE en soles.
-        $docUsd = ($doc['currency'] ?? 'PEN') === 'USD';
-        $rate = (float) ($payload['exchangeRate'] ?? 0);
-        if ($rate <= 0) {
-            $rate = $docUsd ? (float) ($this->exchangeRate->saleRate((string) ($doc['issueDate'] ?? '')) ?? 0) : 1.0;
-        }
-        if ($docUsd && $rate <= 0) {
-            throw new UnprocessableEntityHttpException('Falta el tipo de cambio para convertir los precios en dólares.');
-        }
-
+        // Sin conversión ni tipo de cambio: el costo se guarda tal cual la factura y el
+        // precio de venta tal cual se escribe, en la moneda elegida en el panel (S/ o US$).
         foreach (($payload['motorcycles'] ?? []) as $mt) {
             $vin = trim((string) ($mt['vin'] ?? ''));
             $cost = round((float) ($mt['costPen'] ?? 0), 2);        // costo tal cual factura (US$ en motos)
@@ -192,16 +184,11 @@ final class InvoiceImportService
             }
             $model = $this->resolveModel((string) ($mt['brand'] ?? 'YAMAHA'), (string) ($mt['model'] ?? ''), (string) ($mt['year'] ?? ''));
 
-            // La unidad guarda SUS precios en SOLES (moneda PEN), independiente de la
-            // moneda de la factura: el costo en US$ se convierte con el T.C., y el
-            // precio de venta se toma en la moneda elegida (por defecto soles).
-            $costSoles = $docUsd ? round($cost * $rate, 2) : $cost;
-            $saleCur = strtoupper((string) ($mt['saleCurrency'] ?? 'PEN'));
+            // La unidad guarda su costo tal cual la factura y su precio de venta tal cual
+            // se escribió, SIN convertir. La moneda de la unidad es la elegida en el panel.
+            $saleCur = strtoupper((string) ($mt['saleCurrency'] ?? 'PEN')) === 'USD' ? 'USD' : 'PEN';
             $sale = isset($mt['salePrice']) && $mt['salePrice'] !== null && $mt['salePrice'] !== ''
                 ? round((float) $mt['salePrice'], 2) : null;
-            if ($sale !== null && $saleCur === 'USD') {
-                $sale = round($sale * $rate, 2);
-            }
             $created = $this->unitService->create(new UnitPayload(
                 vin: $vin,
                 modelId: (int) $model->getId(),
@@ -211,9 +198,9 @@ final class InvoiceImportService
                 manufactureYear: ctype_digit((string) ($mt['year'] ?? '')) ? (int) $mt['year'] : null,
                 purchaseDate: $this->nullify((string) ($doc['issueDate'] ?? '')),
                 supplierId: (int) $supplier->getId(),
-                purchasePrice: $costSoles,
+                purchasePrice: $cost,
                 salePrice: $sale,
-                priceCurrency: 'PEN',
+                priceCurrency: $saleCur,
                 duaNumber: $this->nullify((string) ($mt['duaNumber'] ?? '')),
                 duaItem: $this->nullify((string) ($mt['duaItem'] ?? '')),
             ));

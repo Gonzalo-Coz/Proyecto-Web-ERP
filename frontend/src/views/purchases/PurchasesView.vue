@@ -491,7 +491,7 @@ onMounted(async () => {
           </div>
 
           <p v-if="preview.document.currency === 'USD'" class="rounded-lg border border-blue-100 bg-blue-50 p-2 text-xs text-blue-700">
-            Factura en dólares: el costo se guarda tal cual en US$ (sin convertir). La conversión a soles solo se hace al vender.
+            Factura en dólares: el costo se guarda tal cual en US$ (sin convertir). El precio de venta se guarda tal cual en la moneda que elijas en "P. Venta" (S/ o US$); no se hace ninguna conversión.
           </p>
 
           <div v-if="preview.spareParts.length" class="flex items-center gap-2 rounded-lg border border-emerald-100 bg-emerald-50/50 p-2 text-sm">
