@@ -63,20 +63,46 @@ final class ReportService
                 'title' => 'Venta de Repuestos (Formato Yamaha)',
                 'columns' => $this->cols(['Nro', 'Bloque', 'CL/RUC', 'Local', 'Código', 'Descripción', 'Cantidad Vendida', '% Descto', 'Descuento', 'Precio Venta (con IGV)', 'Monto total', 'Origen', 'Fecha Ope']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT ROW_NUMBER() OVER (ORDER BY s.sale_date, s.id, si.id), 'Venta',
+                    // Une las ventas de repuestos de MOSTRADOR (sale_items) con las de
+                    // TALLER (service_order_items de órdenes facturadas). Los repuestos
+                    // del taller se guardan en la orden como líneas SERVICIO en la venta,
+                    // pero de forma estructurada (con su repuesto) en service_order_items,
+                    // de donde se toman aquí para que también aparezcan en el reporte.
+                    "SELECT ROW_NUMBER() OVER (ORDER BY t.sale_date, t.sid, t.lid), 'Venta',
                             :ruc, :local,
-                            sp.part_code, si.description, si.quantity,
-                            COALESCE(si.discount_percent, 0), COALESCE(si.discount, 0),
-                            si.unit_price, si.line_total,
-                            CASE WHEN EXISTS (SELECT 1 FROM service_orders so WHERE so.invoice_sale_id = s.id) THEN 'Taller' ELSE 'Mostrador' END,
-                            s.sale_date
-                     FROM sale_items si
-                     JOIN sales s ON s.id = si.sale_id
-                     JOIN spare_parts sp ON sp.id = si.spare_part_id
-                     WHERE si.item_type = 'SPARE_PART' AND s.status = 'COMPLETADA'
-                       AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')
-                       AND s.sale_date BETWEEN :from AND :to
-                     ORDER BY s.sale_date, s.id, si.id",
+                            t.part_code, t.descr, t.qty,
+                            t.disc_pct, t.disc,
+                            t.unit_price, t.line_total,
+                            t.origen, t.sale_date
+                     FROM (
+                        SELECT s.sale_date AS sale_date, s.id AS sid, si.id AS lid,
+                               sp.part_code AS part_code, si.description AS descr, si.quantity AS qty,
+                               COALESCE(si.discount_percent, 0)::numeric AS disc_pct, COALESCE(si.discount, 0)::numeric AS disc,
+                               si.unit_price AS unit_price, si.line_total AS line_total,
+                               CASE WHEN EXISTS (SELECT 1 FROM service_orders so WHERE so.invoice_sale_id = s.id) THEN 'Taller' ELSE 'Mostrador' END AS origen
+                        FROM sale_items si
+                        JOIN sales s ON s.id = si.sale_id
+                        JOIN spare_parts sp ON sp.id = si.spare_part_id
+                        WHERE si.item_type = 'SPARE_PART' AND s.status = 'COMPLETADA'
+                          AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')
+                          AND s.sale_date BETWEEN :from AND :to
+
+                        UNION ALL
+
+                        SELECT s.sale_date AS sale_date, s.id AS sid, soi.id AS lid,
+                               sp.part_code AS part_code, soi.description AS descr, soi.quantity AS qty,
+                               0::numeric AS disc_pct, 0::numeric AS disc,
+                               soi.unit_price AS unit_price, soi.line_total AS line_total,
+                               'Taller' AS origen
+                        FROM service_order_items soi
+                        JOIN service_orders so ON so.id = soi.service_order_id
+                        JOIN sales s ON s.id = so.invoice_sale_id
+                        JOIN spare_parts sp ON sp.id = soi.spare_part_id
+                        WHERE soi.item_type = 'PART' AND s.status = 'COMPLETADA'
+                          AND EXISTS (SELECT 1 FROM electronic_documents d WHERE d.sale_id = s.id AND d.status = 'ACEPTADO')
+                          AND s.sale_date BETWEEN :from AND :to
+                     ) t
+                     ORDER BY t.sale_date, t.sid, t.lid",
                     array_merge($params, [
                         'ruc' => $this->settings->get('company.ruc') ?? '',
                         'local' => $this->settings->get('company.trade_name') ?: ($this->settings->get('company.name') ?? 'PRINCIPAL'),
