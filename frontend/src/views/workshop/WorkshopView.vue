@@ -50,8 +50,10 @@ const spareParts = ref<SparePartItem[]>([])
 const modalOpen = ref(false)
 const saving = ref(false)
 const formError = ref('')
+const quickClient = ref(false)
 const form = reactive({
   customerId: 0,
+  quickCustomerName: '' as string,
   broughtBy: null as string | null,
   motorcycleUnitId: null as number | null,
   motorcycleDescription: null as string | null,
@@ -222,8 +224,10 @@ function onSearch(): void {
 }
 
 function openCreate(): void {
+  quickClient.value = false
   Object.assign(form, {
     customerId: customers.value[0]?.id ?? 0,
+    quickCustomerName: '',
     broughtBy: null,
     motorcycleUnitId: null,
     motorcycleDescription: null,
@@ -456,10 +460,23 @@ async function openHistory(unitId: number | null | undefined): Promise<void> {
 }
 
 async function save(): Promise<void> {
+  // Validación del cliente según el modo (rápido = solo nombre; normal = seleccionado).
+  if (quickClient.value) {
+    if (!form.quickCustomerName.trim()) {
+      formError.value = 'Escribe el nombre del cliente.'
+      return
+    }
+  } else if (!form.customerId) {
+    formError.value = 'Selecciona un cliente o usa "Cliente rápido".'
+    return
+  }
   saving.value = true
   formError.value = ''
   try {
-    const created = await workshopService.create({ ...form })
+    const payload = quickClient.value
+      ? { ...form, customerId: 0, quickCustomerName: form.quickCustomerName.trim() }
+      : { ...form, quickCustomerName: '' }
+    const created = await workshopService.create(payload)
     modalOpen.value = false
     detail.value = created
     await load()
@@ -709,7 +726,16 @@ onMounted(async () => {
       <form class="space-y-4" @submit.prevent="save">
         <!-- Esencial: lo mínimo para registrar rápido cuando hay cola. -->
         <FormField label="Cliente (titular)" required>
-          <div class="flex gap-2">
+          <!-- Cliente rápido: solo nombre, sin DNI, para recibir motos con rapidez cuando hay cola. -->
+          <div v-if="quickClient" class="flex gap-2">
+            <input
+              v-model="form.quickCustomerName"
+              class="form-input flex-1"
+              maxlength="200"
+              placeholder="Nombre del cliente (ej. Marco Antonio Aguinaga)"
+            />
+          </div>
+          <div v-else class="flex gap-2">
             <div class="flex-1">
               <SearchableSelect
                 v-model="form.customerId"
@@ -721,7 +747,11 @@ onMounted(async () => {
             </div>
             <button type="button" class="btn-secondary whitespace-nowrap" title="Registrar un cliente nuevo" @click="openNewCustomer">+ Nuevo cliente</button>
           </div>
-          <p v-if="receptionHint" class="mt-1 text-xs" :class="form.motorcycleUnitId ? 'text-emerald-700' : 'text-gray-500'">{{ receptionHint }}</p>
+          <label class="mt-1 flex items-center gap-1 text-xs text-gray-600">
+            <input type="checkbox" v-model="quickClient" />
+            Cliente rápido: escribir solo el nombre (sin DNI)
+          </label>
+          <p v-if="receptionHint && !quickClient" class="mt-1 text-xs" :class="form.motorcycleUnitId ? 'text-emerald-700' : 'text-gray-500'">{{ receptionHint }}</p>
         </FormField>
         <FormField label="Unidad vendida por la empresa (expediente digital)">
           <div class="flex gap-2">

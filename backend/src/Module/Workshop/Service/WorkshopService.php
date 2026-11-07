@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Module\Workshop\Service;
 
+use App\Module\Customer\Entity\Customer;
 use App\Module\Customer\Repository\CustomerRepository;
 use App\Module\Inventory\Repository\SparePartRepository;
 use App\Module\Inventory\Service\StockService;
@@ -272,10 +273,38 @@ final class WorkshopService
     }
 
     /** @param array<string, mixed> $data */
+    /**
+     * Crea un cliente rápido de taller con SOLO el nombre, sin DNI: se le asigna un
+     * documento provisional único (tipo DNI) para no frenar la recepción. Luego se
+     * puede completar su documento real si se necesita emitir factura.
+     */
+    private function createQuickCustomer(string $name): Customer
+    {
+        do {
+            $provisional = 'SD'.strtoupper(bin2hex(random_bytes(4))); // ej. SD3F9A2B1C (10 chars)
+        } while ($this->customerRepository->findOneBy(['documentType' => 'DNI', 'documentNumber' => $provisional]) !== null);
+
+        $customer = new Customer('DNI', $provisional, mb_substr($name, 0, 200));
+        $this->entityManager->persist($customer);
+        $this->entityManager->flush();
+
+        return $customer;
+    }
+
     public function create(array $data): array
     {
-        $customer = $this->customerRepository->find((int) ($data['customerId'] ?? 0))
-            ?? throw new UnprocessableEntityHttpException('Cliente no encontrado.');
+        $customerId = (int) ($data['customerId'] ?? 0);
+        if ($customerId > 0) {
+            $customer = $this->customerRepository->find($customerId)
+                ?? throw new UnprocessableEntityHttpException('Cliente no encontrado.');
+        } else {
+            // Cliente rápido: solo nombre, sin DNI (recepción ágil del taller).
+            $quickName = trim((string) ($data['quickCustomerName'] ?? ''));
+            if ($quickName === '') {
+                throw new UnprocessableEntityHttpException('Selecciona un cliente o escribe su nombre.');
+            }
+            $customer = $this->createQuickCustomer($quickName);
+        }
 
         $unitId = isset($data['motorcycleUnitId']) && $data['motorcycleUnitId'] !== null ? (int) $data['motorcycleUnitId'] : null;
         $description = trim((string) ($data['motorcycleDescription'] ?? ''));

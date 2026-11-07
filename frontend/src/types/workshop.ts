@@ -61,6 +61,8 @@ export interface ServiceOrderSummary {
 
 export interface ServiceOrderPayload {
   customerId: number
+  /** Cliente rápido: nombre libre cuando no se selecciona un cliente registrado. */
+  quickCustomerName?: string | null
   broughtBy: string | null
   motoBrand: string | null
   motoColor: string | null
