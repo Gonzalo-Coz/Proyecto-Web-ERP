@@ -139,14 +139,16 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             ];
         }
 
+        $cliDoc = $this->clientDoc($document);
+
         return [
             'operacion' => 'generar_comprobante',
             'tipo_de_comprobante' => self::DOC_TYPE_MAP[$document->getDocType()] ?? 2,
             'serie' => $document->getSeries(),
             'numero' => $document->getCorrelative(),
             'sunat_transaction' => 1, // 1 = Venta interna
-            'cliente_tipo_de_documento' => self::CLIENT_DOC_MAP[$document->getCustomerDocType()] ?? '-',
-            'cliente_numero_de_documento' => $document->getCustomerDocNumber() ?: '00000000',
+            'cliente_tipo_de_documento' => $cliDoc['tipo'],
+            'cliente_numero_de_documento' => $cliDoc['numero'],
             'cliente_denominacion' => $document->getCustomerName(),
             'cliente_direccion' => $document->getCustomerAddress() ?? '',
             'cliente_email' => '',
@@ -162,6 +164,35 @@ final class NubefactProvider implements ElectronicInvoiceProviderInterface
             'enviar_automaticamente_al_cliente' => false,
             'items' => $items,
         ];
+    }
+
+    /**
+     * Determina el tipo y número de documento del cliente válidos para SUNAT.
+     * Si el documento no cumple el formato (RUC de 11 dígitos, DNI de 8 dígitos,
+     * CE/Pasaporte no vacío), por ejemplo un cliente rápido de taller con documento
+     * provisional, se emite como "sin documento" (público general): tipo '-' y
+     * número '00000000'. SUNAT acepta así las BOLETAS; la factura ya exige RUC antes.
+     *
+     * @return array{tipo: string, numero: string}
+     */
+    private function clientDoc(\App\Module\Invoicing\Entity\ElectronicDocument $document): array
+    {
+        $type = strtoupper(trim($document->getCustomerDocType()));
+        $number = trim((string) $document->getCustomerDocNumber());
+
+        $valido = match ($type) {
+            'RUC' => ctype_digit($number) && strlen($number) === 11,
+            'DNI' => ctype_digit($number) && strlen($number) === 8,
+            'CE', 'CARNET_EXTRANJERIA', 'PASAPORTE' => $number !== '',
+            default => false,
+        };
+
+        if (!$valido) {
+            // Público general / sin documento (válido para boleta).
+            return ['tipo' => '-', 'numero' => '00000000'];
+        }
+
+        return ['tipo' => self::CLIENT_DOC_MAP[$type] ?? '-', 'numero' => $number];
     }
 
     /**
