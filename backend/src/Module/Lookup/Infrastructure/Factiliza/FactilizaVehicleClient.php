@@ -70,8 +70,7 @@ final class FactilizaVehicleClient implements VehicleLookupProviderInterface
         $url = $this->config->baseUrl().$path;
         $options = [
             \CURLOPT_RETURNTRANSFER => true,
-            \CURLOPT_TIMEOUT => $this->config->timeout(),
-            \CURLOPT_CONNECTTIMEOUT => min(5, $this->config->timeout()),
+            \CURLOPT_NOSIGNAL => true, // necesario para que los timeouts en ms sean fiables
             \CURLOPT_FOLLOWLOCATION => false,
             \CURLOPT_SSL_VERIFYPEER => true,
             \CURLOPT_SSL_VERIFYHOST => 2,
@@ -80,32 +79,70 @@ final class FactilizaVehicleClient implements VehicleLookupProviderInterface
                 'Authorization: Bearer '.$this->config->token(),
             ],
             \CURLOPT_USERAGENT => 'YIGM-ERP/1.0',
+            \CURLOPT_ENCODING => '', // acepta gzip: respuesta más liviana y rápida
         ];
         if ($this->config->caInfo() !== null) {
             $options[\CURLOPT_CAINFO] = $this->config->caInfo();
         }
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, $options);
-        $body = curl_exec($ch);
-        $errno = curl_errno($ch);
-        $error = curl_error($ch);
-        $status = (int) curl_getinfo($ch, \CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        // Presupuesto TOTAL de 10 segundos para toda la consulta (incluidos reintentos).
+        // Se reintenta ante timeout/5xx mientras quede tiempo; si se agotan los 10 s, se
+        // devuelve "límite de tiempo". NO se reintenta ante 4xx (placa inexistente, token
+        // inválido, límite del plan), que son definitivos.
+        $budgetMs = 10_000;
+        $start = microtime(true);
+        $errno = 0;
+        $error = '';
+        $status = 0;
+        $body = false;
+        $timedOut = false;
+        for ($attempt = 1; ; ++$attempt) {
+            $remainingMs = $budgetMs - (int) round((microtime(true) - $start) * 1000);
+            if ($remainingMs < 1000) { // sin margen razonable para otro intento
+                $timedOut = true;
+                break;
+            }
 
-        if ($errno !== 0) {
-            $this->logger->error('FACTILIZA: fallo de transporte cURL', [
-                'url' => $url, 'httpCode' => $status, 'curlErrno' => $errno,
-                'curlError' => $error, 'config' => $this->config->debugSnapshot(),
+            $ch = curl_init($url);
+            curl_setopt_array($ch, $options + [
+                \CURLOPT_TIMEOUT_MS => $remainingMs,
+                \CURLOPT_CONNECTTIMEOUT_MS => min(4000, $remainingMs),
             ]);
+            $body = curl_exec($ch);
+            $errno = curl_errno($ch);
+            $error = curl_error($ch);
+            $status = (int) curl_getinfo($ch, \CURLINFO_HTTP_CODE);
+            curl_close($ch);
 
-            throw new LookupUnavailableException(
-                \CURLE_OPERATION_TIMEDOUT === $errno
-                    ? 'La consulta al proveedor tardó demasiado (timeout). Intenta nuevamente.'
-                    : 'No se pudo conectar con el proveedor de consultas. Intenta nuevamente.',
-            );
+            // Respuesta utilizable (2xx/4xx): la interpreta mapStatus (éxito o error definitivo).
+            if ($errno === 0 && $status !== 0 && $status < 500) {
+                return $this->mapStatus($status, is_string($body) ? $body : '');
+            }
+
+            $this->logger->warning('FACTILIZA: intento fallido, se reintentará si queda tiempo', [
+                'url' => $url, 'intento' => $attempt, 'restanteMs' => $remainingMs,
+                'httpCode' => $status, 'curlErrno' => $errno, 'curlError' => $error,
+            ]);
+            // Pequeña espera entre intentos, solo si aún queda holgura dentro del presupuesto.
+            if ($budgetMs - (int) round((microtime(true) - $start) * 1000) > 1500) {
+                usleep(300_000);
+            }
         }
 
+        $this->logger->error('FACTILIZA: agotado el presupuesto de tiempo', [
+            'url' => $url, 'httpCode' => $status, 'curlErrno' => $errno,
+            'curlError' => $error, 'config' => $this->config->debugSnapshot(),
+        ]);
+
+        // Si se agotaron los 10 s, o el último error fue de timeout: mensaje de límite de tiempo.
+        if ($timedOut || \CURLE_OPERATION_TIMEDOUT === $errno) {
+            throw new LookupUnavailableException('No se encontró la placa dentro del límite de tiempo (10 segundos). Intenta nuevamente.');
+        }
+        if ($errno !== 0) {
+            throw new LookupUnavailableException('No se pudo conectar con el proveedor de consultas. Intenta nuevamente.');
+        }
+
+        // 5xx o status 0: mapStatus lanza "proveedor no disponible".
         return $this->mapStatus($status, is_string($body) ? $body : '');
     }
 
