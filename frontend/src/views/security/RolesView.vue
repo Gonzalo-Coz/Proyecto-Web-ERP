@@ -32,6 +32,30 @@ const confirmTarget = ref<RoleItem | null>(null)
 
 const moduleLabels = computed(() => Object.keys(catalog.value).sort())
 
+/** Traducción de los módulos de permisos al español (el catálogo llega en inglés). */
+const MODULE_LABELS: Record<string, string> = {
+  audit: 'Auditoría',
+  cash: 'Caja',
+  customers: 'Clientes',
+  dashboard: 'Panel principal',
+  dispatch: 'Guías de remisión',
+  inventory: 'Inventario / Repuestos',
+  invoicing: 'Comprobantes electrónicos',
+  motorcycles: 'Motocicletas',
+  payments: 'Pagos',
+  pricing: 'Precios y listas',
+  purchases: 'Compras',
+  reports: 'Reportes',
+  sales: 'Ventas',
+  security: 'Seguridad',
+  settings: 'Configuración',
+  suppliers: 'Proveedores',
+  workshop: 'Taller',
+}
+function moduleLabel(module: string): string {
+  return MODULE_LABELS[module.toLowerCase()] ?? module
+}
+
 async function load(): Promise<void> {
   loading.value = true
   try {
@@ -174,7 +198,7 @@ onMounted(async () => {
           <div class="max-h-64 space-y-4 overflow-y-auto rounded-lg border border-gray-200 p-3">
             <div v-for="module in moduleLabels" :key="module">
               <div class="mb-1 flex items-center justify-between">
-                <p class="text-xs font-semibold uppercase text-gray-500">{{ module }}</p>
+                <p class="text-xs font-semibold uppercase text-gray-500">{{ moduleLabel(module) }}</p>
                 <button
                   type="button"
                   class="text-xs text-primary-600 hover:underline"
