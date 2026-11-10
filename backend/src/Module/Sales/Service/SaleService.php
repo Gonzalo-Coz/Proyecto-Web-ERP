@@ -575,6 +575,8 @@ final class SaleService
                 'sparePartId' => $i->getSparePart()?->getId(),
                 'motorcycleUnitId' => $i->getMotorcycleUnit()?->getId(),
                 'code' => $i->getSparePart()?->getInternalCode() ?? $i->getMotorcycleUnit()?->getInternalCode() ?? '',
+                // Código del producto (código Yamaha / del proveedor) para verlo directo en la vista.
+                'partCode' => $i->getSparePart()?->getPartCode() ?? '',
                 'description' => $i->getDescription(),
                 'quantity' => $i->getQuantity(),
                 'unitPrice' => $i->getUnitPrice(),

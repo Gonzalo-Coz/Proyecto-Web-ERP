@@ -23,6 +23,8 @@ export interface SaleItemDetail extends SaleLine {
   lineTotal: string
   /** Código interno del repuesto o de la unidad de moto. */
   code?: string
+  /** Código del producto (código Yamaha / del proveedor) del repuesto. */
+  partCode?: string
 }
 
 export interface SalePaymentItem {

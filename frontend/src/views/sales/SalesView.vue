@@ -868,7 +868,7 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-for="i in detail.items" :key="i.id" class="border-t border-gray-100">
-              <td class="py-1 font-mono text-xs text-gray-600">{{ i.code || '—' }}</td>
+              <td class="py-1 font-mono text-xs text-gray-600">{{ i.partCode || i.code || '—' }}</td>
               <td class="py-1">{{ i.description }}</td>
               <td class="py-1 text-right">{{ i.quantity }}</td>
               <td class="py-1 text-right">{{ i.unitPrice }}</td>
