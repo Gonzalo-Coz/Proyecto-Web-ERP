@@ -443,7 +443,7 @@ onMounted(async () => {
           </thead>
           <tbody>
             <tr v-for="i in detail.items" :key="i.id" class="border-t border-gray-100">
-              <td class="py-1">{{ i.description }}</td>
+              <td class="py-1">{{ i.description }}<span v-if="i.color" class="text-gray-500"> · Color: {{ i.color }}</span></td>
               <td class="py-1 text-right">{{ i.quantity }}</td>
               <td class="py-1 text-right">{{ i.unitPrice }}</td>
               <td class="py-1 text-right">{{ i.lineTotal }}</td>

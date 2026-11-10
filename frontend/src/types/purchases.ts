@@ -13,6 +13,8 @@ export interface PurchaseItemDetail extends PurchaseLine {
   id: number
   description: string
   lineTotal: string
+  /** Color de la moto (solo en líneas de motocicleta). */
+  color?: string
 }
 
 export interface PurchaseItemSummary {

@@ -247,6 +247,7 @@ final class PurchaseService
                 'itemType' => $i->getItemType(),
                 'sparePartId' => $i->getSparePart()?->getId(),
                 'motorcycleUnitId' => $i->getMotorcycleUnit()?->getId(),
+                'color' => $i->getMotorcycleUnit()?->getColor() ?? '',
                 'description' => $i->getDescription(),
                 'quantity' => $i->getQuantity(),
                 'unitPrice' => $i->getUnitPrice(),
