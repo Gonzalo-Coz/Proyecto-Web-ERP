@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Module\Dashboard\Service;
 
 use Doctrine\DBAL\Connection;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 /**
  * Indicadores del Dashboard Gerencial (§6), calculados en vivo.
@@ -13,11 +15,27 @@ use Doctrine\DBAL\Connection;
  */
 final class DashboardService
 {
-    public function __construct(private readonly Connection $db)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        private readonly CacheInterface $cache,
+    ) {
     }
 
+    /**
+     * El resumen dispara ~55 consultas (KPIs + áreas) y es la pantalla de inicio,
+     * así que se cachea unos segundos: dentro de esa ventana, recargar el dashboard
+     * o volver a él no vuelve a ejecutar todas las consultas (lectura de caché).
+     */
     public function summary(): array
+    {
+        return $this->cache->get('dashboard_summary_v1', function (ItemInterface $item): array {
+            $item->expiresAfter(45); // 45 s: suficientemente "en vivo" sin recalcular en cada visita
+            return $this->computeSummary();
+        });
+    }
+
+    /** @return array<string, mixed> */
+    private function computeSummary(): array
     {
         return [
             'sales' => $this->sales(),

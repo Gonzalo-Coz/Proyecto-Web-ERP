@@ -9,6 +9,8 @@ fi
 # 2) Migraciones + caché en runtime (ya con las variables de entorno de Railway).
 php bin/console doctrine:migrations:migrate --no-interaction || true
 php bin/console cache:clear || true
+# Precalienta la caché de Symfony para que las primeras peticiones no salgan en frío.
+php bin/console cache:warmup || true
 
 # 2b) Asegura que la carpeta de subidas sea escribible. Necesario cuando Railway
 # monta un Volume en /app/public/uploads (el montaje reinicia los permisos y

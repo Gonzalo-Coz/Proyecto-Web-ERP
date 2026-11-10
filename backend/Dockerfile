@@ -28,6 +28,8 @@ RUN composer install --no-dev --no-interaction --no-progress --no-scripts \
 COPY docker/nginx.conf.template /etc/nginx/nginx.conf.template
 # Log de accesos de php-fpm a stdout (evita que Railway marque los 200 como "error").
 COPY docker/zz-railway.conf /usr/local/etc/php-fpm.d/zz-railway.conf
+# Ajustes de rendimiento de PHP/opcache para producción.
+COPY docker/zz-opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
