@@ -388,6 +388,15 @@ function css(format: PrintFormat): string {
     .a4-footinfo .rep { margin-top: 3px; font-style: italic; }
     .a4-warn { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
     .a4-note { margin-top: 6px; color: #6b7280; font-style: italic; font-size: 10px; }
+
+    /* ===== Cortes de página limpios (impresión y PDF) =====
+       Se aplican SIEMPRE (no solo @media print) porque el generador de PDF
+       (html2pdf) captura el documento en modo pantalla; las propiedades de salto
+       no afectan la vista en pantalla, así que es seguro dejarlas globales. */
+    tr, .a4-items tr, .a4-bank tr { page-break-inside: avoid; break-inside: avoid; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    .a4-obs, .a4-bottom, .a4-footer, .a4-bank, .tot { page-break-inside: avoid; break-inside: avoid; }
   `
 }
 
@@ -600,7 +609,10 @@ export async function openComprobantePdf(doc: InvoiceDocument, format: PrintForm
       margin: format === 'ticket' ? 0 : [6, 6, 6, 6],
       filename: `${doc.fullNumber}${format === 'ticket' ? '-ticket' : ''}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      pagebreak: { mode: ['css', 'legacy'] },
+      // En A4 'avoid-all' evita que una fila/bloque se parta entre páginas (el corte
+      // cae en el borde del cuadro). El ticket es una tira continua de una sola página,
+      // así que no se le aplica.
+      pagebreak: format === 'ticket' ? { mode: ['css', 'legacy'] } : { mode: ['avoid-all', 'css', 'legacy'] },
       html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
       jsPDF,
     }
