@@ -132,7 +132,8 @@ final class SaleService
             $sale->setNotes($payload->notes);
             $sale->setRetailData($payload->retail);
 
-            $this->applyLines($sale, $payload);
+            // Solo se valida stock si se va a completar ahora; una cotización no lo valida.
+            $this->applyLines($sale, $payload, $payload->complete);
 
             $this->entityManager->persist($sale);
             $this->entityManager->flush();
@@ -335,7 +336,8 @@ final class SaleService
             $sale->clearItems();
             $sale->setNotes($payload->notes);
             $sale->setRetailData($payload->retail);
-            $this->applyLines($sale, $payload);
+            // Valida stock solo si la venta está o quedará completada; cotización no valida.
+            $this->applyLines($sale, $payload, $wasCompleted || $payload->complete);
             $this->entityManager->flush();
 
             // 4) Si estaba completada (o se pide completar), volver a descontar stock/motos.
@@ -397,7 +399,12 @@ final class SaleService
         $sale->markCompleted();
     }
 
-    private function applyLines(Sale $sale, SalePayload $payload): void
+    /**
+     * @param bool $enforceStock si true, valida stock/disponibilidad (al completar la
+     *                           venta). En una COTIZACIÓN es false: se arma libremente
+     *                           sin bloquear por stock (aún no se consume ni se paga).
+     */
+    private function applyLines(Sale $sale, SalePayload $payload, bool $enforceStock): void
     {
         $subtotal = 0.0;
         $seenUnits = [];
@@ -435,7 +442,7 @@ final class SaleService
             if ($itemType === 'SPARE_PART') {
                 $part = $this->sparePartRepository->find((int) ($line['sparePartId'] ?? 0))
                     ?? throw new UnprocessableEntityHttpException(sprintf('Línea %d: repuesto no encontrado.', $position));
-                if ($part->getStock() < $quantity) {
+                if ($enforceStock && $part->getStock() < $quantity) {
                     throw new ConflictHttpException(sprintf('Línea %d: stock insuficiente de %s (disponible %d).', $position, $part->getInternalCode(), $part->getStock()));
                 }
                 $item = new SaleItem($sale, 'SPARE_PART', $part->getDescription(), $quantity, $unitPrice, $discount, $discountPercent);
@@ -451,7 +458,7 @@ final class SaleService
                 if ($quantity !== 1) {
                     throw new UnprocessableEntityHttpException(sprintf('Línea %d: una unidad siempre tiene cantidad 1.', $position));
                 }
-                if ($unit->getStatus() !== 'DISPONIBLE') {
+                if ($enforceStock && $unit->getStatus() !== 'DISPONIBLE') {
                     throw new ConflictHttpException(sprintf('Línea %d: la unidad %s no está disponible (estado %s).', $position, $unit->getInternalCode(), $unit->getStatus()));
                 }
                 $item = new SaleItem($sale, 'MOTORCYCLE_UNIT', $this->motorcycleDescription($unit), 1, $unitPrice, $discount, $discountPercent);
