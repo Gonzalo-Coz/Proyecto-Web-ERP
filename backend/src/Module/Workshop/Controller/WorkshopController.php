@@ -92,6 +92,13 @@ final class WorkshopController
         return new JsonResponse($this->workshopService->invoice($id, $taxZone, $markDelivered));
     }
 
+    #[Route('/{id<\d+>}/deliver-warranty', name: 'workshop_deliver_warranty', methods: ['POST'])]
+    #[IsGranted('workshop.orders.approve')]
+    public function deliverWarranty(int $id): JsonResponse
+    {
+        return new JsonResponse($this->workshopService->deliverWarranty($id));
+    }
+
     #[Route('/moto-history/{unitId<\d+>}', name: 'workshop_moto_history', methods: ['GET'])]
     #[IsGranted('workshop.orders.view')]
     public function motoHistory(int $unitId): JsonResponse

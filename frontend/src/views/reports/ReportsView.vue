@@ -36,7 +36,10 @@ const REPORT_GROUPS = [
       { key: 'motorcycles', label: 'Motocicletas' },
     ],
   },
-  { label: 'Taller', items: [{ key: 'workshop', label: 'Órdenes de Taller' }] },
+  { label: 'Taller', items: [
+    { key: 'workshop', label: 'Órdenes de Taller' },
+    { key: 'garantias', label: 'Mantenimientos por Garantía' },
+  ] },
   {
     label: 'Finanzas',
     items: [

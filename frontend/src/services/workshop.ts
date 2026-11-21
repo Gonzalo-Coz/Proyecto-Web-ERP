@@ -40,6 +40,10 @@ export const workshopService = {
   invoice(id: number, taxZone: 'AMAZONIA' | 'LOCAL' = 'AMAZONIA', markDelivered = false): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/invoice`, { taxZone, markDelivered }).then((r) => r.data)
   },
+  /** Entrega una orden por garantía: sin venta ni cobro. */
+  deliverWarranty(id: number): Promise<ServiceOrderSummary> {
+    return api.post(`/workshop/orders/${id}/deliver-warranty`).then((r) => r.data)
+  },
   cancel(id: number, reason: string): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/cancel`, { reason }).then((r) => r.data)
   },

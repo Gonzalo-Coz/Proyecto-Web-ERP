@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class ReportService
 {
     public const TYPES = [
-        'sales', 'purchases', 'cash', 'kardex', 'workshop', 'documents',
+        'sales', 'purchases', 'cash', 'kardex', 'workshop', 'garantias', 'documents',
         'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'stockmotos', 'reposicion', 'utilities', 'audit',
         'repuestosyamaha', 'motosyamaha', 'stockventasmotos',
         'comprasrepuestos', 'comprasmotos',
@@ -235,14 +235,34 @@ final class ReportService
             ],
             'workshop' => [
                 'title' => 'Reporte de Taller',
-                'columns' => $this->cols(['Orden', 'Ingreso', 'Cliente', 'Motocicleta', 'Mecánico', 'Estado', 'Entregada', 'Total']),
+                'columns' => $this->cols(['Orden', 'Tipo', 'Ingreso', 'Cliente', 'Motocicleta', 'Mecánico', 'Estado', 'Entregada', 'Total']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT o.order_number, o.entry_date, c.name,
+                    "SELECT o.order_number,
+                            CASE WHEN o.is_warranty THEN 'Garantía' ELSE 'Normal' END,
+                            o.entry_date, c.name,
                             COALESCE(o.motorcycle_description, 'Unidad propia #' || o.motorcycle_unit_id),
                             o.mechanic_name, o.status, o.delivered_at,
                             COALESCE((SELECT SUM(i.line_total) FROM service_order_items i WHERE i.service_order_id = o.id), 0)
                      FROM service_orders o JOIN customers c ON c.id = o.customer_id
                      WHERE o.entry_date BETWEEN :from AND :to
+                     ORDER BY o.entry_date, o.id", $params,
+                ),
+            ],
+            // Órdenes de taller atendidas por GARANTÍA (sin cobro). El valor es
+            // referencial (repuestos + mano de obra) para dimensionar el costo de las
+            // garantías; NO es una venta.
+            'garantias' => [
+                'title' => 'Mantenimientos por Garantía (Taller)',
+                'columns' => $this->cols(['Orden', 'Ingreso', 'Cliente', 'Motocicleta', 'Placa', 'Mecánico', 'Diagnóstico', 'Estado', 'Entregada', 'Valor referencial (sin cobro)']),
+                'rows' => $this->db->fetchAllNumeric(
+                    "SELECT o.order_number, o.entry_date, c.name,
+                            COALESCE(o.motorcycle_description, 'Unidad propia #' || o.motorcycle_unit_id),
+                            COALESCE(o.plate, ''), COALESCE(o.mechanic_name, ''), COALESCE(o.diagnosis, ''),
+                            o.status, o.delivered_at,
+                            COALESCE((SELECT SUM(i.line_total) FROM service_order_items i WHERE i.service_order_id = o.id), 0)
+                     FROM service_orders o JOIN customers c ON c.id = o.customer_id
+                     WHERE o.is_warranty = true AND o.status <> 'ANULADA'
+                       AND o.entry_date BETWEEN :from AND :to
                      ORDER BY o.entry_date, o.id", $params,
                 ),
             ],

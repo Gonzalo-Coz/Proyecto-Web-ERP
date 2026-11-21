@@ -349,6 +349,7 @@ final class WorkshopService
             $order->setMechanicName(isset($data['mechanicName']) ? (string) $data['mechanicName'] : null);
             $order->setDiagnosis(isset($data['diagnosis']) ? (string) $data['diagnosis'] : null);
             $order->setNotes(isset($data['notes']) ? (string) $data['notes'] : null);
+            $order->setWarranty((bool) ($data['isWarranty'] ?? false));
             $order->setReceptionData(
                 isset($data['motoBrand']) ? (string) $data['motoBrand'] : null,
                 isset($data['motoColor']) ? (string) $data['motoColor'] : null,
@@ -624,6 +625,32 @@ final class WorkshopService
     }
 
     /**
+     * Entrega una orden por GARANTÍA: la marca como entregada SIN generar venta ni
+     * cobro. Los repuestos ya descontaron stock (Kardex TALLER) al cargarse, por lo
+     * que el inventario queda correcto; la orden queda como registro del mantenimiento
+     * por garantía y aparece en el reporte de garantías.
+     */
+    public function deliverWarranty(int $orderId): array
+    {
+        $order = $this->find($orderId);
+        if (!$order->isWarranty()) {
+            throw new ConflictHttpException('Esta orden no es de garantía. Usa "Facturar y entregar".');
+        }
+        if ($order->getStatus() === 'ANULADA') {
+            throw new ConflictHttpException('La orden está anulada.');
+        }
+
+        return $this->entityManager->wrapInTransaction(function () use ($order): array {
+            if (!$order->isDelivered()) {
+                $order->markDelivered();
+            }
+            $this->entityManager->flush();
+
+            return $this->toArray($order, true);
+        });
+    }
+
+    /**
      * Factura la orden: genera una venta de servicio COMPLETADA (§12/§14).
      *
      * @param string $taxZone 'AMAZONIA' (exonerado de IGV, por defecto — Tingo María)
@@ -632,6 +659,9 @@ final class WorkshopService
     public function invoice(int $orderId, string $taxZone = 'AMAZONIA', bool $markDelivered = false): array
     {
         $order = $this->find($orderId);
+        if ($order->isWarranty()) {
+            throw new ConflictHttpException('Es una orden por garantía: no se factura. Usa "Entregar por garantía".');
+        }
         if ($order->getInvoiceSaleId() !== null) {
             throw new ConflictHttpException('La orden ya fue facturada.');
         }
@@ -787,6 +817,7 @@ final class WorkshopService
             'notes' => $o->getNotes(),
             'status' => $o->getStatus(),
             'invoiceSaleId' => $o->getInvoiceSaleId(),
+            'isWarranty' => $o->isWarranty(),
             'total' => number_format($o->getTotal(), 2, '.', ''),
         ];
 

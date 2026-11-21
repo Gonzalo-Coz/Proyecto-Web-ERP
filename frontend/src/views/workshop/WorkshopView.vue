@@ -54,6 +54,7 @@ const quickClient = ref(false)
 const form = reactive({
   customerId: 0,
   quickCustomerName: '' as string,
+  isWarranty: false,
   broughtBy: null as string | null,
   motorcycleUnitId: null as number | null,
   motorcycleDescription: null as string | null,
@@ -228,6 +229,7 @@ function openCreate(): void {
   Object.assign(form, {
     customerId: customers.value[0]?.id ?? 0,
     quickCustomerName: '',
+    isWarranty: false,
     broughtBy: null,
     motorcycleUnitId: null,
     motorcycleDescription: null,
@@ -605,6 +607,23 @@ async function doInvoiceAndDeliver(): Promise<void> {
   }
 }
 
+/** Entregar por garantía (Etapa 3 sin cobro): marca entregada, sin venta ni comprobante. */
+async function doDeliverWarranty(): Promise<void> {
+  if (!detail.value) return
+  if (!window.confirm('La orden quedará ENTREGADA por garantía, sin cobro ni comprobante. ¿Continuar?')) return
+  detailError.value = ''
+  invoicing.value = true
+  try {
+    detail.value = await workshopService.deliverWarranty(detail.value.id)
+    await load(meta.value?.page ?? 1)
+    toast.success('Orden entregada por garantía (sin cobro).')
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo entregar la orden por garantía.'
+  } finally {
+    invoicing.value = false
+  }
+}
+
 async function doCancel(): Promise<void> {
   if (!detail.value) return
   const reason = window.prompt('Motivo de anulación (opcional):') ?? ''
@@ -753,6 +772,11 @@ onMounted(async () => {
           </label>
           <p v-if="receptionHint && !quickClient" class="mt-1 text-xs" :class="form.motorcycleUnitId ? 'text-emerald-700' : 'text-gray-500'">{{ receptionHint }}</p>
         </FormField>
+        <!-- Garantía: la orden queda como registro de mantenimiento, sin cobro ni venta. -->
+        <label class="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <input type="checkbox" v-model="form.isWarranty" />
+          <span><b>Atención por garantía</b> — no se cobra ni genera venta; queda registrada y sale en el reporte de garantías.</span>
+        </label>
         <FormField label="Unidad vendida por la empresa (expediente digital)">
           <div class="flex gap-2">
             <select v-model.number="form.motorcycleUnitId" class="form-input flex-1" @change="prefillMoto">
@@ -913,6 +937,9 @@ onMounted(async () => {
     <!-- Detalle -->
     <BaseModal :open="detail !== null" :title="`${detail?.orderNumber} — ${detail?.customerName}`" size="xl" @close="detail = null">
       <div v-if="detail" class="space-y-4 text-sm">
+        <div v-if="detail.isWarranty" class="rounded-lg border border-amber-300 bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-800">
+          🛡 ORDEN POR GARANTÍA — sin cobro. Registra el mantenimiento y descuenta repuestos, pero no genera venta.
+        </div>
         <div class="grid grid-cols-2 gap-2 text-gray-600">
           <p>Cliente (titular): <strong class="text-gray-900">{{ detail.customerName }}</strong> <span v-if="detail.customerDocument" class="text-xs text-gray-400">({{ detail.customerDocument }})</span></p>
           <p v-if="detail.broughtBy">Ingresa / a nombre de: <strong class="text-gray-900">{{ detail.broughtBy }}</strong></p>
@@ -951,6 +978,14 @@ onMounted(async () => {
           <div v-else-if="detail.status === 'EN_REPARACION' && detail.invoiceSaleId" class="flex flex-wrap items-center gap-2">
             <button class="btn-primary" @click="advanceTo('ENTREGADA')">✓ Marcar entregada</button>
             <span class="text-xs text-gray-500">Esta orden ya fue facturada (venta #{{ detail.invoiceSaleId }}).</span>
+          </div>
+
+          <!-- Garantía: se entrega sin cobro ni comprobante. -->
+          <div v-else-if="detail.status === 'EN_REPARACION' && detail.isWarranty" class="flex flex-wrap items-center gap-2">
+            <button class="btn-primary" :disabled="invoicing" @click="doDeliverWarranty">
+              {{ invoicing ? 'Procesando…' : '✓ Entregar por garantía (sin cobro)' }}
+            </button>
+            <span class="text-xs text-amber-700">Orden por garantía: no genera venta ni comprobante.</span>
           </div>
 
           <div v-else-if="detail.status === 'EN_REPARACION'" class="flex flex-wrap items-center gap-2">

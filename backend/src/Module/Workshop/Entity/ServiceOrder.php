@@ -119,6 +119,10 @@ class ServiceOrder
     #[ORM\Column(nullable: true)]
     private ?int $invoiceSaleId = null;
 
+    /** true = orden por GARANTÍA: no se cobra ni genera venta; solo queda como registro. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $isWarranty = false;
+
     /** @var Collection<int, ServiceOrderItem> */
     #[ORM\OneToMany(targetEntity: ServiceOrderItem::class, mappedBy: 'serviceOrder', cascade: ['persist'], orphanRemoval: true)]
     private Collection $items;
@@ -352,6 +356,16 @@ class ServiceOrder
     public function setInvoiceSaleId(?int $v): void
     {
         $this->invoiceSaleId = $v;
+    }
+
+    public function isWarranty(): bool
+    {
+        return $this->isWarranty;
+    }
+
+    public function setWarranty(bool $v): void
+    {
+        $this->isWarranty = $v;
     }
 
     /** @return Collection<int, ServiceOrderItem> */

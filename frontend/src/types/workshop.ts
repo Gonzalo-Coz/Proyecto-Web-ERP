@@ -53,6 +53,7 @@ export interface ServiceOrderSummary {
   notes: string | null
   status: OrderStatus
   invoiceSaleId: number | null
+  isWarranty?: boolean
   total: string
   items?: ServiceOrderItem[]
   /** Avisos al cargar un plan de mantenimiento (repuestos sin stock/no cargados). */
@@ -63,6 +64,8 @@ export interface ServiceOrderPayload {
   customerId: number
   /** Cliente rápido: nombre libre cuando no se selecciona un cliente registrado. */
   quickCustomerName?: string | null
+  /** Orden por garantía: no se cobra ni genera venta. */
+  isWarranty?: boolean
   broughtBy: string | null
   motoBrand: string | null
   motoColor: string | null
