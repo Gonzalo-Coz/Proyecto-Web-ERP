@@ -17,7 +17,7 @@ final class ReportService
     public const TYPES = [
         'sales', 'purchases', 'cash', 'kardex', 'workshop', 'garantias', 'documents',
         'customers', 'suppliers', 'motorcycles', 'inventory', 'stock', 'stockmotos', 'reposicion', 'utilities', 'audit',
-        'repuestosyamaha', 'motosyamaha', 'stockventasmotos',
+        'repuestosyamaha', 'repuestosvendidos', 'motosyamaha', 'stockventasmotos',
         'comprasrepuestos', 'comprasmotos',
     ];
 
@@ -107,6 +107,37 @@ final class ReportService
                         'ruc' => $this->settings->get('company.ruc') ?? '',
                         'local' => $this->settings->get('company.trade_name') ?: ($this->settings->get('company.name') ?? 'PRINCIPAL'),
                     ]),
+                ),
+            ],
+            // Resumen interno: cada repuesto con su cantidad TOTAL vendida en el
+            // periodo (consolidado, no línea por línea). Incluye mostrador y taller
+            // facturado (excluye garantías, que no son venta). Ordenado por más vendido.
+            'repuestosvendidos' => [
+                'title' => 'Resumen de Repuestos Vendidos (consolidado)',
+                'columns' => $this->cols(['Código', 'Descripción', 'Cantidad total vendida', 'Monto total (S/)']),
+                'rows' => $this->db->fetchAllNumeric(
+                    "SELECT t.part_code, t.descr, SUM(t.qty) AS total_qty, SUM(t.monto) AS total_monto
+                     FROM (
+                        SELECT sp.part_code AS part_code, sp.description AS descr, si.quantity AS qty, si.line_total AS monto
+                        FROM sale_items si
+                        JOIN sales s ON s.id = si.sale_id
+                        JOIN spare_parts sp ON sp.id = si.spare_part_id
+                        WHERE si.item_type = 'SPARE_PART' AND s.status = 'COMPLETADA'
+                          AND s.sale_date BETWEEN :from AND :to
+
+                        UNION ALL
+
+                        SELECT sp.part_code, sp.description, soi.quantity, soi.line_total
+                        FROM service_order_items soi
+                        JOIN service_orders so ON so.id = soi.service_order_id
+                        JOIN sales s ON s.id = so.invoice_sale_id
+                        JOIN spare_parts sp ON sp.id = soi.spare_part_id
+                        WHERE soi.item_type = 'PART' AND s.status = 'COMPLETADA' AND so.is_warranty = false
+                          AND s.sale_date BETWEEN :from AND :to
+                     ) t
+                     GROUP BY t.part_code, t.descr
+                     ORDER BY total_qty DESC, t.descr ASC",
+                    $params,
                 ),
             ],
             // Ventas internas de motos (base Yamaha retail) + cliente y teléfono.
