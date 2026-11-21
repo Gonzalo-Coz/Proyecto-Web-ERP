@@ -7,6 +7,22 @@ http {
     sendfile on;
     client_max_body_size 20M;
 
+    # Compresión gzip: reduce el tamaño de las respuestas JSON de la API y de los
+    # assets, acelerando la transferencia (menos bytes por la red).
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_types
+        application/json
+        application/javascript
+        application/xml
+        text/css
+        text/plain
+        text/xml
+        image/svg+xml;
+
     server {
         listen ${PORT};
         listen [::]:${PORT};

@@ -36,6 +36,7 @@ const STATUS_COLORS: Record<string, string> = {
 const rows = ref<ServiceOrderSummary[]>([])
 const meta = ref<PageMeta | null>(null)
 const loading = ref(false)
+const loadError = ref('')
 const search = ref('')
 const statusFilter = ref('')
 let debounce: ReturnType<typeof setTimeout> | undefined
@@ -210,10 +211,19 @@ async function applyPlan(): Promise<void> {
 
 async function load(page = 1): Promise<void> {
   loading.value = true
+  loadError.value = ''
   try {
     const result = await workshopService.list(page, 10, search.value, statusFilter.value)
     rows.value = result.data
     meta.value = result.meta
+  } catch (e: any) {
+    // No dejar la tabla en "Sin órdenes" en silencio cuando la petición falla
+    // (timeout/servidor): mostrar el error y permitir reintentar.
+    loadError.value =
+      e.response?.data?.detail ??
+      (e.response
+        ? `No se pudieron cargar las órdenes (error ${e.response.status}). Reintenta.`
+        : 'No se pudieron cargar las órdenes (el servidor tardó o no respondió). Reintenta.')
   } finally {
     loading.value = false
   }
@@ -718,6 +728,12 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-if="loading"><td colspan="7" class="px-4 py-8 text-center text-gray-400">Cargando…</td></tr>
+          <tr v-else-if="loadError">
+            <td colspan="7" class="px-4 py-8 text-center">
+              <p class="text-red-600">{{ loadError }}</p>
+              <button class="btn-secondary mt-2" @click="load(meta?.page ?? 1)">Reintentar</button>
+            </td>
+          </tr>
           <tr v-else-if="rows.length === 0"><td colspan="7" class="px-4 py-8 text-center text-gray-400">Sin órdenes.</td></tr>
           <tr v-for="o in rows" v-else :key="o.id" class="border-t border-gray-100 hover:bg-gray-50">
             <td class="px-4 py-3 font-medium">{{ o.orderNumber }}</td>

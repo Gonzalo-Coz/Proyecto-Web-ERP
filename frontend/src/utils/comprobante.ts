@@ -431,7 +431,9 @@ export function openSaleProforma(sale: any, label = 'PROFORMA / VISTA PREVIA'): 
     isPreview: true,
     company: sale.company,
     items: (sale.items ?? []).map((i: any) => ({
-      code: i.code ?? '',
+      // Código del PRODUCTO (código Yamaha/proveedor), no el interno. En motos (sin
+      // código de producto) se usa el interno; en texto libre/servicio queda vacío.
+      code: i.partCode || (i.motorcycleUnitId ? i.code : '') || '',
       description: i.description,
       quantity: i.quantity,
       unitPrice: i.unitPrice,

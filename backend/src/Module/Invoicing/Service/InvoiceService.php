@@ -550,7 +550,9 @@ final class InvoiceService
             $data['observations'] = $d->getSale()->getNotes();
             $data['company'] = $this->companyData();
             $data['items'] = array_map(static fn (SaleItem $i): array => [
-                'code' => $i->getSparePart()?->getInternalCode() ?? $i->getMotorcycleUnit()?->getInternalCode() ?? '',
+                // Código del PRODUCTO (código Yamaha/proveedor) en repuestos; en motos, que
+                // no tienen código de producto, se usa el interno; vacío en servicios.
+                'code' => $i->getSparePart()?->getPartCode() ?? $i->getMotorcycleUnit()?->getInternalCode() ?? '',
                 'description' => $i->getDescription(),
                 'quantity' => $i->getQuantity(),
                 'unitPrice' => $i->getUnitPrice(),
