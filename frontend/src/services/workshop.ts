@@ -44,6 +44,10 @@ export const workshopService = {
   deliverWarranty(id: number): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/deliver-warranty`).then((r) => r.data)
   },
+  /** Marca/desmarca una orden existente como de garantía. */
+  setWarranty(id: number, isWarranty: boolean): Promise<ServiceOrderSummary> {
+    return api.patch(`/workshop/orders/${id}/warranty`, { isWarranty }).then((r) => r.data)
+  },
   cancel(id: number, reason: string): Promise<ServiceOrderSummary> {
     return api.post(`/workshop/orders/${id}/cancel`, { reason }).then((r) => r.data)
   },

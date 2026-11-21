@@ -634,6 +634,23 @@ async function doDeliverWarranty(): Promise<void> {
   }
 }
 
+/** Convierte una orden existente a garantía (o la revierte a normal). */
+async function doSetWarranty(value: boolean): Promise<void> {
+  if (!detail.value) return
+  const msg = value
+    ? 'Marcar esta orden como GARANTÍA (sin cobro, no se facturará). ¿Continuar?'
+    : 'Quitar la garantía: la orden volverá a facturarse normalmente. ¿Continuar?'
+  if (!window.confirm(msg)) return
+  detailError.value = ''
+  try {
+    detail.value = await workshopService.setWarranty(detail.value.id, value)
+    await load(meta.value?.page ?? 1)
+    toast.success(value ? 'Orden marcada como garantía.' : 'Garantía quitada.')
+  } catch (e: any) {
+    detailError.value = e.response?.data?.detail ?? 'No se pudo cambiar el tipo de la orden.'
+  }
+}
+
 async function doCancel(): Promise<void> {
   if (!detail.value) return
   const reason = window.prompt('Motivo de anulación (opcional):') ?? ''
@@ -953,8 +970,20 @@ onMounted(async () => {
     <!-- Detalle -->
     <BaseModal :open="detail !== null" :title="`${detail?.orderNumber} — ${detail?.customerName}`" size="xl" @close="detail = null">
       <div v-if="detail" class="space-y-4 text-sm">
-        <div v-if="detail.isWarranty" class="rounded-lg border border-amber-300 bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-800">
-          🛡 ORDEN POR GARANTÍA — sin cobro. Registra el mantenimiento y descuenta repuestos, pero no genera venta.
+        <div v-if="detail.isWarranty" class="flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-800">
+          <span>🛡 ORDEN POR GARANTÍA — sin cobro. Registra el mantenimiento y descuenta repuestos, pero no genera venta.</span>
+          <button
+            v-if="detail.status !== 'ENTREGADA' && detail.status !== 'ANULADA' && !detail.invoiceSaleId"
+            class="whitespace-nowrap text-xs font-normal text-amber-700 underline hover:text-amber-900"
+            @click="doSetWarranty(false)"
+          >Quitar garantía</button>
+        </div>
+        <div
+          v-else-if="detail.status !== 'ENTREGADA' && detail.status !== 'ANULADA' && !detail.invoiceSaleId && auth.can('workshop.orders.edit')"
+          class="flex items-center justify-between gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+        >
+          <span>¿Esta moto viene por garantía? Márcala para que no se cobre y quede solo como registro.</span>
+          <button class="btn-secondary whitespace-nowrap !py-1 !text-xs" @click="doSetWarranty(true)">🛡 Marcar como garantía</button>
         </div>
         <div class="grid grid-cols-2 gap-2 text-gray-600">
           <p>Cliente (titular): <strong class="text-gray-900">{{ detail.customerName }}</strong> <span v-if="detail.customerDocument" class="text-xs text-gray-400">({{ detail.customerDocument }})</span></p>

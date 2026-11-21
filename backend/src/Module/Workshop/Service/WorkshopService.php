@@ -625,6 +625,27 @@ final class WorkshopService
     }
 
     /**
+     * Marca o desmarca una orden existente como de GARANTÍA (sin cobro). Útil cuando
+     * la orden se recibió como normal y luego se determina que es por garantía. Solo
+     * se permite mientras la orden no esté facturada, entregada ni anulada.
+     */
+    public function setWarranty(int $orderId, bool $isWarranty): array
+    {
+        $order = $this->find($orderId);
+        if ($order->getInvoiceSaleId() !== null) {
+            throw new ConflictHttpException('La orden ya fue facturada: no se puede cambiar a garantía.');
+        }
+        if (in_array($order->getStatus(), ['ENTREGADA', 'ANULADA'], true)) {
+            throw new ConflictHttpException('La orden ya está entregada o anulada: no se puede cambiar su tipo.');
+        }
+
+        $order->setWarranty($isWarranty);
+        $this->entityManager->flush();
+
+        return $this->toArray($order, true);
+    }
+
+    /**
      * Entrega una orden por GARANTÍA: la marca como entregada SIN generar venta ni
      * cobro. Los repuestos ya descontaron stock (Kardex TALLER) al cargarse, por lo
      * que el inventario queda correcto; la orden queda como registro del mantenimiento
