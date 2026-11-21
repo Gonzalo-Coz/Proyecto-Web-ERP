@@ -26,11 +26,11 @@ const auth = useAuthStore()
 const toast = useToast()
 
 const columns: TableColumn[] = [
-  { key: 'internalCode', label: 'Código', sortable: true },
   { key: 'partCode', label: 'Cód. Repuesto', sortable: true },
   { key: 'description', label: 'Descripción', sortable: true },
   { key: 'categoryName', label: 'Categoría' },
   { key: 'stock', label: 'Stock', sortable: true },
+  { key: 'salePrice', label: 'Precio venta' },
 ]
 
 const rows = ref<SparePartItem[]>([])
@@ -387,6 +387,9 @@ onMounted(async () => {
         >
           {{ row.stock }} {{ row.unitOfMeasure }}
         </span>
+      </template>
+      <template #cell-salePrice="{ row }">
+        <span class="font-semibold text-gray-900">{{ row.salePrice !== null && row.salePrice !== undefined ? 'S/ ' + Number(row.salePrice).toFixed(2) : '—' }}</span>
       </template>
       <template #actions="{ row }">
         <div class="flex justify-end gap-2">
