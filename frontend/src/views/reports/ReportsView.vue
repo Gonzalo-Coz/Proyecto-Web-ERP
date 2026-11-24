@@ -9,54 +9,67 @@ const auth = useAuthStore()
 /** Reportes agrupados por área para un menú ordenado (optgroups). */
 const REPORT_GROUPS = [
   {
-    label: 'Ventas',
+    label: 'VENTAS (ingresos)',
     items: [
-      { key: 'sales', label: 'Ventas' },
-      { key: 'repuestosyamaha', label: 'Venta de Repuestos (Formato Yamaha)' },
-      { key: 'repuestosvendidos', label: 'Resumen de Repuestos Vendidos (consolidado)' },
-      { key: 'motosyamaha', label: 'Ventas Internas Motos' },
-      { key: 'stockventasmotos', label: 'Stock y Ventas de Motos (Formato Yamaha)' },
-      { key: 'utilities', label: 'Utilidades' },
+      { key: 'sales', label: 'Ventas — Todas (con comprobante aceptado)' },
+      { key: 'repuestosyamaha', label: 'Ventas de Repuestos — Detalle (Formato Yamaha)' },
+      { key: 'repuestosvendidos', label: 'Ventas de Repuestos — Consolidado por producto' },
+      { key: 'motosyamaha', label: 'Ventas de Motos — Detalle interno' },
+      { key: 'utilities', label: 'Utilidades — Margen de ganancia' },
     ],
   },
   {
-    label: 'Compras',
+    label: 'COMPRAS (egresos de inventario)',
     items: [
-      { key: 'purchases', label: 'Compras (resumen)' },
-      { key: 'comprasrepuestos', label: 'Compras de Repuestos (detalle)' },
-      { key: 'comprasmotos', label: 'Compras de Motos (detalle)' },
+      { key: 'purchases', label: 'Compras — Resumen (todas)' },
+      { key: 'comprasrepuestos', label: 'Compras de Repuestos — Detalle' },
+      { key: 'comprasmotos', label: 'Compras de Motos — Detalle' },
     ],
   },
   {
-    label: 'Inventario',
+    label: 'INVENTARIO — Repuestos',
     items: [
       { key: 'stock', label: 'Stock de Repuestos (Formato Yamaha)' },
-      { key: 'inventory', label: 'Inventario Valorizado' },
-      { key: 'reposicion', label: 'Repuestos por reponer (pedido)' },
-      { key: 'stockmotos', label: 'Stock de Motos' },
-      { key: 'motorcycles', label: 'Motocicletas' },
+      { key: 'reposicion', label: 'Repuestos por Reponer — Pedido de compra' },
     ],
   },
-  { label: 'Taller', items: [
-    { key: 'workshop', label: 'Órdenes de Taller' },
-    { key: 'garantias', label: 'Mantenimientos por Garantía' },
-  ] },
   {
-    label: 'Finanzas',
+    label: 'INVENTARIO — Motos',
     items: [
-      { key: 'cash', label: 'Caja' },
-      { key: 'kardex', label: 'Kardex (movimientos de stock)' },
+      { key: 'stockmotos', label: 'Stock de Motos — Existencias actuales' },
+      { key: 'stockventasmotos', label: 'Stock y Ventas de Motos (Formato Yamaha oficial)' },
+      { key: 'motorcycles', label: 'Catálogo de Unidades de Moto — Todas (incl. vendidas)' },
     ],
   },
-  { label: 'SUNAT', items: [{ key: 'documents', label: 'Comprobantes SUNAT' }] },
   {
-    label: 'Maestros',
+    label: 'INVENTARIO — Valorización (balance)',
+    items: [
+      { key: 'inventory', label: 'Inventario Valorizado TOTAL — Repuestos + Motos' },
+    ],
+  },
+  {
+    label: 'TALLER',
+    items: [
+      { key: 'workshop', label: 'Órdenes de Taller — Todas' },
+      { key: 'garantias', label: 'Taller — Mantenimientos por Garantía (sin cobro)' },
+    ],
+  },
+  {
+    label: 'FINANZAS',
+    items: [
+      { key: 'cash', label: 'Caja — Arqueos y movimientos' },
+      { key: 'kardex', label: 'Kardex — Movimientos de stock' },
+    ],
+  },
+  { label: 'TRIBUTARIO (SUNAT)', items: [{ key: 'documents', label: 'Comprobantes Electrónicos (SUNAT)' }] },
+  {
+    label: 'DIRECTORIO',
     items: [
       { key: 'customers', label: 'Clientes' },
       { key: 'suppliers', label: 'Proveedores' },
     ],
   },
-  { label: 'Sistema', items: [{ key: 'audit', label: 'Auditoría' }] },
+  { label: 'SISTEMA', items: [{ key: 'audit', label: 'Auditoría — Acciones de usuarios' }] },
 ]
 
 /** Fecha de HOY en hora local (Perú, UTC-5), formato YYYY-MM-DD.

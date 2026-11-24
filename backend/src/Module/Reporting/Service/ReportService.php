@@ -346,15 +346,37 @@ final class ReportService
                      ORDER BY u.entry_date, u.internal_code", $params,
                 ),
             ],
+            // Inventario valorizado TOTAL (repuestos + motocicletas en stock) para el
+            // balance anual. Los repuestos se valorizan en soles (su costo ya está en
+            // soles); las motos en US$ se convierten con el tipo de cambio configurado
+            // para que el "Valorizado (S/)" sea totalizable en una sola moneda.
             'inventory' => [
-                'title' => 'Inventario Valorizado de Repuestos (a la fecha)',
-                'columns' => $this->cols(['Código', 'Descripción', 'Categoría', 'Stock', 'Mínimo', 'Costo Unit.', 'Valorizado (S/)', 'Ubicación']),
+                'title' => 'Inventario Valorizado (Repuestos y Motos, a la fecha)',
+                'columns' => $this->cols(['Tipo', 'Código', 'Descripción', 'Categoría', 'Stock', 'Costo Unit.', 'Moneda', 'Valorizado (S/)']),
                 'rows' => $this->db->fetchAllNumeric(
-                    "SELECT sp.internal_code, sp.description, c.name, sp.stock, sp.min_stock,
-                            sp.purchase_price, ROUND(sp.stock * COALESCE(sp.purchase_price, 0), 2), sp.location
-                     FROM spare_parts sp LEFT JOIN catalog_items c ON c.id = sp.category_id
-                     WHERE sp.deleted_at IS NULL
-                     ORDER BY sp.description",
+                    "SELECT t.tipo, t.code, t.descr, t.categoria, t.stock, t.costo, t.moneda, t.valorizado
+                     FROM (
+                        SELECT 'Repuesto' AS tipo, sp.internal_code AS code, sp.description AS descr,
+                               COALESCE(c.name, '') AS categoria, sp.stock AS stock,
+                               COALESCE(sp.purchase_price, 0) AS costo, 'PEN' AS moneda,
+                               ROUND(sp.stock * COALESCE(sp.purchase_price, 0), 2) AS valorizado,
+                               1 AS orden, sp.description AS sub
+                        FROM spare_parts sp LEFT JOIN catalog_items c ON c.id = sp.category_id
+                        WHERE sp.deleted_at IS NULL
+
+                        UNION ALL
+
+                        SELECT 'Motocicleta' AS tipo, u.internal_code AS code,
+                               TRIM(CONCAT(m.model, ' ', COALESCE(m.version, ''), ' · ', u.color, ' · VIN ', u.vin)) AS descr,
+                               'MOTOCICLETA' AS categoria, 1 AS stock,
+                               COALESCE(u.purchase_price, 0) AS costo, u.price_currency AS moneda,
+                               ROUND(COALESCE(u.purchase_price, 0) * CASE WHEN u.price_currency = 'USD' THEN :rate ELSE 1 END, 2) AS valorizado,
+                               2 AS orden, m.model AS sub
+                        FROM motorcycle_units u JOIN motorcycle_models m ON m.id = u.model_id
+                        WHERE u.deleted_at IS NULL AND u.status NOT IN ('VENDIDA', 'BAJA')
+                     ) t
+                     ORDER BY t.orden, t.sub",
+                    ['rate' => (float) ($this->settings->get('tax.exchange_rate') ?: 1)],
                 ),
             ],
             // Stock de repuestos en el FORMATO YAMAHA (Información Retail Requerida).
