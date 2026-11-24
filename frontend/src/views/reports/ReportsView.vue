@@ -122,7 +122,7 @@ async function downloadTemplate(cfg: { url: string; file: string; dates: boolean
     const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
-    link.download = cfg.file
+    link.download = exportFileName('xlsx')
     link.click()
     URL.revokeObjectURL(link.href)
   } catch {
@@ -130,6 +130,34 @@ async function downloadTemplate(cfg: { url: string; file: string; dates: boolean
   } finally {
     downloadingYamaha.value = false
   }
+}
+
+/** Convierte el nombre del reporte en un nombre de archivo legible y seguro. */
+function slugName(s: string): string {
+  return (s || 'reporte')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // quita tildes
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 80)
+}
+
+/** Nombre del archivo a descargar: nombre del reporte + periodo (o fecha si es foto). */
+function exportFileName(ext: string): string {
+  const base = slugName(report.value?.title ?? currentLabel() ?? 'reporte')
+  return usesDateRange.value
+    ? `${base}_${filters.from}_a_${filters.to}.${ext}`
+    : `${base}_${localToday()}.${ext}`
+}
+
+/** Etiqueta legible del reporte seleccionado (del menú), por si no hay título del backend. */
+function currentLabel(): string {
+  for (const g of REPORT_GROUPS) {
+    const it = g.items.find((i) => i.key === filters.type)
+    if (it) return it.label
+  }
+  return 'reporte'
 }
 
 /** Exporta el reporte visible a Excel. Algunos usan una plantilla oficial (.xlsx). */
@@ -151,7 +179,7 @@ function exportExcel(): void {
   const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel' })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
-  link.download = `reporte_${filters.type}_${filters.from}_${filters.to}.xls`
+  link.download = exportFileName('xls')
   link.click()
   URL.revokeObjectURL(link.href)
 }
