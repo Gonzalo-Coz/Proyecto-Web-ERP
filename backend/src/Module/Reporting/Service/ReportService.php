@@ -370,7 +370,7 @@ final class ReportService
                                TRIM(CONCAT(m.model, ' ', COALESCE(m.version, ''), ' · ', u.color, ' · VIN ', u.vin)) AS descr,
                                'MOTOCICLETA' AS categoria, 1 AS stock,
                                COALESCE(u.purchase_price, 0) AS costo, u.price_currency AS moneda,
-                               ROUND(COALESCE(u.purchase_price, 0) * CASE WHEN u.price_currency = 'USD' THEN :rate ELSE 1 END, 2) AS valorizado,
+                               ROUND(COALESCE(u.purchase_price, 0) * CASE WHEN u.price_currency = 'USD' THEN CAST(:rate AS numeric) ELSE 1 END, 2) AS valorizado,
                                2 AS orden, m.model AS sub
                         FROM motorcycle_units u JOIN motorcycle_models m ON m.id = u.model_id
                         WHERE u.deleted_at IS NULL AND u.status NOT IN ('VENDIDA', 'BAJA')
